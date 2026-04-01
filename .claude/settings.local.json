@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(npm run:*)",
+      "Bash(grep -r '\"\"lucide-react\"\"' package.json)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

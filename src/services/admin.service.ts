@@ -1,0 +1,551 @@
+/**
+ * admin.service.ts
+ *
+ * All Supabase queries for the admin panel.
+ * Each function requires the caller to be authenticated with role='admin'.
+ * Supabase RLS enforces this server-side; the client is the admin's JWT.
+ *
+ * Never import this file in non-admin components.
+ */
+
+import { supabase } from './supabaseClient'
+import { ApiError } from './ApiError'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  totalCourses: number
+  publishedCourses: number
+  totalLessons: number
+  totalUsers: number
+  activeSubscriptions: number
+}
+
+export interface AdminCourse {
+  id: string
+  title: string
+  description: string
+  category: string
+  duration: string
+  isPublished: boolean
+  lessonCount: number
+  thumbnailUrl: string | null
+  createdAt: string
+}
+
+export interface CourseFormData {
+  title: string
+  description: string
+}
+
+export interface AdminLesson {
+  id: string
+  courseId: string
+  courseTitle: string
+  title: string
+  order: number
+  videoUrl: string | null
+  reviewerPdfUrl: string | null
+  createdAt: string
+}
+
+// ── Quiz types ────────────────────────────────────────────────────────────────
+
+export interface AdminQuizOption {
+  text: string
+  imageUrl: string | null
+}
+
+export interface AdminQuizQuestion {
+  id: string
+  quizId: string
+  questionText: string
+  questionImageUrl: string | null
+  options: AdminQuizOption[]
+  correctAnswer: number
+  order: number
+}
+
+export interface AdminQuiz {
+  id: string
+  lessonId: string
+  lessonTitle: string
+  courseTitle: string
+  questionCount: number
+  createdAt: string
+}
+
+export interface AdminQuizFull extends AdminQuiz {
+  questions: AdminQuizQuestion[]
+}
+
+export interface LessonFormData {
+  courseId: string
+  title: string
+  order: number
+}
+
+export interface CourseOption {
+  id: string
+  title: string
+}
+
+export interface AdminSubscription {
+  id: string
+  userId: string
+  userName: string | null
+  planId: string
+  isActive: boolean
+  startedAt: string
+  expiresAt: string | null
+  createdAt: string
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string | null
+  role: 'user' | 'admin'
+  isSubscribed: boolean
+  subscriptionExpiresAt: string | null
+  createdAt: string
+}
+
+// ── Raw DB shapes ─────────────────────────────────────────────────────────────
+
+interface CourseRow {
+  id: string
+  title: string
+  description: string
+  category: string
+  duration: string
+  is_published: boolean
+  thumbnail_url: string | null
+  created_at: string
+  lessons: { count: number }[]
+}
+
+// ── Raw quiz DB shapes ────────────────────────────────────────────────────────
+
+interface QuizRow {
+  id: string
+  lesson_id: string
+  created_at: string
+  lessons: { title: string; courses: { title: string } | null } | null
+  quiz_questions: { count: number }[]
+}
+
+interface QuizQuestionRow {
+  id: string
+  quiz_id: string
+  question_text: string
+  question_image_url: string | null
+  options: { text: string; image_url: string | null }[]
+  correct_answer: number
+  order: number
+}
+
+interface LessonRow {
+  id: string
+  course_id: string
+  title: string
+  order: number
+  video_url: string | null
+  reviewer_pdf_url: string | null
+  created_at: string
+  courses: { title: string } | null
+}
+
+interface UserListRow {
+  id: string
+  name: string
+  email: string | null
+  role: string
+  is_subscribed: boolean
+  subscription_expires_at: string | null
+  created_at: string
+}
+
+interface SubscriptionRow {
+  id: string
+  user_id: string
+  plan_id: string
+  is_active: boolean
+  started_at: string
+  expires_at: string | null
+  created_at: string
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+export async function getAdminStats(): Promise<AdminStats> {
+  const [coursesRes, lessonsRes, usersRes, subsRes] = await Promise.all([
+    supabase.from('courses').select('is_published', { count: 'exact', head: false }),
+    supabase.from('lessons').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true),
+  ])
+
+  if (coursesRes.error) throw new ApiError(500, 'ADMIN_STATS_FAILED', coursesRes.error.message)
+  if (lessonsRes.error) throw new ApiError(500, 'ADMIN_STATS_FAILED', lessonsRes.error.message)
+  if (usersRes.error)   throw new ApiError(500, 'ADMIN_STATS_FAILED', usersRes.error.message)
+  if (subsRes.error)    throw new ApiError(500, 'ADMIN_STATS_FAILED', subsRes.error.message)
+
+  const courses = coursesRes.data as { is_published: boolean }[]
+  return {
+    totalCourses:        courses.length,
+    publishedCourses:    courses.filter((c) => c.is_published).length,
+    totalLessons:        lessonsRes.count ?? 0,
+    totalUsers:          usersRes.count   ?? 0,
+    activeSubscriptions: subsRes.count    ?? 0,
+  }
+}
+
+// ── Courses ───────────────────────────────────────────────────────────────────
+
+export async function getAdminCourses(): Promise<AdminCourse[]> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id, title, description, category, duration, is_published, thumbnail_url, created_at, lessons:lessons(count)')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSES_FAILED', error.message)
+
+  return (data as unknown as CourseRow[]).map((row) => ({
+    id:           row.id,
+    title:        row.title,
+    description:  row.description ?? '',
+    category:     row.category,
+    duration:     row.duration,
+    isPublished:  row.is_published,
+    lessonCount:  row.lessons[0]?.count ?? 0,
+    thumbnailUrl: row.thumbnail_url,
+    createdAt:    row.created_at,
+  }))
+}
+
+export async function createCourse(data: CourseFormData): Promise<string> {
+  const { data: row, error } = await supabase
+    .from('courses')
+    .insert({
+      title:       data.title,
+      description: data.description,
+      category:    '',
+      duration:    '',
+      is_published: false,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSE_CREATE_FAILED', error.message)
+  return (row as { id: string }).id
+}
+
+export async function updateCourse(
+  courseId: string,
+  data: Partial<CourseFormData & { thumbnailUrl: string }>,
+): Promise<void> {
+  const update: Record<string, unknown> = {}
+  if (data.title       !== undefined) update.title        = data.title
+  if (data.description !== undefined) update.description  = data.description
+  if (data.thumbnailUrl !== undefined) update.thumbnail_url = data.thumbnailUrl
+
+  const { error } = await supabase
+    .from('courses')
+    .update(update)
+    .eq('id', courseId)
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSE_UPDATE_FAILED', error.message)
+}
+
+export async function setCoursePublished(courseId: string, isPublished: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('courses')
+    .update({ is_published: isPublished })
+    .eq('id', courseId)
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSE_UPDATE_FAILED', error.message)
+}
+
+export async function deleteCourse(courseId: string): Promise<void> {
+  const { error } = await supabase
+    .from('courses')
+    .delete()
+    .eq('id', courseId)
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSE_DELETE_FAILED', error.message)
+}
+
+// ── Lessons ───────────────────────────────────────────────────────────────────
+
+export async function getAdminLessons(): Promise<AdminLesson[]> {
+  const { data, error } = await supabase
+    .from('lessons')
+    .select('id, course_id, title, order, video_url, reviewer_pdf_url, created_at, courses(title)')
+    .order('course_id')
+    .order('order', { ascending: true })
+
+  if (error) throw new ApiError(500, 'ADMIN_LESSONS_FAILED', error.message)
+
+  return (data as unknown as LessonRow[]).map((row) => ({
+    id:             row.id,
+    courseId:       row.course_id,
+    courseTitle:    row.courses?.title ?? 'Unknown',
+    title:          row.title,
+    order:          row.order,
+    videoUrl:       row.video_url,
+    reviewerPdfUrl: row.reviewer_pdf_url,
+    createdAt:      row.created_at,
+  }))
+}
+
+export async function getCoursesForSelect(): Promise<CourseOption[]> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id, title')
+    .order('title')
+
+  if (error) throw new ApiError(500, 'ADMIN_COURSES_FAILED', error.message)
+  return data as CourseOption[]
+}
+
+export async function createAdminLesson(data: LessonFormData): Promise<string> {
+  const { data: row, error } = await supabase
+    .from('lessons')
+    .insert({
+      course_id:   data.courseId,
+      title:       data.title,
+      order:       data.order,
+      description: '',
+      duration:    '',
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_LESSON_CREATE_FAILED', error.message)
+  return (row as { id: string }).id
+}
+
+export async function updateAdminLesson(
+  lessonId: string,
+  data: Partial<LessonFormData & { videoUrl: string; reviewerPdfUrl: string }>,
+): Promise<void> {
+  const update: Record<string, unknown> = {}
+  if (data.courseId        !== undefined) update.course_id         = data.courseId
+  if (data.title           !== undefined) update.title             = data.title
+  if (data.order           !== undefined) update.order             = data.order
+  if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
+  if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl
+
+  const { error } = await supabase
+    .from('lessons')
+    .update(update)
+    .eq('id', lessonId)
+
+  if (error) throw new ApiError(500, 'ADMIN_LESSON_UPDATE_FAILED', error.message)
+}
+
+export async function deleteAdminLesson(lessonId: string): Promise<void> {
+  const { error } = await supabase
+    .from('lessons')
+    .delete()
+    .eq('id', lessonId)
+
+  if (error) throw new ApiError(500, 'ADMIN_LESSON_DELETE_FAILED', error.message)
+}
+
+// ── Quizzes ───────────────────────────────────────────────────────────────────
+
+export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('id, lesson_id, created_at, lessons(title, courses(title)), quiz_questions(count)')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_QUIZZES_FAILED', error.message)
+
+  return (data as unknown as QuizRow[]).map((row) => ({
+    id:            row.id,
+    lessonId:      row.lesson_id,
+    lessonTitle:   row.lessons?.title ?? 'Unknown lesson',
+    courseTitle:   row.lessons?.courses?.title ?? 'Unknown course',
+    questionCount: row.quiz_questions[0]?.count ?? 0,
+    createdAt:     row.created_at,
+  }))
+}
+
+export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | null> {
+  const [quizRes, questionsRes] = await Promise.all([
+    supabase
+      .from('quizzes')
+      .select('id, lesson_id, created_at, lessons(title, courses(title))')
+      .eq('id', quizId)
+      .single(),
+    supabase
+      .from('quiz_questions')
+      .select('id, quiz_id, question_text, question_image_url, options, correct_answer, order')
+      .eq('quiz_id', quizId)
+      .order('order', { ascending: true }),
+  ])
+
+  if (quizRes.error) throw new ApiError(500, 'ADMIN_QUIZ_FETCH_FAILED', quizRes.error.message)
+  if (questionsRes.error) throw new ApiError(500, 'ADMIN_QUIZ_FETCH_FAILED', questionsRes.error.message)
+  if (!quizRes.data) return null
+
+  const quiz = quizRes.data as unknown as QuizRow
+  const questions = (questionsRes.data as unknown as QuizQuestionRow[]).map((q) => ({
+    id:               q.id,
+    quizId:           q.quiz_id,
+    questionText:     q.question_text ?? '',
+    questionImageUrl: q.question_image_url,
+    options: (q.options ?? []).map((o) => ({ text: o.text ?? '', imageUrl: o.image_url })),
+    correctAnswer:    q.correct_answer,
+    order:            q.order,
+  }))
+
+  return {
+    id:            quiz.id,
+    lessonId:      quiz.lesson_id,
+    lessonTitle:   quiz.lessons?.title ?? 'Unknown lesson',
+    courseTitle:   quiz.lessons?.courses?.title ?? 'Unknown course',
+    questionCount: questions.length,
+    createdAt:     quiz.created_at,
+    questions,
+  }
+}
+
+export async function createAdminQuiz(lessonId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('quizzes')
+    .insert({ lesson_id: lessonId })
+    .select('id')
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_QUIZ_CREATE_FAILED', error.message)
+  return (data as { id: string }).id
+}
+
+export async function upsertQuizQuestion(params: {
+  id: string
+  quizId: string
+  questionText: string
+  questionImageUrl: string | null
+  options: AdminQuizOption[]
+  correctAnswer: number
+  order: number
+}): Promise<void> {
+  const { error } = await supabase
+    .from('quiz_questions')
+    .upsert({
+      id:                 params.id,
+      quiz_id:            params.quizId,
+      question_text:      params.questionText,
+      question_image_url: params.questionImageUrl,
+      options: params.options.map((o) => ({ text: o.text, image_url: o.imageUrl })),
+      correct_answer:     params.correctAnswer,
+      order:              params.order,
+    })
+
+  if (error) throw new ApiError(500, 'ADMIN_QUESTION_UPSERT_FAILED', error.message)
+}
+
+export async function deleteQuizQuestions(quizId: string): Promise<void> {
+  const { error } = await supabase
+    .from('quiz_questions')
+    .delete()
+    .eq('quiz_id', quizId)
+
+  if (error) throw new ApiError(500, 'ADMIN_QUESTION_DELETE_FAILED', error.message)
+}
+
+export async function deleteAdminQuiz(quizId: string): Promise<void> {
+  const { error } = await supabase
+    .from('quizzes')
+    .delete()
+    .eq('id', quizId)
+
+  if (error) throw new ApiError(500, 'ADMIN_QUIZ_DELETE_FAILED', error.message)
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+export async function getAdminUsers(): Promise<AdminUser[]> {
+  const { data, error } = await supabase
+    .from('admin_user_list')
+    .select('id, name, email, role, is_subscribed, subscription_expires_at, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_USERS_FAILED', error.message)
+
+  return (data as UserListRow[]).map((row) => ({
+    id:                    row.id,
+    name:                  row.name,
+    email:                 row.email ?? null,
+    role:                  row.role as 'user' | 'admin',
+    isSubscribed:          row.is_subscribed,
+    subscriptionExpiresAt: row.subscription_expires_at,
+    createdAt:             row.created_at,
+  }))
+}
+
+export async function setUserRole(userId: string, role: 'user' | 'admin'): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role })
+    .eq('id', userId)
+
+  if (error) throw new ApiError(500, 'ADMIN_USER_ROLE_FAILED', error.message)
+}
+
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+
+/**
+ * Fetches all subscriptions, merged with user names from the admin_user_list
+ * view. Two queries are needed because subscriptions.user_id references
+ * auth.users (not profiles), so a direct PostgREST join to profiles is unavailable.
+ *
+ * Required SQL (run once in Supabase dashboard):
+ *   CREATE POLICY "subscriptions: admin updates all"
+ *     ON public.subscriptions FOR UPDATE USING (public.is_admin());
+ */
+export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
+  const [subsRes, usersRes] = await Promise.all([
+    supabase
+      .from('subscriptions')
+      .select('id, user_id, plan_id, is_active, started_at, expires_at, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('admin_user_list')
+      .select('id, name'),
+  ])
+
+  if (subsRes.error)  throw new ApiError(500, 'ADMIN_SUBSCRIPTIONS_FAILED', subsRes.error.message)
+  if (usersRes.error) throw new ApiError(500, 'ADMIN_SUBSCRIPTIONS_FAILED', usersRes.error.message)
+
+  const nameMap = new Map(
+    (usersRes.data as { id: string; name: string }[]).map((u) => [u.id, u.name]),
+  )
+
+  return (subsRes.data as SubscriptionRow[]).map((row) => ({
+    id:        row.id,
+    userId:    row.user_id,
+    userName:  nameMap.get(row.user_id) ?? null,
+    planId:    row.plan_id,
+    isActive:  row.is_active,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+  }))
+}
+
+export async function setSubscriptionActive(id: string, isActive: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('subscriptions')
+    .update({ is_active: isActive })
+    .eq('id', id)
+
+  if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
+}

@@ -1,0 +1,23 @@
+/**
+ * Application route paths.
+ * Import from here instead of writing '/login', '/courses', etc. as strings.
+ * Changing a path only needs to happen in one place — here and in router.tsx.
+ */
+export const ROUTES = {
+  HOME:         '/',
+  LOGIN:        '/login',
+  REGISTER:     '/register',
+  DASHBOARD:    '/dashboard',
+  COURSES:      '/courses',
+  SUBSCRIPTION: '/subscription',
+  COURSE:  (id: string) => `/course/${id}`,
+  LESSON:  (id: string) => `/lesson/${id}`,
+
+  // Admin panel
+  ADMIN:               '/admin',
+  ADMIN_COURSES:       '/admin/courses',
+  ADMIN_LESSONS:       '/admin/lessons',
+  ADMIN_QUIZZES:       '/admin/quizzes',
+  ADMIN_USERS:         '/admin/users',
+  ADMIN_SUBSCRIPTIONS: '/admin/subscriptions',
+} as const

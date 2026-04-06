@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { Clock, BookOpen, Tag, ChevronLeft, Lock } from 'lucide-react'
+import { Clock, BookOpen, Tag, ChevronLeft, Play, Film, FileText, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { LessonList } from '@/features/lessons/components/LessonList'
+import { CourseThumbnail } from '@/components/CourseThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { getCourseById } from '@/features/courses/services/courseService'
 import { getLessonsByCourse } from '@/features/lessons/services/lessonService'
@@ -76,11 +77,18 @@ export function CourseDetailPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* ── Left ── */}
         <div className="space-y-7 min-w-0">
-          <div className={`rounded-2xl bg-linear-to-br ${course.thumbnail} h-56 sm:h-64 flex items-end p-6`}>
-            <Badge variant="secondary" className="bg-black/25 text-white border-0 backdrop-blur-sm">
-              {course.category}
-            </Badge>
-          </div>
+          <CourseThumbnail
+            src={course.thumbnailUrl}
+            alt={course.title}
+            gradient={course.thumbnail}
+            className="rounded-2xl h-56 sm:h-64"
+          >
+            <div className="absolute inset-0 flex items-end p-6">
+              <Badge variant="secondary" className="bg-black/25 text-white border-0 backdrop-blur-sm">
+                {course.category}
+              </Badge>
+            </div>
+          </CourseThumbnail>
 
           <div className="space-y-3">
             <h1 className="text-3xl font-bold tracking-tight leading-tight">{course.title}</h1>
@@ -127,7 +135,7 @@ export function CourseDetailPage() {
               </span>
             </h2>
             <div className="rounded-xl border overflow-hidden">
-              <LessonList lessons={lessons} isSubscribed={isSubscribed} />
+              <LessonList lessons={lessons} isSubscribed={isSubscribed} isGuest={!isAuthenticated} />
             </div>
           </div>
         </div>
@@ -135,31 +143,71 @@ export function CourseDetailPage() {
         {/* ── Right: sticky enroll card ── */}
         <div className="lg:sticky lg:top-24 h-fit space-y-4">
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <div className={`h-32 bg-linear-to-br ${course.thumbnail}`} />
+            <CourseThumbnail
+              src={course.thumbnailUrl}
+              alt={course.title}
+              gradient={course.thumbnail}
+              className="h-32"
+            />
             <div className="p-5 space-y-4">
+              {/* Tier badge */}
+              <div className="flex items-center justify-between">
+                <p className="font-semibold">{isSubscribed ? 'Ready to start?' : isAuthenticated ? 'Free access' : 'Get started'}</p>
+                {isAuthenticated && (
+                  <span className={
+                    isSubscribed
+                      ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
+                      : 'inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400'
+                  }>
+                    {isSubscribed ? 'Standard Plan' : 'Free Plan'}
+                  </span>
+                )}
+              </div>
+
+              {/* Free plan access summary */}
+              {isAuthenticated && !isSubscribed && (
+                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <Play className="size-3.5 text-amber-500 shrink-0" />
+                    30-second video preview per lesson
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <FileText className="size-3.5 text-amber-500 shrink-0" />
+                    First 5 pages of reviewer PDFs
+                  </li>
+                  <li className="flex items-center gap-2 line-through opacity-50">
+                    <HelpCircle className="size-3.5 shrink-0" />
+                    Quizzes locked
+                  </li>
+                </ul>
+              )}
+
               {isSubscribed ? (
+                <Button asChild className="w-full">
+                  <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>Start First Lesson</Link>
+                </Button>
+              ) : isAuthenticated ? (
                 <>
-                  <p className="font-semibold">Ready to start?</p>
                   <Button asChild className="w-full">
-                    <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>Start First Lesson</Link>
+                    <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>
+                      <Play className="size-4 mr-1.5" />
+                      Start Free Preview
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to={ROUTES.SUBSCRIPTION}>
+                      Upgrade to Standard — {config.subscription.standardPricePerMonth}/mo
+                    </Link>
                   </Button>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Lock className="size-4" />
-                    <span>Lessons require a Pro subscription</span>
-                  </div>
                   <Button asChild className="w-full">
-                    <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
-                      {isAuthenticated ? 'Upgrade to Pro' : 'Sign up Free'}
-                    </Link>
+                    <Link to={ROUTES.REGISTER}>Sign up Free</Link>
                   </Button>
-                  {isAuthenticated && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      Starting at {config.subscription.proPricePerMonth}/month. Cancel anytime.
-                    </p>
-                  )}
+                  <p className="text-xs text-center text-muted-foreground">
+                    Free access with preview. Upgrade to unlock everything.
+                  </p>
                 </>
               )}
             </div>
@@ -170,8 +218,9 @@ export function CourseDetailPage() {
             <ul className="space-y-2 text-muted-foreground">
               <li className="flex items-center gap-2"><BookOpen className="size-4" /> {lessons.length} on-demand lessons</li>
               <li className="flex items-center gap-2"><Clock className="size-4" /> {course.duration} total length</li>
-              <li className="flex items-center gap-2"><span className="size-4 text-center text-xs">✓</span> Quiz after every lesson</li>
-              <li className="flex items-center gap-2"><span className="size-4 text-center text-xs">✓</span> Reviewer notes included</li>
+              <li className="flex items-center gap-2"><Film className="size-4" /> Video lessons {isSubscribed ? '(full access)' : '(30s free preview)'}</li>
+              <li className="flex items-center gap-2"><FileText className="size-4" /> Reviewer PDFs {isSubscribed ? '(full access)' : '(5 pages free)'}</li>
+              <li className="flex items-center gap-2"><HelpCircle className="size-4" /> Quizzes {isSubscribed ? '(with scores & answers)' : '(Standard plan only)'}</li>
             </ul>
           </div>
         </div>

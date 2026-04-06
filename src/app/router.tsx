@@ -39,21 +39,14 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Authenticated — any logged-in user
+      // Authenticated — any logged-in user (free tier with restrictions, standard with full access)
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'dashboard',    element: <DashboardPage />    },
-          { path: 'subscription', element: <SubscriptionPage /> },
-          { path: 'courses',      element: <CoursesPage />      },
-        ],
-      },
-
-      // Subscribed — must be logged in AND subscribed
-      {
-        element: <SubscribedRoute />,
-        children: [
-          { path: 'lesson/:lessonId', element: <LessonPage /> },
+          { path: 'dashboard',        element: <DashboardPage />    },
+          { path: 'subscription',     element: <SubscriptionPage /> },
+          { path: 'courses',          element: <CoursesPage />      },
+          { path: 'lesson/:lessonId', element: <LessonPage />       },
         ],
       },
 

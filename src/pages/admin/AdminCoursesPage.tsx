@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen, Eye, EyeOff, Loader2, ExternalLink,
-  Pencil, Trash2, Plus, ImageIcon, AlertTriangle,
+  Pencil, Trash2, Plus, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CourseModal } from '@/features/admin/components/CourseModal'
+import { CourseThumbnail } from '@/components/CourseThumbnail'
 import {
   getAdminCourses,
   setCoursePublished,
@@ -213,17 +214,11 @@ function CourseRow({
 
         {/* Thumbnail */}
         <div className="hidden sm:block w-12 shrink-0">
-          {course.thumbnailUrl ? (
-            <img
-              src={course.thumbnailUrl}
-              alt={course.title}
-              className="size-10 rounded-md object-cover border"
-            />
-          ) : (
-            <div className="flex size-10 items-center justify-center rounded-md border bg-muted">
-              <ImageIcon className="size-4 text-muted-foreground/50" />
-            </div>
-          )}
+          <CourseThumbnail
+            src={course.thumbnailUrl}
+            alt={course.title}
+            className="size-10 rounded-md border"
+          />
         </div>
 
         {/* Title + description */}

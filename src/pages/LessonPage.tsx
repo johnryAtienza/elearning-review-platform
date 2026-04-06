@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, List, Lock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
@@ -15,37 +15,48 @@ import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
+import { getPermissions, tierFromSubscribed, isUnlimited } from '@/features/subscription/services/accessControl'
 import type { ReviewerContent } from '@/features/lessons/types'
 import type { Quiz } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
 
 export function LessonPage() {
   const { lessonId } = useParams<{ lessonId: string }>()
-  const [videoEnded, setVideoEnded] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Per-lesson UI state
+  const [videoEnded,   setVideoEnded]   = useState(false)
+  const [previewEnded, setPreviewEnded] = useState(false)
+  const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [reviewerContent, setReviewerContent] = useState<ReviewerContent | undefined>()
   const [quiz, setQuiz] = useState<Quiz | undefined>()
 
   const setLessonId = useQuizStore((s) => s.setLessonId)
   const submitted   = useQuizStore((s) => s.submitted)
 
-  const isSubscribed = useAuthStore((s) => s.isSubscribed)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isSubscribed    = useAuthStore((s) => s.isSubscribed)
+
+  // Derive tier + permissions from subscription status
+  const tier        = tierFromSubscribed(isSubscribed)
+  const permissions = getPermissions(tier)
 
   const { data, loading, notFound, error } = useLesson(lessonId ?? '')
 
-  // Fetch presigned R2 URLs — only fires when isSubscribed=true
+  // Fetch presigned R2 URLs for all authenticated users
+  // Edge function returns tier-appropriate content (free: PDF only; standard: video + PDF)
   const {
-    videoUrl: signedVideoUrl,
-    pdfUrl:   signedPdfUrl,
-    loading:  contentLoading,
-    error:    contentError,
-  } = useSecureContent(lessonId ?? '', isSubscribed)
+    videoUrl:      signedVideoUrl,
+    pdfUrl:        signedPdfUrl,
+    loading:       contentLoading,
+    error:         contentError,
+  } = useSecureContent(lessonId ?? '', isAuthenticated)
 
   // Reset per-lesson state when the lesson changes
   useEffect(() => {
     if (!data?.lesson) return
     setLessonId(data.lesson.id)
     setVideoEnded(false)
+    setPreviewEnded(false)
     setReviewerContent(undefined)
     setQuiz(undefined)
 
@@ -75,12 +86,27 @@ export function LessonPage() {
   }
 
   const { lesson, course, siblings, prev, next, progress } = data
-  const navReady = videoEnded && (quiz ? submitted : true)
+
+  // Content becomes available once video is done (standard) or preview ends (free)
+  const contentUnlocked = isSubscribed ? videoEnded : previewEnded
+
+  // Navigation requires: content unlocked + quiz submitted (standard only, quiz locked on free)
+  const navReady = contentUnlocked && (
+    isSubscribed
+      ? (quiz ? submitted : true)   // standard: must complete quiz
+      : true                         // free: nav unlocked after preview
+  )
+
+  // Video preview seconds — undefined when unlimited (standard tier)
+  const videoPreviewSec = isUnlimited(permissions.videoPreviewSeconds)
+    ? undefined
+    : permissions.videoPreviewSeconds
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
       {/* ── Main content ── */}
       <div className="flex-1 min-w-0">
+
         {/* Top bar */}
         <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
           <Link
@@ -101,9 +127,21 @@ export function LessonPage() {
             </div>
           </div>
 
-          <span className="text-xs text-muted-foreground shrink-0">
-            {data.currentIdx + 1} / {siblings.length}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Tier badge */}
+            <span className={cn(
+              'hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
+              isSubscribed
+                ? 'bg-primary/10 text-primary'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+            )}>
+              {isSubscribed ? 'Standard' : 'Free'}
+            </span>
+
+            <span className="text-xs text-muted-foreground">
+              {data.currentIdx + 1} / {siblings.length}
+            </span>
+          </div>
 
           <button
             className="lg:hidden rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -134,81 +172,94 @@ export function LessonPage() {
             <p className="text-muted-foreground text-sm leading-relaxed">{lesson.description}</p>
           </div>
 
-          {/* ── Subscription gate ── */}
-          {!isSubscribed ? (
-            <SubscriptionGate courseId={lesson.courseId} />
-          ) : (
-            <>
-              {/* Signed-URL fetch error (non-blocking) */}
-              {contentError && !contentError.isSubscriptionRequired && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  Could not load secure content: {contentError.message}
-                </div>
-              )}
-
-              {/* Video */}
-              {contentLoading ? (
-                <Skeleton className="aspect-video w-full rounded-xl" />
-              ) : (
-                <VideoPlayer
-                  key={lesson.id}
-                  title={lesson.title}
-                  thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
-                  src={signedVideoUrl ?? undefined}
-                  durationSeconds={30}
-                  onEnded={() => setVideoEnded(true)}
-                />
-              )}
-
-              {/* Reviewer — show PDF viewer when available, structured text otherwise */}
-              {(reviewerContent || signedPdfUrl) && (
-                <ReviewerSection
-                  content={reviewerContent}
-                  pdfUrl={signedPdfUrl ?? undefined}
-                  visible={videoEnded}
-                />
-              )}
-
-              {quiz && (
-                <QuizComponent questions={quiz.questions} visible={videoEnded} />
-              )}
-
-              {!navReady && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {!videoEnded
-                    ? 'Complete the video to unlock the reviewer and quiz.'
-                    : 'Submit the quiz to unlock navigation.'}
-                </p>
-              )}
-
-              <div className={cn(
-                'flex items-center justify-between gap-4 pt-4 border-t transition-all duration-500',
-                navReady ? 'opacity-100' : 'opacity-40 pointer-events-none',
-              )}>
-                {prev ? (
-                  <Button asChild variant="outline" size="sm" className="max-w-[45%]">
-                    <Link to={ROUTES.LESSON(prev.id)} className="flex items-center gap-1.5">
-                      <ChevronLeft className="size-4 shrink-0" />
-                      <span className="truncate">{prev.title}</span>
-                    </Link>
-                  </Button>
-                ) : <div />}
-
-                {next ? (
-                  <Button asChild size="sm" className="max-w-[45%] ml-auto">
-                    <Link to={ROUTES.LESSON(next.id)} className="flex items-center gap-1.5">
-                      <span className="truncate">{next.title}</span>
-                      <ChevronRight className="size-4 shrink-0" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Course</Link>
-                  </Button>
-                )}
-              </div>
-            </>
+          {/* Content error (non-blocking) */}
+          {contentError && !contentError.isSubscriptionRequired && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              Could not load secure content: {contentError.message}
+            </div>
           )}
+
+          {/* ── Video ── */}
+          {contentLoading ? (
+            <Skeleton className="aspect-video w-full rounded-xl" />
+          ) : (
+            <VideoPlayer
+              key={lesson.id}
+              title={lesson.title}
+              thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
+              src={signedVideoUrl ?? undefined}
+              durationSeconds={30}
+              onEnded={() => setVideoEnded(true)}
+              previewDuration={videoPreviewSec}
+              onPreviewEnded={() => setPreviewEnded(true)}
+            />
+          )}
+
+          {/* ── Free tier banner ── */}
+          {!isSubscribed && (
+            <FreeTierBanner previewEnded={previewEnded} previewSeconds={permissions.videoPreviewSeconds} />
+          )}
+
+          {/* ── Reviewer ── */}
+          {(reviewerContent || signedPdfUrl) && (
+            <ReviewerSection
+              content={reviewerContent}
+              pdfUrl={signedPdfUrl ?? undefined}
+              visible={contentUnlocked}
+              tier={tier}
+            />
+          )}
+
+          {/* ── Quiz ── */}
+          {quiz && (
+            <QuizComponent
+              questions={quiz.questions}
+              visible={contentUnlocked}
+              locked={!permissions.quizEnabled}
+            />
+          )}
+
+          {/* Completion hint */}
+          {!navReady && !contentUnlocked && (
+            <p className="text-center text-xs text-muted-foreground">
+              {isSubscribed
+                ? 'Complete the video to unlock the reviewer and quiz.'
+                : `Watch the ${permissions.videoPreviewSeconds}s preview to continue.`}
+            </p>
+          )}
+          {!navReady && contentUnlocked && isSubscribed && quiz && !submitted && (
+            <p className="text-center text-xs text-muted-foreground">
+              Submit the quiz to unlock navigation.
+            </p>
+          )}
+
+          {/* ── Navigation ── */}
+          <div className={cn(
+            'flex items-center justify-between gap-4 pt-4 border-t transition-all duration-500',
+            navReady ? 'opacity-100' : 'opacity-40 pointer-events-none',
+          )}>
+            {prev ? (
+              <Button asChild variant="outline" size="sm" className="max-w-[45%]">
+                <Link to={ROUTES.LESSON(prev.id)} className="flex items-center gap-1.5">
+                  <ChevronLeft className="size-4 shrink-0" />
+                  <span className="truncate">{prev.title}</span>
+                </Link>
+              </Button>
+            ) : <div />}
+
+            {next ? (
+              <Button asChild size="sm" className="max-w-[45%] ml-auto">
+                <Link to={ROUTES.LESSON(next.id)} className="flex items-center gap-1.5">
+                  <span className="truncate">{next.title}</span>
+                  <ChevronRight className="size-4 shrink-0" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline" size="sm" className="ml-auto">
+                <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Course</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -236,28 +287,34 @@ export function LessonPage() {
   )
 }
 
-// ── Subscription gate ─────────────────────────────────────────────────────────
+// ── Free tier informational banner ────────────────────────────────────────────
 
-function SubscriptionGate({ courseId }: { courseId: string }) {
+interface FreeTierBannerProps {
+  previewEnded: boolean
+  previewSeconds: number
+}
+
+function FreeTierBanner({ previewEnded, previewSeconds }: FreeTierBannerProps) {
   return (
-    <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 px-6 py-12 text-center space-y-4">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
-        <Lock className="size-7 text-primary" />
-      </div>
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Subscription Required</h2>
-        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-          Subscribe to unlock the video, reviewer PDF, and quizzes for all lessons.
+    <div className={cn(
+      'rounded-xl border px-5 py-4 flex items-start gap-4 transition-colors',
+      previewEnded
+        ? 'border-amber-500/30 bg-amber-500/5'
+        : 'border-border bg-muted/30',
+    )}>
+      <div className="flex-1 space-y-1 min-w-0">
+        <p className="text-sm font-semibold">
+          {previewEnded ? 'You\'re on the Free plan' : `Free plan · ${previewSeconds}s preview`}
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          {previewEnded
+            ? 'Preview complete. Upgrade to Standard for the full video, complete PDF access, and quizzes.'
+            : `Videos preview for ${previewSeconds} seconds. PDFs are limited to the first ${5} pages. Quizzes are locked.`}
         </p>
       </div>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-        <Button asChild>
-          <Link to={ROUTES.SUBSCRIPTION}>Get full access</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to={ROUTES.COURSE(courseId)}>Back to course</Link>
-        </Button>
-      </div>
+      <Button asChild size="sm" variant={previewEnded ? 'default' : 'outline'} className="shrink-0">
+        <Link to={ROUTES.SUBSCRIPTION}>Upgrade</Link>
+      </Button>
     </div>
   )
 }

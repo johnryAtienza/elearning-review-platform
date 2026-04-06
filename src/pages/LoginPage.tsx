@@ -13,17 +13,28 @@ export function LoginPage() {
   const location = useLocation()
   const from = (location.state as { from?: Location })?.from?.pathname ?? ROUTES.HOME
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [error,     setError]     = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const fieldErrors = submitted
+    ? { email: !email.trim(), password: !password }
+    : { email: false, password: false }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    setSubmitted(true)
 
     if (!email || !password) {
       setError('Please fill in all fields.')
+      if (!email.trim()) {
+        document.getElementById('email')?.focus()
+      } else {
+        document.getElementById('password')?.focus()
+      }
       return
     }
 
@@ -62,7 +73,7 @@ export function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-sm font-medium">
                 Email address
@@ -74,6 +85,7 @@ export function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={fieldErrors.email || undefined}
               />
             </div>
 
@@ -90,6 +102,7 @@ export function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={fieldErrors.password || undefined}
               />
             </div>
 

@@ -117,3 +117,11 @@ body {
   color: var(--foreground);
   font-feature-settings: "rlig" 1, "calt" 1;
 }
+
+button:not(:disabled),
+a,
+[role="button"],
+label[for],
+select:not(:disabled) {
+  cursor: pointer;
+}

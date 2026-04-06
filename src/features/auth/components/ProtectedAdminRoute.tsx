@@ -13,7 +13,10 @@ import { ROUTES } from '@/constants/routes'
 export function ProtectedAdminRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isAdmin         = useAuthStore((s) => s.isAdmin)
+  const isInitializing  = useAuthStore((s) => s.isInitializing)
   const location        = useLocation()
+
+  if (isInitializing) return null
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />

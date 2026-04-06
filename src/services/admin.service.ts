@@ -104,7 +104,10 @@ export interface AdminSubscription {
 export interface AdminUser {
   id: string
   name: string
+  firstName: string
+  lastName: string
   email: string | null
+  mobileNumber: string
   role: 'user' | 'admin'
   isSubscribed: boolean
   subscriptionExpiresAt: string | null
@@ -160,6 +163,9 @@ interface UserListRow {
   id: string
   name: string
   email: string | null
+  first_name: string | null
+  last_name: string | null
+  mobile_number: string | null
   role: string
   is_subscribed: boolean
   subscription_expires_at: string | null
@@ -475,7 +481,7 @@ export async function deleteAdminQuiz(quizId: string): Promise<void> {
 export async function getAdminUsers(): Promise<AdminUser[]> {
   const { data, error } = await supabase
     .from('admin_user_list')
-    .select('id, name, email, role, is_subscribed, subscription_expires_at, created_at')
+    .select('id, name, email, first_name, last_name, mobile_number, role, is_subscribed, subscription_expires_at, created_at')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_USERS_FAILED', error.message)
@@ -483,7 +489,10 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
   return (data as UserListRow[]).map((row) => ({
     id:                    row.id,
     name:                  row.name,
+    firstName:             row.first_name ?? '',
+    lastName:              row.last_name ?? '',
     email:                 row.email ?? null,
+    mobileNumber:          row.mobile_number ?? '',
     role:                  row.role as 'user' | 'admin',
     isSubscribed:          row.is_subscribed,
     subscriptionExpiresAt: row.subscription_expires_at,
@@ -498,6 +507,25 @@ export async function setUserRole(userId: string, role: 'user' | 'admin'): Promi
     .eq('id', userId)
 
   if (error) throw new ApiError(500, 'ADMIN_USER_ROLE_FAILED', error.message)
+}
+
+export async function updateAdminUser(userId: string, data: { name?: string; firstName?: string; lastName?: string; mobileNumber?: string }): Promise<void> {
+  const update: Record<string, unknown> = {}
+  if (data.firstName    !== undefined) update.first_name    = data.firstName
+  if (data.lastName     !== undefined) update.last_name     = data.lastName
+  if (data.mobileNumber !== undefined) update.mobile_number = data.mobileNumber
+  if (data.name         !== undefined) update.name          = data.name
+  // Derive name from first+last if both provided
+  if (data.firstName !== undefined && data.lastName !== undefined) {
+    update.name = `${data.firstName} ${data.lastName}`.trim()
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(update)
+    .eq('id', userId)
+
+  if (error) throw new ApiError(500, 'ADMIN_USER_UPDATE_FAILED', error.message)
 }
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────

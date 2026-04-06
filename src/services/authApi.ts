@@ -11,9 +11,11 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   password: string
+  mobileNumber: string
 }
 
 export interface AuthResponse {
@@ -58,9 +60,10 @@ const mockProvider: IAuthProvider = {
     }
   },
 
-  async register({ name, email }: RegisterData): Promise<AuthResponse> {
+  async register({ firstName, lastName, email }: RegisterData): Promise<AuthResponse> {
+    const name = `${firstName} ${lastName}`.trim() || email.split('@')[0]
     return {
-      user: { id: crypto.randomUUID(), name, email, role: 'user' },
+      user: { id: crypto.randomUUID(), name, firstName, lastName, email, mobileNumber: '', role: 'user' },
       token: 'mock-token',
     }
   },
@@ -141,18 +144,23 @@ import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
 
 function toUser(sbUser: SupabaseUser): User {
-  // role lives in app_metadata — it can only be written server-side
-  // (SQL / admin API), so it is safe to trust from the JWT.
   const role = (sbUser.app_metadata?.role as string | undefined) === 'admin'
     ? 'admin' as const
     : 'user' as const
 
+  const firstName = (sbUser.user_metadata?.first_name as string | undefined) ?? ''
+  const lastName  = (sbUser.user_metadata?.last_name  as string | undefined) ?? ''
+  const name = (firstName || lastName)
+    ? `${firstName} ${lastName}`.trim()
+    : ((sbUser.user_metadata?.name as string | undefined) ?? sbUser.email?.split('@')[0] ?? 'User')
+
   return {
-    id:    sbUser.id,
-    email: sbUser.email ?? '',
-    name:  (sbUser.user_metadata?.name as string | undefined)
-             ?? sbUser.email?.split('@')[0]
-             ?? 'User',
+    id:           sbUser.id,
+    email:        sbUser.email ?? '',
+    name,
+    firstName,
+    lastName,
+    mobileNumber: (sbUser.user_metadata?.mobile_number as string | undefined) ?? '',
     role,
   }
 }
@@ -168,23 +176,20 @@ const supabaseProvider: IAuthProvider = {
     }
   },
 
-  async register({ name, email, password }: RegisterData): Promise<AuthResponse> {
+  async register({ firstName, lastName, email, password, mobileNumber }: RegisterData): Promise<AuthResponse> {
+    const name = `${firstName} ${lastName}`.trim()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name, first_name: firstName, last_name: lastName, mobile_number: mobileNumber },
+      },
     })
     if (error) throw new ApiError(400, 'REGISTER_FAILED', error.message)
     if (!data.user) throw new ApiError(400, 'REGISTER_FAILED', 'Registration failed.')
 
-    // When Supabase email confirmation is enabled, signUp succeeds but session
-    // is null — the user must confirm their email before they can sign in.
     if (!data.session) {
-      return {
-        user: toUser(data.user),
-        token: '',
-        awaitingConfirmation: true,
-      }
+      return { user: toUser(data.user), token: '', awaitingConfirmation: true }
     }
 
     return {

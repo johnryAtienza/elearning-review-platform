@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { UpgradeOverlay } from './UpgradeOverlay'
 
 interface VideoPlayerProps {
   title: string
@@ -7,6 +8,14 @@ interface VideoPlayerProps {
   /** Presigned R2 URL. When present, renders a real <video> element. */
   src?: string
   onEnded: () => void
+  /**
+   * Free-tier preview limit in seconds.
+   * When set, the video stops at this time and shows an upgrade prompt.
+   * `onEnded` is NOT called — use `onPreviewEnded` instead.
+   */
+  previewDuration?: number
+  /** Called when the preview limit is reached (free tier). */
+  onPreviewEnded?: () => void
 }
 
 function formatTime(seconds: number): string {
@@ -15,19 +24,32 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function VideoPlayer({ title, thumbnail, durationSeconds = 30, src, onEnded }: VideoPlayerProps) {
-  // ── Real video mode ──────────────────────────────────────────────────────────
+export function VideoPlayer({
+  title, thumbnail, durationSeconds = 30, src, onEnded,
+  previewDuration, onPreviewEnded,
+}: VideoPlayerProps) {
+  const isPreviewMode = typeof previewDuration === 'number'
+
   if (src) {
-    return <RealVideoPlayer title={title} src={src} onEnded={onEnded} />
+    return (
+      <RealVideoPlayer
+        title={title}
+        src={src}
+        onEnded={onEnded}
+        previewDuration={isPreviewMode ? previewDuration : undefined}
+        onPreviewEnded={onPreviewEnded}
+      />
+    )
   }
 
-  // ── Mock / demo mode ─────────────────────────────────────────────────────────
   return (
     <MockVideoPlayer
       title={title}
       thumbnail={thumbnail}
       durationSeconds={durationSeconds}
       onEnded={onEnded}
+      previewDuration={isPreviewMode ? previewDuration : undefined}
+      onPreviewEnded={onPreviewEnded}
     />
   )
 }
@@ -38,14 +60,33 @@ interface RealVideoPlayerProps {
   title: string
   src: string
   onEnded: () => void
+  previewDuration?: number
+  onPreviewEnded?: () => void
 }
 
-function RealVideoPlayer({ title, src, onEnded }: RealVideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [error, setError] = useState(false)
+function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded }: RealVideoPlayerProps) {
+  const videoRef       = useRef<HTMLVideoElement>(null)
+  const [error, setError]             = useState(false)
+  const [previewEnded, setPreviewEnded] = useState(false)
+  const previewFiredRef = useRef(false)
 
-  // Reset error state if the src changes (e.g. refreshed signed URL)
-  useEffect(() => { setError(false) }, [src])
+  useEffect(() => {
+    setError(false)
+    setPreviewEnded(false)
+    previewFiredRef.current = false
+  }, [src])
+
+  function handleTimeUpdate() {
+    if (!previewDuration || previewFiredRef.current) return
+    const video = videoRef.current
+    if (!video) return
+    if (video.currentTime >= previewDuration) {
+      previewFiredRef.current = true
+      video.pause()
+      setPreviewEnded(true)
+      onPreviewEnded?.()
+    }
+  }
 
   if (error) {
     return (
@@ -60,22 +101,37 @@ function RealVideoPlayer({ title, src, onEnded }: RealVideoPlayerProps) {
 
   return (
     <div className="rounded-xl overflow-hidden border shadow-sm">
-      {/* Title bar */}
-      <div className="bg-black/80 px-4 py-2">
+      <div className="bg-black/80 px-4 py-2 flex items-center justify-between">
         <p className="text-white text-sm font-medium truncate">{title}</p>
+        {previewDuration && (
+          <span className="text-xs text-amber-400 font-medium shrink-0 ml-3">
+            {previewEnded ? 'Preview ended' : `${formatTime(previewDuration)} preview`}
+          </span>
+        )}
       </div>
-      {/* Native video — browser controls handle play/pause/seek/fullscreen */}
-      <video
-        ref={videoRef}
-        src={src}
-        controls
-        controlsList="nodownload"
-        className="w-full aspect-video bg-black"
-        onEnded={onEnded}
-        onError={() => setError(true)}
-        // Prevent right-click context menu to discourage direct URL extraction
-        onContextMenu={(e) => e.preventDefault()}
-      />
+
+      <div className="relative">
+        <video
+          ref={videoRef}
+          src={src}
+          controls={!previewEnded}
+          controlsList="nodownload"
+          className="w-full aspect-video bg-black"
+          onEnded={onEnded}
+          onError={() => setError(true)}
+          onTimeUpdate={handleTimeUpdate}
+          onContextMenu={(e) => e.preventDefault()}
+        />
+
+        {previewEnded && (
+          <div className="relative aspect-video bg-black">
+            <UpgradeOverlay
+              title="Preview ended"
+              description={`Free plan includes the first ${formatTime(previewDuration!)} of each video. Upgrade to Standard for full access.`}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -87,14 +143,22 @@ interface MockVideoPlayerProps {
   thumbnail: string
   durationSeconds: number
   onEnded: () => void
+  previewDuration?: number
+  onPreviewEnded?: () => void
 }
 
-function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVideoPlayerProps) {
-  const [status, setStatus] = useState<'idle' | 'playing' | 'paused' | 'ended'>('idle')
+function MockVideoPlayer({
+  title, thumbnail, durationSeconds, onEnded,
+  previewDuration, onPreviewEnded,
+}: MockVideoPlayerProps) {
+  const [status, setStatus] = useState<'idle' | 'playing' | 'paused' | 'ended' | 'preview_ended'>('idle')
   const [currentTime, setCurrentTime] = useState(0)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const hasEndedRef = useRef(false)
+  const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hasEndedRef     = useRef(false)
+  const hasPreviewedRef = useRef(false)
 
+  // Effective stop time: preview limit takes priority over full duration
+  const stopAt   = previewDuration ?? durationSeconds
   const progress = Math.min((currentTime / durationSeconds) * 100, 100)
 
   function clearTick() {
@@ -105,20 +169,20 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
   }
 
   function play() {
-    if (status === 'ended') return
+    if (status === 'ended' || status === 'preview_ended') return
     setStatus('playing')
   }
 
-  function pause() {
-    setStatus('paused')
-  }
+  function pause() { setStatus('paused') }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect()
+    // Free-tier: prevent seeking past the preview boundary
+    const rect  = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientX - rect.left) / rect.width
-    const time = Math.max(0, Math.min(ratio * durationSeconds, durationSeconds))
-    setCurrentTime(time)
-    if (time >= durationSeconds) handleEnd()
+    const time  = Math.max(0, Math.min(ratio * durationSeconds, durationSeconds))
+    const capped = previewDuration ? Math.min(time, previewDuration) : time
+    setCurrentTime(capped)
+    if (capped >= durationSeconds) handleEnd()
   }
 
   function handleEnd() {
@@ -130,36 +194,63 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
     onEnded()
   }
 
+  function handlePreviewEnd() {
+    if (hasPreviewedRef.current) return
+    hasPreviewedRef.current = true
+    clearTick()
+    setStatus('preview_ended')
+    setCurrentTime(previewDuration!)
+    onPreviewEnded?.()
+  }
+
   useEffect(() => {
-    if (status !== 'playing') {
-      clearTick()
-      return
-    }
+    if (status !== 'playing') { clearTick(); return }
+
     intervalRef.current = setInterval(() => {
       setCurrentTime((t) => {
         const next = t + 0.25
+
+        // Preview boundary
+        if (previewDuration && next >= previewDuration) {
+          handlePreviewEnd()
+          return previewDuration
+        }
+
+        // Full end
         if (next >= durationSeconds) {
           handleEnd()
           return durationSeconds
         }
+
         return next
       })
     }, 250)
+
     return clearTick
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, durationSeconds])
+  }, [status, durationSeconds, previewDuration])
 
-  const isPlaying = status === 'playing'
-  const isEnded = status === 'ended'
+  const isPlaying      = status === 'playing'
+  const isEnded        = status === 'ended'
+  const isPreviewEnded = status === 'preview_ended'
 
   return (
     <div className="rounded-xl overflow-hidden border shadow-sm select-none">
+
+      {/* Thumbnail / preview area */}
       <div className={`relative bg-linear-to-br ${thumbnail} aspect-video flex flex-col items-center justify-center`}>
-        <div className="absolute inset-x-0 top-0 bg-linear-to-b from-black/50 to-transparent p-4">
+        {/* Title bar */}
+        <div className="absolute inset-x-0 top-0 bg-linear-to-b from-black/50 to-transparent p-4 flex items-center justify-between">
           <p className="text-white text-sm font-medium truncate">{title}</p>
+          {previewDuration && !isPreviewEnded && (
+            <span className="text-xs text-amber-400 font-medium shrink-0 ml-3 bg-black/40 rounded px-1.5 py-0.5">
+              {formatTime(previewDuration)} preview
+            </span>
+          )}
         </div>
 
-        {!isPlaying && !isEnded && (
+        {/* Idle / paused */}
+        {!isPlaying && !isEnded && !isPreviewEnded && (
           <button
             onClick={play}
             aria-label="Play"
@@ -169,6 +260,7 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
           </button>
         )}
 
+        {/* Playing */}
         {isPlaying && (
           <button
             onClick={pause}
@@ -179,6 +271,7 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
           </button>
         )}
 
+        {/* Fully completed */}
         {isEnded && (
           <div className="flex flex-col items-center gap-3">
             <div className="rounded-full bg-white/20 p-4 backdrop-blur-sm">
@@ -187,22 +280,45 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
             <p className="text-white text-sm font-medium">Video complete</p>
           </div>
         )}
+
+        {/* Preview ended — upgrade overlay */}
+        {isPreviewEnded && (
+          <UpgradeOverlay
+            title="Preview ended"
+            description={`Free plan includes the first ${formatTime(previewDuration!)} of each video. Upgrade to Standard for full access.`}
+          />
+        )}
       </div>
 
+      {/* Controls bar */}
       <div className="bg-card px-4 pt-3 pb-4 space-y-2">
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(progress)}
-          onClick={seek}
-          className="h-1.5 bg-muted rounded-full cursor-pointer group relative"
-        >
+        {/* Progress bar */}
+        <div className="relative">
+          {/* Preview limit marker */}
+          {previewDuration && previewDuration < durationSeconds && (
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 rounded-full"
+              style={{ left: `${(previewDuration / durationSeconds) * 100}%` }}
+              title={`Free preview limit: ${formatTime(previewDuration)}`}
+            />
+          )}
           <div
-            className="h-full bg-primary rounded-full transition-all relative"
-            style={{ width: `${progress}%` }}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            onClick={seek}
+            className="h-1.5 bg-muted rounded-full cursor-pointer group relative"
           >
-            <span className="absolute -right-1.5 -top-1 size-3.5 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div
+              className={[
+                'h-full rounded-full transition-all relative',
+                isPreviewEnded ? 'bg-amber-400' : 'bg-primary',
+              ].join(' ')}
+              style={{ width: `${progress}%` }}
+            >
+              <span className="absolute -right-1.5 -top-1 size-3.5 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
           </div>
         </div>
 
@@ -210,8 +326,8 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
           <div className="flex items-center gap-2">
             {!isPlaying ? (
               <button
-                onClick={isEnded ? undefined : play}
-                disabled={isEnded}
+                onClick={isEnded || isPreviewEnded ? undefined : play}
+                disabled={isEnded || isPreviewEnded}
                 aria-label="Play"
                 className="rounded p-1 hover:bg-muted transition-colors disabled:opacity-40"
               >
@@ -227,7 +343,7 @@ function MockVideoPlayer({ title, thumbnail, durationSeconds, onEnded }: MockVid
             </span>
           </div>
 
-          {!isEnded && (
+          {!isEnded && !isPreviewEnded && (
             <button
               onClick={handleEnd}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"

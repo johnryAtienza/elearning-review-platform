@@ -2,7 +2,8 @@
  * useSecureContent
  *
  * Fetches presigned R2 GET URLs for a lesson's video and PDF.
- * Only fires when the user is subscribed; returns nulls immediately otherwise.
+ * Fires for all authenticated users — the edge function returns tier-appropriate
+ * URLs (free tier: PDF only; standard tier: video + PDF).
  *
  * The hook re-fetches automatically when the lessonId changes.
  * Signed URLs expire after 1 hour — callers can remount the hook to refresh.
@@ -14,26 +15,32 @@ import {
   SecureContentFetchError,
   type SecureContentResult,
 } from '@/services/secureContent'
+import type { SubscriptionTier } from '@/features/subscription/types'
 
 export interface UseSecureContentResult {
   videoUrl: string | null
   pdfUrl: string | null
+  /** Tier confirmed by the server — drives client-side restrictions */
+  tier: SubscriptionTier
   loading: boolean
-  /** Set when the request fails — includes subscription-required errors */
   error: SecureContentFetchError | null
 }
 
 export function useSecureContent(
   lessonId: string,
-  isSubscribed: boolean,
+  isAuthenticated: boolean,
 ): UseSecureContentResult {
-  const [result, setResult] = useState<SecureContentResult>({ videoUrl: null, pdfUrl: null })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<SecureContentFetchError | null>(null)
+  const [result, setResult] = useState<SecureContentResult>({
+    videoUrl: null,
+    pdfUrl: null,
+    tier: 'free',
+  })
+  const [loading, setLoading]  = useState(false)
+  const [error, setError]      = useState<SecureContentFetchError | null>(null)
 
   useEffect(() => {
-    if (!isSubscribed || !lessonId) {
-      setResult({ videoUrl: null, pdfUrl: null })
+    if (!isAuthenticated || !lessonId) {
+      setResult({ videoUrl: null, pdfUrl: null, tier: 'free' })
       setLoading(false)
       setError(null)
       return
@@ -63,7 +70,7 @@ export function useSecureContent(
       })
 
     return () => { cancelled = true }
-  }, [lessonId, isSubscribed])
+  }, [lessonId, isAuthenticated])
 
   return { ...result, loading, error }
 }

@@ -2,16 +2,21 @@
  * secureContent.ts — browser-safe client for the get-signed-urls Edge Function
  *
  * Calls the Edge Function with the user's JWT and returns short-lived signed
- * GET URLs for the lesson's video and PDF. Both can be null when the lesson
- * has no file stored yet.
+ * GET URLs for the lesson's video and PDF. The edge function determines the
+ * user's subscription tier and returns URLs accordingly:
+ *   - free tier:     pdfUrl only (page limit enforced on frontend)
+ *   - standard tier: videoUrl + pdfUrl (full access)
  */
 
 import { supabase } from './supabaseClient'
 import config from '@/config'
+import type { SubscriptionTier } from '@/features/subscription/types'
 
 export interface SecureContentResult {
   videoUrl: string | null
   pdfUrl: string | null
+  /** Tier returned by the server — use this for client-side restrictions */
+  tier: SubscriptionTier
 }
 
 export type SecureContentError =
@@ -40,7 +45,8 @@ function getEdgeFunctionUrl(): string {
 
 /**
  * Fetch presigned GET URLs for a lesson's video and PDF.
- * Throws `SecureContentFetchError` for auth / subscription / not-found errors.
+ * Available to all authenticated users — tier determines which URLs are returned.
+ * Throws `SecureContentFetchError` for auth / not-found errors.
  */
 export async function getSignedContentUrls(lessonId: string): Promise<SecureContentResult> {
   const { data: { session } } = await supabase.auth.getSession()

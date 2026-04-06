@@ -2,21 +2,22 @@
  * get-signed-urls — Supabase Edge Function
  *
  * Generates short-lived R2 presigned GET URLs for a lesson's video and PDF.
- * Only issued to authenticated users with an active subscription.
- * R2 credentials stay server-side; the browser never sees them.
+ * Accessible to all authenticated users; the response varies by subscription tier:
+ *
+ *   free tier     — { videoUrl: null, pdfUrl: string | null, tier: "free" }
+ *   standard tier — { videoUrl: string | null, pdfUrl: string | null, tier: "standard" }
+ *
+ * Frontend enforces additional UX-layer restrictions (30s preview, 5-page PDF limit).
+ * For true enforcement, a separate PDF-truncation step should be added for free users.
  *
  * POST /functions/v1/get-signed-urls
  * Authorization: Bearer <supabase-jwt>
  * Body: { lessonId: string }
  *
- * Response: { videoUrl?: string; pdfUrl?: string }
- *   Each field is present only when the lesson has a stored path for it.
- *
  * Error responses:
- *   401  — missing / invalid JWT
- *   403  — no active subscription
- *   404  — lesson not found
- *   500  — server / credentials error
+ *   401 — missing / invalid JWT
+ *   404 — lesson not found
+ *   500 — server / credentials error
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -29,16 +30,12 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-/** Signed URL TTL: 1 hour — enough for any reasonable viewing session. */
+/** Signed URL TTL: 1 hour */
 const SIGNED_URL_TTL = 3_600
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return json(null, 204)
-  }
-  if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405)
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   // ── Verify JWT ───────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization')
@@ -46,53 +43,40 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Missing Authorization header' }, 401)
   }
 
-  const supabaseUrl     = Deno.env.get('SUPABASE_URL')!
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+  const supabaseUrl        = Deno.env.get('SUPABASE_URL')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-  // User-scoped client — inherits the caller's RLS context
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
-
-  // Service-role client — used to query subscriptions bypassing RLS safely
   const adminClient = createClient(supabaseUrl, supabaseServiceKey)
 
-  const { data: { user }, error: authError } = await userClient.auth.getUser()
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
   if (authError || !user) {
+    console.error('[get-signed-urls] Auth error:', authError?.message, authError?.status)
     return json({ error: 'Unauthorized' }, 401)
   }
 
-  // ── Check subscription ───────────────────────────────────────────────────────
+  // ── Determine subscription tier ──────────────────────────────────────────────
   const now = new Date().toISOString()
   const { data: sub } = await adminClient
     .from('subscriptions')
-    .select('id')
+    .select('id, tier')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .or(`expires_at.is.null,expires_at.gt.${now}`)
     .maybeSingle()
 
-  if (!sub) {
-    return json({ error: 'No active subscription' }, 403)
-  }
+  // A valid subscription row = standard tier; absence = free tier
+  const tier: 'free' | 'standard' = sub ? 'standard' : 'free'
 
   // ── Parse body ───────────────────────────────────────────────────────────────
   let body: { lessonId?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400)
-  }
+  try { body = await req.json() }
+  catch { return json({ error: 'Invalid JSON body' }, 400) }
 
   const { lessonId } = body
-  if (!lessonId) {
-    return json({ error: 'lessonId is required' }, 400)
-  }
+  if (!lessonId) return json({ error: 'lessonId is required' }, 400)
 
   // ── Fetch lesson storage paths ───────────────────────────────────────────────
-  // Use service-role so we get the real paths regardless of RLS.
-  // The subscription check above is the real gate.
   const { data: lesson, error: lessonError } = await adminClient
     .from('lessons')
     .select('video_url, reviewer_pdf_url')
@@ -103,16 +87,17 @@ Deno.serve(async (req: Request) => {
     console.error('[get-signed-urls] Lesson fetch error:', lessonError)
     return json({ error: 'Failed to fetch lesson' }, 500)
   }
-  if (!lesson) {
-    return json({ error: 'Lesson not found' }, 404)
-  }
+  if (!lesson) return json({ error: 'Lesson not found' }, 404)
 
   const videoPath = lesson.video_url as string | null
   const pdfPath   = lesson.reviewer_pdf_url as string | null
 
-  // If neither file is stored yet, return empty
-  if (!videoPath && !pdfPath) {
-    return json({ videoUrl: null, pdfUrl: null })
+  // Free tier gets PDF access only — video is null
+  const shouldSignVideo = tier === 'standard' && !!videoPath
+  const shouldSignPdf   = !!pdfPath   // both tiers can access PDF (page limit enforced on frontend)
+
+  if (!shouldSignVideo && !shouldSignPdf) {
+    return json({ videoUrl: null, pdfUrl: null, tier })
   }
 
   // ── Build R2 client ──────────────────────────────────────────────────────────
@@ -136,24 +121,16 @@ Deno.serve(async (req: Request) => {
   // ── Generate signed GET URLs ─────────────────────────────────────────────────
   try {
     const [videoUrl, pdfUrl] = await Promise.all([
-      videoPath
-        ? getSignedUrl(
-            s3,
-            new GetObjectCommand({ Bucket: bucketName, Key: videoPath }),
-            { expiresIn: SIGNED_URL_TTL },
-          )
+      shouldSignVideo
+        ? getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: videoPath! }), { expiresIn: SIGNED_URL_TTL })
         : Promise.resolve(null),
 
-      pdfPath
-        ? getSignedUrl(
-            s3,
-            new GetObjectCommand({ Bucket: bucketName, Key: pdfPath }),
-            { expiresIn: SIGNED_URL_TTL },
-          )
+      shouldSignPdf
+        ? getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: pdfPath! }), { expiresIn: SIGNED_URL_TTL })
         : Promise.resolve(null),
     ])
 
-    return json({ videoUrl, pdfUrl })
+    return json({ videoUrl, pdfUrl, tier })
   } catch (err) {
     console.error('[get-signed-urls] Presign error:', err)
     return json({ error: 'Failed to generate signed URLs' }, 500)

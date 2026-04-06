@@ -1,14 +1,23 @@
+import { PdfViewer } from './PdfViewer'
 import type { ReviewerContent } from '@/features/lessons/types'
+import type { SubscriptionTier } from '@/features/subscription/types'
+import { getPermissions, isUnlimited } from '@/features/subscription/services/accessControl'
 
 interface ReviewerSectionProps {
   content?: ReviewerContent
-  /** Presigned R2 URL for the reviewer PDF. Shown as an embedded viewer. */
+  /** Presigned R2 URL for the reviewer PDF. */
   pdfUrl?: string
   visible: boolean
+  /** Determines PDF page limit and download restrictions */
+  tier: SubscriptionTier
 }
 
-export function ReviewerSection({ content, pdfUrl, visible }: ReviewerSectionProps) {
+export function ReviewerSection({ content, pdfUrl, visible, tier }: ReviewerSectionProps) {
   if (!content && !pdfUrl) return null
+
+  const permissions = getPermissions(tier)
+  // Pass maxPages only when there is an actual limit (free tier)
+  const pdfMaxPages = isUnlimited(permissions.pdfMaxPages) ? undefined : permissions.pdfMaxPages
 
   return (
     <div
@@ -20,7 +29,7 @@ export function ReviewerSection({ content, pdfUrl, visible }: ReviewerSectionPro
       ].join(' ')}
       aria-hidden={!visible}
     >
-      {/* Header */}
+      {/* Section header */}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
         <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
@@ -31,31 +40,13 @@ export function ReviewerSection({ content, pdfUrl, visible }: ReviewerSectionPro
 
       {/* PDF viewer — shown when a signed URL is available */}
       {pdfUrl && (
-        <div className="rounded-xl border overflow-hidden">
-          <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Study Guide (PDF)
-            </p>
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline"
-            >
-              Open in new tab ↗
-            </a>
-          </div>
-          <iframe
-            src={pdfUrl}
-            title="Reviewer PDF"
-            className="w-full h-[600px] bg-white"
-            // Prevent right-click / save-as inside the iframe
-            onContextMenu={(e) => e.preventDefault()}
-          />
-        </div>
+        <PdfViewer
+          src={pdfUrl}
+          maxPages={pdfMaxPages}
+        />
       )}
 
-      {/* Structured text content */}
+      {/* Structured text content — always shown in full (no page concept) */}
       {content && (
         <>
           <div className="rounded-xl border bg-muted/30 p-5 space-y-2">

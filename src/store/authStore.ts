@@ -31,7 +31,7 @@ interface AuthState {
   /** Call once at app startup to restore any persisted session. */
   initialize: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (firstName: string, lastName: string, email: string, password: string, mobileNumber: string) => Promise<void>
   logout: () => Promise<void>
   subscribe: () => void
   refreshToken: () => Promise<void>
@@ -66,10 +66,9 @@ export const useAuthStore = create<AuthState>()(
         set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
       },
 
-      register: async (name, email, password) => {
-        const result = await register({ name, email, password })
+      register: async (firstName, lastName, email, password, mobileNumber) => {
+        const result = await register({ firstName, lastName, email, password, mobileNumber })
         if (result.awaitingConfirmation) {
-          // No session yet — user must confirm their email before signing in.
           set({ confirmationPending: true })
         } else {
           set({ user: result.user, isAuthenticated: true, isAdmin: result.user.role === 'admin', confirmationPending: false })

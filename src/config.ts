@@ -24,8 +24,16 @@ const config = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
   },
   subscription: {
-    /** Display price for the Pro plan. Update here when pricing changes. */
+    /** Display price for the Standard plan. Update here when pricing changes. */
+    standardPricePerMonth: '$9',
+    /** @deprecated use standardPricePerMonth */
     proPricePerMonth: '$9',
+  },
+  limits: {
+    /** Free tier: max video preview seconds (env: VITE_FREE_VIDEO_PREVIEW_SECONDS) */
+    freeVideoPreviewSeconds: Number(import.meta.env.VITE_FREE_VIDEO_PREVIEW_SECONDS ?? 30),
+    /** Free tier: max PDF pages visible (env: VITE_FREE_PDF_MAX_PAGES) */
+    freePdfMaxPages: Number(import.meta.env.VITE_FREE_PDF_MAX_PAGES ?? 5),
   },
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',

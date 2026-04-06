@@ -3,6 +3,7 @@ export interface Course {
   title: string
   description: string
   thumbnail: string
+  thumbnailUrl?: string | null
   category: string
   lessons: number
   duration: string

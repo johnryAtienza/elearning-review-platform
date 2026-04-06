@@ -17,7 +17,7 @@ import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -26,7 +26,7 @@ const PRESIGNED_URL_TTL = 900
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   if (req.method !== 'POST') {
@@ -39,13 +39,12 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Missing or invalid Authorization header' }, 401)
   }
 
-  const supabaseUrl  = Deno.env.get('SUPABASE_URL')!
-  const supabaseKey  = Deno.env.get('SUPABASE_ANON_KEY')!
-  const supabase     = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
+  const supabaseUrl      = Deno.env.get('SUPABASE_URL')!
+  const serviceRoleKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const supabase         = createClient(supabaseUrl, serviceRoleKey)
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) {
     return json({ error: 'Unauthorized' }, 401)
   }

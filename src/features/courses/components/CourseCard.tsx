@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Clock, BookOpen } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { CourseThumbnail } from '@/components/CourseThumbnail'
 import type { Course } from '../types'
 
 interface CourseCardProps {
@@ -14,14 +15,19 @@ export function CourseCard({ course }: CourseCardProps) {
       className="group flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}
-      <div className={`relative h-44 bg-linear-to-br ${course.thumbnail}`}>
+      <CourseThumbnail
+        src={course.thumbnailUrl}
+        alt={course.title}
+        gradient={course.thumbnail}
+        className="h-44"
+      >
         <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
         <div className="absolute bottom-3 left-3">
           <Badge variant="secondary" className="bg-black/25 text-white border-0 backdrop-blur-sm text-xs">
             {course.category}
           </Badge>
         </div>
-      </div>
+      </CourseThumbnail>
 
       {/* Body */}
       <div className="flex flex-col gap-2.5 p-4 flex-1">

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { CourseList } from '@/features/courses/components/CourseList'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { useCourses } from '@/features/courses/hooks/useCourses'
+import { useAuthStore } from '@/store/authStore'
 
 const STATS = [
   { icon: BookOpen, label: 'Expert Courses', value: '6+' },
@@ -13,6 +14,7 @@ const STATS = [
 
 export function HomePage() {
   const { courses, loading, error } = useCourses()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   return (
     <div>
@@ -38,9 +40,11 @@ export function HomePage() {
             <Button asChild size="lg" className="h-11 px-7 text-base">
               <Link to="/register">Start Learning Free</Link>
             </Button>
-            <Button variant="outline" asChild size="lg" className="h-11 px-7 text-base">
-              <Link to="/login">Log in</Link>
-            </Button>
+            {!isAuthenticated && (
+              <Button variant="outline" asChild size="lg" className="h-11 px-7 text-base">
+                <Link to="/login">Log in</Link>
+              </Button>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap justify-center gap-8 border-t pt-8 w-full max-w-lg">

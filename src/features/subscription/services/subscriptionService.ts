@@ -3,7 +3,7 @@ import config from '@/config'
 import type { SubscriptionPlan } from '../types'
 
 /**
- * PLANS is kept here as the mock source of truth.
+ * PLANS is the mock source of truth for subscription tiers.
  * subscriptionApi imports it directly when useMock=true.
  */
 export const PLANS: SubscriptionPlan[] = [
@@ -12,33 +12,40 @@ export const PLANS: SubscriptionPlan[] = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Get started with the basics',
+    description: 'Explore the platform at no cost',
     features: [
       'Browse all courses',
-      'View course details',
-      'See lesson list (locked)',
+      'View course details & lesson list',
+      '30-second video preview per lesson',
+      'First 5 pages of reviewer PDFs',
       'Community access',
     ],
-    missing: ['Access lesson content', 'Interactive quizzes', 'Reviewer notes', 'Progress tracking'],
+    missing: [
+      'Full video access',
+      'Complete reviewer PDFs',
+      'Interactive quizzes & scores',
+      'Progress tracking',
+    ],
     cta: 'Current plan',
     highlight: false,
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    price: config.subscription.proPricePerMonth,
+    id: 'standard',
+    name: 'Standard',
+    price: config.subscription.standardPricePerMonth,
     period: 'per month',
     description: 'Full access to everything',
     features: [
       'Everything in Free',
-      'Unlimited lesson access',
+      'Full video access (download disabled)',
+      'Complete reviewer PDFs (download disabled)',
       'Interactive quizzes after every lesson',
-      'Reviewer notes & summaries',
+      'Immediate score + correct answers',
       'Progress tracking',
       'Priority support',
     ],
     missing: [],
-    cta: 'Activate Pro',
+    cta: 'Upgrade to Standard',
     highlight: true,
   },
 ]

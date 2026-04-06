@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Lock, PlayCircle, CheckCircle2 } from 'lucide-react'
+import { PlayCircle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { Lesson } from '../types'
 
@@ -7,9 +7,11 @@ interface LessonListProps {
   lessons: Lesson[]
   isSubscribed: boolean
   activeLessonId?: string
+  /** When true the list is shown to a guest (unauthenticated). Lessons are non-clickable. */
+  isGuest?: boolean
 }
 
-export function LessonList({ lessons, isSubscribed, activeLessonId }: LessonListProps) {
+export function LessonList({ lessons, isSubscribed, activeLessonId, isGuest = false }: LessonListProps) {
   return (
     <ol className="space-y-1">
       {lessons.map((lesson) => {
@@ -21,9 +23,9 @@ export function LessonList({ lessons, isSubscribed, activeLessonId }: LessonList
               'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
               isActive
                 ? 'bg-primary/10 text-primary'
-                : isSubscribed
-                ? 'hover:bg-muted/60 text-foreground'
-                : 'text-muted-foreground cursor-default',
+                : isGuest
+                ? 'text-muted-foreground cursor-default'
+                : 'hover:bg-muted/60 text-foreground',
             )}
           >
             {/* Order number */}
@@ -37,20 +39,23 @@ export function LessonList({ lessons, isSubscribed, activeLessonId }: LessonList
             {/* Duration */}
             <span className="text-xs text-muted-foreground shrink-0">{lesson.duration}</span>
 
-            {/* Icon */}
-            {isSubscribed ? (
-              isActive ? (
-                <CheckCircle2 className="size-4 shrink-0 text-primary" />
-              ) : (
-                <PlayCircle className="size-4 shrink-0 text-muted-foreground" />
-              )
+            {/* Right-side indicator */}
+            {isActive ? (
+              <CheckCircle2 className="size-4 shrink-0 text-primary" />
+            ) : isSubscribed ? (
+              <PlayCircle className="size-4 shrink-0 text-muted-foreground" />
+            ) : isGuest ? (
+              <span className="text-xs text-muted-foreground shrink-0">Sign in</span>
             ) : (
-              <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 shrink-0">
+                Free
+              </span>
             )}
           </div>
         )
 
-        if (!isSubscribed) return <li key={lesson.id}>{inner}</li>
+        // Guests (unauthenticated) can't enter lessons
+        if (isGuest) return <li key={lesson.id}>{inner}</li>
 
         return (
           <li key={lesson.id}>

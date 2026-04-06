@@ -19,6 +19,7 @@ interface CourseRow {
   title: string
   description: string
   thumbnail: string
+  thumbnail_url: string | null
   category: string
   duration: string
   lessons: [{ count: number }]   // embedded count from .select('lessons(count)')
@@ -28,13 +29,14 @@ interface CourseRow {
 
 function toAppCourse(row: CourseRow): Course {
   return {
-    id:          row.id,
-    title:       row.title,
-    description: row.description,
-    thumbnail:   row.thumbnail,
-    category:    row.category,
-    duration:    row.duration,
-    lessons:     row.lessons?.[0]?.count ?? 0,
+    id:           row.id,
+    title:        row.title,
+    description:  row.description,
+    thumbnail:    row.thumbnail,
+    thumbnailUrl: row.thumbnail_url ?? null,
+    category:     row.category,
+    duration:     row.duration,
+    lessons:      row.lessons?.[0]?.count ?? 0,
   }
 }
 
@@ -47,7 +49,7 @@ function toAppCourse(row: CourseRow): Course {
 export async function getCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, thumbnail, category, duration, lessons:lessons(count)')
+    .select('id, title, description, thumbnail, thumbnail_url, category, duration, lessons:lessons(count)')
     .eq('is_published', true)
     .order('created_at', { ascending: true })
 
@@ -65,7 +67,7 @@ export async function getCourses(): Promise<Course[]> {
 export async function getCourseById(id: string): Promise<Course | undefined> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, thumbnail, category, duration, lessons:lessons(count)')
+    .select('id, title, description, thumbnail, thumbnail_url, category, duration, lessons:lessons(count)')
     .eq('id', id)
     .eq('is_published', true)
     .maybeSingle()

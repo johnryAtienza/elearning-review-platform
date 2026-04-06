@@ -1,13 +1,16 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Zap, Award, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { LogoutModal } from '@/components/LogoutModal'
 import { useAuthStore } from '@/store/authStore'
 import { useCourses } from '@/features/courses/hooks/useCourses'
 
 export function DashboardPage() {
   const { user, isSubscribed, logout } = useAuthStore()
   const { courses } = useCourses()
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   const initials = user?.name
     .split(' ')
@@ -18,6 +21,12 @@ export function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl space-y-8">
+      {showLogoutModal && (
+        <LogoutModal
+          onConfirm={() => { setShowLogoutModal(false); logout() }}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
       <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 
       {/* Profile card */}
@@ -34,7 +43,7 @@ export function DashboardPage() {
           </div>
           <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={logout} className="shrink-0">
+        <Button variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className="shrink-0">
           Log out
         </Button>
       </div>

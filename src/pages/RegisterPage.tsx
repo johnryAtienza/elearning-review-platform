@@ -1,43 +1,79 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, MailCheck } from 'lucide-react'
+import { Loader2, MailCheck, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/store/authStore'
 import { ApiError } from '@/services/ApiError'
 import { ROUTES } from '@/constants/routes'
 
+function RequiredMark() {
+  return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+}
+
+function passwordValid(p: string) {
+  return p.length >= 8 && /[A-Z]/.test(p) && /[0-9]/.test(p)
+}
+
 export function RegisterPage() {
   const register            = useAuthStore((s) => s.register)
   const confirmationPending = useAuthStore((s) => s.confirmationPending)
   const navigate            = useNavigate()
 
-  const [name, setName]       = useState('')
-  const [email, setEmail]     = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError]     = useState('')
-  const [loading, setLoading] = useState(false)
+  const [firstName,       setFirstName]       = useState('')
+  const [lastName,        setLastName]        = useState('')
+  const [email,           setEmail]           = useState('')
+  const [password,        setPassword]        = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [mobileNumber,    setMobileNumber]    = useState('')
+  const [error,           setError]           = useState('')
+  const [loading,         setLoading]         = useState(false)
+  const [submitted,       setSubmitted]       = useState(false)
+  const [passwordFocused, setPasswordFocused] = useState(false)
+
+  const pwRules = {
+    length:    password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    number:    /[0-9]/.test(password),
+  }
+  const pwAllValid = pwRules.length && pwRules.uppercase && pwRules.number
+
+  const fieldErrors = submitted
+    ? {
+        firstName:       !firstName.trim(),
+        lastName:        !lastName.trim(),
+        email:           !email.trim(),
+        password:        !pwAllValid,
+        confirmPassword: !confirmPassword || confirmPassword !== password,
+      }
+    : { firstName: false, lastName: false, email: false, password: false, confirmPassword: false }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    setSubmitted(true)
 
-    if (!name || !email || !password) {
-      setError('Please fill in all fields.')
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !confirmPassword) {
+      setError('Please fill in all required fields.')
+      focusFirstInvalid({ firstName, lastName, email, password, confirmPassword, pwAllValid })
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+    if (!pwAllValid) {
+      setError('Password does not meet the requirements.')
+      document.getElementById('password')?.focus()
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      document.getElementById('confirmPassword')?.focus()
       return
     }
 
     setLoading(true)
     try {
-      await register(name, email, password)
-      // If no confirmation is needed, the store sets isAuthenticated — navigate home.
-      // If confirmation IS needed, confirmationPending becomes true and we stay here
-      // to show the "check your email" screen.
+      await register(firstName, lastName, email, password, mobileNumber)
       if (!useAuthStore.getState().confirmationPending) {
         navigate(ROUTES.HOME, { replace: true })
       }
@@ -93,24 +129,43 @@ export function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="name" className="text-sm font-medium">
-                Full name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="John Doe"
-                autoComplete="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* First + Last name */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="firstName" className="text-sm font-medium">
+                  First name<RequiredMark />
+                </label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="John"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  aria-invalid={fieldErrors.firstName || undefined}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="lastName" className="text-sm font-medium">
+                  Last name<RequiredMark />
+                </label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  aria-invalid={fieldErrors.lastName || undefined}
+                />
+              </div>
             </div>
 
+            {/* Email */}
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-sm font-medium">
-                Email address
+                Email address<RequiredMark />
               </label>
               <Input
                 id="email"
@@ -119,21 +174,69 @@ export function RegisterPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={fieldErrors.email || undefined}
               />
             </div>
 
+            {/* Mobile number — optional */}
+            <div className="space-y-1.5">
+              <label htmlFor="mobile" className="text-sm font-medium">
+                Mobile number{' '}
+                <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                id="mobile"
+                type="tel"
+                placeholder="+63 9XX XXX XXXX"
+                autoComplete="tel"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+              />
+            </div>
+
+            {/* Password */}
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-sm font-medium">
-                Password
+                Password<RequiredMark />
               </label>
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 6 characters"
+                placeholder="Create a password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                aria-invalid={fieldErrors.password || undefined}
               />
+              {/* Password requirements — visible while focused or after invalid submit */}
+              {(passwordFocused || (submitted && !pwAllValid)) && (
+                <ul className="mt-2 space-y-1">
+                  <PasswordRule met={pwRules.length}   label="At least 8 characters" />
+                  <PasswordRule met={pwRules.uppercase} label="At least one uppercase letter" />
+                  <PasswordRule met={pwRules.number}   label="At least one number" />
+                </ul>
+              )}
+            </div>
+
+            {/* Confirm password */}
+            <div className="space-y-1.5">
+              <label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm password<RequiredMark />
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Repeat your password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                aria-invalid={fieldErrors.confirmPassword || undefined}
+              />
+              {submitted && confirmPassword && confirmPassword !== password && (
+                <p className="text-xs text-destructive mt-1">Passwords do not match.</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
@@ -163,4 +266,31 @@ export function RegisterPage() {
       </div>
     </section>
   )
+}
+
+function PasswordRule({ met, label }: { met: boolean; label: string }) {
+  return (
+    <li className={`flex items-center gap-1.5 text-xs ${met ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+      {met
+        ? <Check className="size-3 shrink-0" />
+        : <X className="size-3 shrink-0" />
+      }
+      {label}
+    </li>
+  )
+}
+
+function focusFirstInvalid(fields: {
+  firstName: string; lastName: string; email: string
+  password: string; confirmPassword: string; pwAllValid: boolean
+}) {
+  const order = [
+    { id: 'firstName',       invalid: !fields.firstName.trim() },
+    { id: 'lastName',        invalid: !fields.lastName.trim() },
+    { id: 'email',           invalid: !fields.email.trim() },
+    { id: 'password',        invalid: !fields.pwAllValid },
+    { id: 'confirmPassword', invalid: !fields.confirmPassword || fields.confirmPassword !== fields.password },
+  ]
+  const first = order.find((f) => f.invalid)
+  if (first) document.getElementById(first.id)?.focus()
 }

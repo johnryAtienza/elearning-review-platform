@@ -24,10 +24,21 @@ const config = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
   },
   subscription: {
-    /** Display price for the Standard plan. Update here when pricing changes. */
-    standardPricePerMonth: '$9',
-    /** @deprecated use standardPricePerMonth */
-    proPricePerMonth: '$9',
+    /**
+     * Base price per month in the local currency (PHP by default).
+     * Duration discounts are applied on top of this rate.
+     * Configurable via VITE_SUBSCRIPTION_BASE_PRICE.
+     */
+    basePricePerMonth: Number(import.meta.env.VITE_SUBSCRIPTION_BASE_PRICE ?? 299),
+    /** Currency symbol shown in the UI */
+    currency: (import.meta.env.VITE_SUBSCRIPTION_CURRENCY as string | undefined) ?? '₱',
+    /** Fractional discounts applied to multi-month plans (0.10 = 10% off) */
+    discounts: {
+      months3: 0.10,
+      months6: 0.20,
+    },
+    /** @deprecated — kept so existing imports don't break */
+    standardPricePerMonth: '₱299',
   },
   limits: {
     /** Free tier: max video preview seconds (env: VITE_FREE_VIDEO_PREVIEW_SECONDS) */

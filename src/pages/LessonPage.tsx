@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
 import { LessonList } from '@/features/lessons/components/LessonList'
+import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
 import { useQuizStore } from '@/store/quizStore'
@@ -16,6 +17,7 @@ import { ROUTES } from '@/constants/routes'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
 import { getPermissions, tierFromSubscribed, isUnlimited } from '@/features/subscription/services/accessControl'
+import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import type { ReviewerContent } from '@/features/lessons/types'
 import type { Quiz } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
@@ -23,12 +25,20 @@ import { cn } from '@/utils/cn'
 export function LessonPage() {
   const { lessonId } = useParams<{ lessonId: string }>()
 
-  // Per-lesson UI state
-  const [videoEnded,   setVideoEnded]   = useState(false)
-  const [previewEnded, setPreviewEnded] = useState(false)
-  const [sidebarOpen,  setSidebarOpen]  = useState(false)
+  // ── Per-lesson UI state ──────────────────────────────────────────────────
+  const [videoProgress,   setVideoProgress]   = useState(0)
+  const [previewEnded,    setPreviewEnded]     = useState(false)
+  const [sidebarOpen,     setSidebarOpen]      = useState(false)
   const [reviewerContent, setReviewerContent] = useState<ReviewerContent | undefined>()
-  const [quiz, setQuiz] = useState<Quiz | undefined>()
+  const [quiz,            setQuiz]            = useState<Quiz | undefined>()
+
+  // Watched state — loaded from backend, persisted on user action
+  const [isWatched,      setIsWatched]      = useState(false)
+  const [markingWatched, setMarkingWatched] = useState(false)
+
+  // Refs for scroll-to behaviour from LessonCTAs
+  const reviewerRef = useRef<HTMLDivElement>(null)
+  const quizRef     = useRef<HTMLDivElement>(null)
 
   const setLessonId = useQuizStore((s) => s.setLessonId)
   const submitted   = useQuizStore((s) => s.submitted)
@@ -43,31 +53,56 @@ export function LessonPage() {
   const { data, loading, notFound, error } = useLesson(lessonId ?? '')
 
   // Fetch presigned R2 URLs for all authenticated users
-  // Edge function returns tier-appropriate content (free: PDF only; standard: video + PDF)
   const {
-    videoUrl:      signedVideoUrl,
-    pdfUrl:        signedPdfUrl,
-    loading:       contentLoading,
-    error:         contentError,
+    videoUrl:    signedVideoUrl,
+    pdfUrl:      signedPdfUrl,
+    loading:     contentLoading,
+    error:       contentError,
   } = useSecureContent(lessonId ?? '', isAuthenticated)
 
-  // Reset per-lesson state when the lesson changes
+  // Reset per-lesson state and reload backend progress when lesson changes
   useEffect(() => {
     if (!data?.lesson) return
+
     setLessonId(data.lesson.id)
-    setVideoEnded(false)
+    setVideoProgress(0)
     setPreviewEnded(false)
+    setIsWatched(false)
+    setMarkingWatched(false)
     setReviewerContent(undefined)
     setQuiz(undefined)
 
+    const lessonId = data.lesson.id
+
     Promise.all([
-      getReviewerContent(data.lesson.id),
-      getQuizByLessonId(data.lesson.id),
-    ]).then(([rc, qz]) => {
+      getReviewerContent(lessonId),
+      getQuizByLessonId(lessonId),
+      // Load persisted watch status for authenticated users
+      isAuthenticated ? getLessonWatchedStatus(lessonId) : Promise.resolve(false),
+    ]).then(([rc, qz, watched]) => {
       setReviewerContent(rc)
       setQuiz(qz)
+      setIsWatched(watched)
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Mark as Watched handler ──────────────────────────────────────────────
+  async function handleMarkWatched() {
+    if (!data?.lesson || isWatched || markingWatched) return
+    setMarkingWatched(true)
+    try {
+      if (isAuthenticated) {
+        await markLessonWatched(data.lesson.id)
+      }
+      setIsWatched(true)
+    } catch (err) {
+      console.error('Failed to save watch progress:', err)
+      // Still unlock locally even if backend save fails
+      setIsWatched(true)
+    } finally {
+      setMarkingWatched(false)
+    }
+  }
 
   if (notFound) return <Navigate to="/" replace />
   if (error) return <ErrorMessage message={error} />
@@ -87,20 +122,22 @@ export function LessonPage() {
 
   const { lesson, course, siblings, prev, next, progress } = data
 
-  // Content becomes available once video is done (standard) or preview ends (free)
-  const contentUnlocked = isSubscribed ? videoEnded : previewEnded
+  // Subscribed: PDF + quiz unlock after marking watched; Free: always visible (limited/locked)
+  const contentUnlocked = isSubscribed ? isWatched : true
 
-  // Navigation requires: content unlocked + quiz submitted (standard only, quiz locked on free)
-  const navReady = contentUnlocked && (
-    isSubscribed
-      ? (quiz ? submitted : true)   // standard: must complete quiz
-      : true                         // free: nav unlocked after preview
-  )
+  // Navigation: subscribed needs isWatched + quiz submitted; free needs preview done
+  const navReady = isSubscribed
+    ? isWatched && (quiz ? submitted : true)
+    : previewEnded
 
   // Video preview seconds — undefined when unlimited (standard tier)
   const videoPreviewSec = isUnlimited(permissions.videoPreviewSeconds)
     ? undefined
     : permissions.videoPreviewSeconds
+
+  function scrollTo(ref: React.RefObject<HTMLDivElement | null>) {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
@@ -189,11 +226,24 @@ export function LessonPage() {
               thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
               src={signedVideoUrl ?? undefined}
               durationSeconds={30}
-              onEnded={() => setVideoEnded(true)}
+              onEnded={() => setVideoProgress(100)}
               previewDuration={videoPreviewSec}
               onPreviewEnded={() => setPreviewEnded(true)}
+              onProgress={setVideoProgress}
             />
           )}
+
+          {/* ── CTA action bar ── */}
+          <LessonCTAs
+            videoProgress={videoProgress}
+            isWatched={isWatched}
+            markingWatched={markingWatched}
+            onMarkWatched={handleMarkWatched}
+            hasReviewer={!!(reviewerContent || signedPdfUrl)}
+            onViewReviewer={() => scrollTo(reviewerRef)}
+            hasQuiz={!!quiz}
+            onTakeQuiz={() => scrollTo(quizRef)}
+          />
 
           {/* ── Free tier banner ── */}
           {!isSubscribed && (
@@ -202,34 +252,46 @@ export function LessonPage() {
 
           {/* ── Reviewer ── */}
           {(reviewerContent || signedPdfUrl) && (
-            <ReviewerSection
-              content={reviewerContent}
-              pdfUrl={signedPdfUrl ?? undefined}
-              visible={contentUnlocked}
-              tier={tier}
-            />
+            <div ref={reviewerRef}>
+              <ReviewerSection
+                content={reviewerContent}
+                pdfUrl={signedPdfUrl ?? undefined}
+                visible={contentUnlocked}
+                tier={tier}
+              />
+            </div>
           )}
 
           {/* ── Quiz ── */}
           {quiz && (
-            <QuizComponent
-              questions={quiz.questions}
-              visible={contentUnlocked}
-              locked={!permissions.quizEnabled}
-            />
+            <div ref={quizRef}>
+              <QuizComponent
+                questions={quiz.questions}
+                visible={contentUnlocked}
+                locked={!permissions.quizEnabled}
+              />
+            </div>
           )}
 
-          {/* Completion hint */}
-          {!navReady && !contentUnlocked && (
+          {/* Completion hints */}
+          {isSubscribed && !isWatched && videoProgress < 95 && (
             <p className="text-center text-xs text-muted-foreground">
-              {isSubscribed
-                ? 'Complete the video to unlock the reviewer and quiz.'
-                : `Watch the ${permissions.videoPreviewSeconds}s preview to continue.`}
+              Watch at least 95% of the video, then click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.
             </p>
           )}
-          {!navReady && contentUnlocked && isSubscribed && quiz && !submitted && (
+          {isSubscribed && !isWatched && videoProgress >= 95 && (
+            <p className="text-center text-xs text-muted-foreground">
+              Click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.
+            </p>
+          )}
+          {isSubscribed && isWatched && quiz && !submitted && (
             <p className="text-center text-xs text-muted-foreground">
               Submit the quiz to unlock navigation.
+            </p>
+          )}
+          {!isSubscribed && !previewEnded && (
+            <p className="text-center text-xs text-muted-foreground">
+              Watch the {permissions.videoPreviewSeconds}s preview to continue.
             </p>
           )}
 

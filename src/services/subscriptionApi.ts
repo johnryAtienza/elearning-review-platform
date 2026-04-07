@@ -1,32 +1,76 @@
-import config from '@/config'
-import type { SubscriptionPlan } from '@/features/subscription/types'
-import { PLANS } from '@/features/subscription/services/subscriptionService'
-import { apiClient } from './apiClient'
+/**
+ * subscriptionApi.ts
+ *
+ * Client for subscription-related Supabase Edge Functions.
+ * All calls are authenticated with the current user's JWT.
+ */
 
-export interface SubscribePayload {
-  planId: string
-  /** Payment method token from your payment provider (Stripe, etc.) */
-  paymentMethodToken?: string
+import config from '@/config'
+import { supabase } from './supabaseClient'
+import type { SubscriptionDuration } from '@/features/subscription/types'
+
+// ── Response shapes ───────────────────────────────────────────────────────────
+
+export interface SubscribeResponse {
+  /** ISO string — new expiry after subscribing / extending */
+  expiresAt: string
+  /** How many months were added */
+  daysAdded: number
+  /** ISO string — what expires_at was before this call (null = first subscription) */
+  previousExpiresAt: string | null
 }
 
+// ── API ───────────────────────────────────────────────────────────────────────
+
 export const subscriptionApi = {
-  async getPlans(): Promise<SubscriptionPlan[]> {
-    if (config.api.useMock) return PLANS
-    return apiClient.get<SubscriptionPlan[]>('/subscription/plans')
+  /**
+   * Create or extend the Standard subscription.
+   *
+   * Carryover: if the user already has an active subscription the server adds
+   * `durationMonths` to the existing expiry date — no days are lost.
+   */
+  async subscribe(durationMonths: SubscriptionDuration): Promise<SubscribeResponse> {
+    if (config.api.useMock) {
+      // Mock: pretend the subscription was created right now
+      const expiresAt = new Date()
+      expiresAt.setMonth(expiresAt.getMonth() + durationMonths)
+      return { expiresAt: expiresAt.toISOString(), daysAdded: durationMonths * 30, previousExpiresAt: null }
+    }
+
+    // Require a real Supabase session — mock sessions have no JWT.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('Please log in to subscribe.')
+
+    // supabase.functions.invoke() automatically attaches the user JWT
+    // and the required apikey header — no manual header management needed.
+    const { data, error } = await supabase.functions.invoke<SubscribeResponse>('subscribe', {
+      body: { durationMonths },
+    })
+
+    if (error) throw new Error(error.message ?? 'Subscribe failed')
+    if (!data) throw new Error('Subscribe failed: empty response')
+    return data
   },
 
-  async subscribe(payload: SubscribePayload): Promise<void> {
-    if (config.api.useMock) return   // authStore.subscribe() handles mock state
-    await apiClient.post('/subscription/subscribe', payload)
-  },
+  /** Fetch subscription status directly from the subscriptions table. */
+  async getStatus(): Promise<{ isSubscribed: boolean; expiresAt: string | null }> {
+    if (config.api.useMock) return { isSubscribed: false, expiresAt: null }
 
-  async cancel(): Promise<void> {
-    if (config.api.useMock) return
-    await apiClient.post('/subscription/cancel')
-  },
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { isSubscribed: false, expiresAt: null }
 
-  async getStatus(): Promise<{ isSubscribed: boolean }> {
-    if (config.api.useMock) return { isSubscribed: false }
-    return apiClient.get<{ isSubscribed: boolean }>('/subscription/status')
+    const now = new Date().toISOString()
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('is_active, expires_at')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .maybeSingle()
+
+    return {
+      isSubscribed: !!data,
+      expiresAt: data?.expires_at ?? null,
+    }
   },
 }

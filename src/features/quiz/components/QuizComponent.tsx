@@ -29,22 +29,41 @@ export function QuizComponent({ questions, visible, locked = false }: QuizCompon
     submitQuiz(questions)
   }
 
-  return (
-    <div
-      className={cn(
-        'space-y-6 transition-all duration-700 ease-out',
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none',
-      )}
-      aria-hidden={!visible}
-    >
-      {/* Section header */}
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-          Quiz
-        </h2>
-        <div className="h-px flex-1 bg-border" />
+  // Section header — always shown so the user knows a quiz exists
+  const header = (
+    <div className="flex items-center gap-3">
+      <div className="h-px flex-1 bg-border" />
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+        Quiz
+        {(!visible || locked) && <Lock className="size-3" />}
+      </h2>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  )
+
+  // Subscribed user: video not yet complete → show "finish video" placeholder
+  if (!visible && !locked) {
+    return (
+      <div className="space-y-5">
+        {header}
+        <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-10 flex flex-col items-center gap-3 text-center">
+          <div className="size-10 rounded-full bg-muted flex items-center justify-center">
+            <Lock className="size-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">Quiz Locked</p>
+            <p className="text-xs text-muted-foreground">
+              Finish watching the video to unlock the quiz.
+            </p>
+          </div>
+        </div>
       </div>
+    )
+  }
+
+  return (
+    <div className={cn('space-y-6', visible && 'animate-in fade-in slide-in-from-bottom-2 duration-500')}>
+      {header}
 
       {/* ── Locked state (free tier) ── */}
       {locked ? (

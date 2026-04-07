@@ -16,6 +16,12 @@ interface VideoPlayerProps {
   previewDuration?: number
   /** Called when the preview limit is reached (free tier). */
   onPreviewEnded?: () => void
+  /**
+   * Called with the current watch percentage (0–100).
+   * For free-tier previews the percentage is relative to the preview duration,
+   * so 95 means the user has watched 95% of the allowed preview window.
+   */
+  onProgress?: (percent: number) => void
 }
 
 function formatTime(seconds: number): string {
@@ -26,7 +32,7 @@ function formatTime(seconds: number): string {
 
 export function VideoPlayer({
   title, thumbnail, durationSeconds = 30, src, onEnded,
-  previewDuration, onPreviewEnded,
+  previewDuration, onPreviewEnded, onProgress,
 }: VideoPlayerProps) {
   const isPreviewMode = typeof previewDuration === 'number'
 
@@ -38,6 +44,7 @@ export function VideoPlayer({
         onEnded={onEnded}
         previewDuration={isPreviewMode ? previewDuration : undefined}
         onPreviewEnded={onPreviewEnded}
+        onProgress={onProgress}
       />
     )
   }
@@ -50,6 +57,7 @@ export function VideoPlayer({
       onEnded={onEnded}
       previewDuration={isPreviewMode ? previewDuration : undefined}
       onPreviewEnded={onPreviewEnded}
+      onProgress={onProgress}
     />
   )
 }
@@ -62,9 +70,10 @@ interface RealVideoPlayerProps {
   onEnded: () => void
   previewDuration?: number
   onPreviewEnded?: () => void
+  onProgress?: (percent: number) => void
 }
 
-function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded }: RealVideoPlayerProps) {
+function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded, onProgress }: RealVideoPlayerProps) {
   const videoRef       = useRef<HTMLVideoElement>(null)
   const [error, setError]             = useState(false)
   const [previewEnded, setPreviewEnded] = useState(false)
@@ -77,9 +86,18 @@ function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded 
   }, [src])
 
   function handleTimeUpdate() {
-    if (!previewDuration || previewFiredRef.current) return
     const video = videoRef.current
     if (!video) return
+
+    // Emit progress relative to effective playable duration
+    if (video.duration) {
+      const effectiveDuration = previewDuration ?? video.duration
+      const pct = Math.min(Math.round((video.currentTime / effectiveDuration) * 100), 100)
+      onProgress?.(pct)
+    }
+
+    // Preview boundary check
+    if (!previewDuration || previewFiredRef.current) return
     if (video.currentTime >= previewDuration) {
       previewFiredRef.current = true
       video.pause()
@@ -145,11 +163,12 @@ interface MockVideoPlayerProps {
   onEnded: () => void
   previewDuration?: number
   onPreviewEnded?: () => void
+  onProgress?: (percent: number) => void
 }
 
 function MockVideoPlayer({
   title, thumbnail, durationSeconds, onEnded,
-  previewDuration, onPreviewEnded,
+  previewDuration, onPreviewEnded, onProgress,
 }: MockVideoPlayerProps) {
   const [status, setStatus] = useState<'idle' | 'playing' | 'paused' | 'ended' | 'preview_ended'>('idle')
   const [currentTime, setCurrentTime] = useState(0)
@@ -158,8 +177,15 @@ function MockVideoPlayer({
   const hasPreviewedRef = useRef(false)
 
   // Effective stop time: preview limit takes priority over full duration
-  const stopAt   = previewDuration ?? durationSeconds
-  const progress = Math.min((currentTime / durationSeconds) * 100, 100)
+  const stopAt      = previewDuration ?? durationSeconds
+  const progress    = Math.min((currentTime / durationSeconds) * 100, 100)
+  // Progress relative to effective playable window (for the 95% threshold)
+  const progressPct = Math.min(Math.round((currentTime / stopAt) * 100), 100)
+
+  // Notify parent of progress changes
+  useEffect(() => {
+    onProgress?.(progressPct)
+  }, [progressPct]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearTick() {
     if (intervalRef.current) {

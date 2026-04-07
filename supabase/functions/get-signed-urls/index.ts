@@ -2,9 +2,10 @@
  * get-signed-urls — Supabase Edge Function
  *
  * Generates short-lived R2 presigned GET URLs for a lesson's video and PDF.
- * Accessible to all authenticated users; the response varies by subscription tier:
+ * Accessible to all authenticated users. Both tiers receive signed video + PDF URLs.
+ * The frontend enforces tier restrictions (30s preview for free, page limit for PDFs).
  *
- *   free tier     — { videoUrl: null, pdfUrl: string | null, tier: "free" }
+ *   free tier     — { videoUrl: string | null, pdfUrl: string | null, tier: "free" }
  *   standard tier — { videoUrl: string | null, pdfUrl: string | null, tier: "standard" }
  *
  * Frontend enforces additional UX-layer restrictions (30s preview, 5-page PDF limit).
@@ -26,12 +27,12 @@ import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-/** Signed URL TTL: 1 hour */
-const SIGNED_URL_TTL = 3_600
+/** Signed URL TTL: 60 seconds — short enough to limit URL sharing, long enough to start streaming */
+const SIGNED_URL_TTL = 60
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
@@ -92,9 +93,9 @@ Deno.serve(async (req: Request) => {
   const videoPath = lesson.video_url as string | null
   const pdfPath   = lesson.reviewer_pdf_url as string | null
 
-  // Free tier gets PDF access only — video is null
-  const shouldSignVideo = tier === 'standard' && !!videoPath
-  const shouldSignPdf   = !!pdfPath   // both tiers can access PDF (page limit enforced on frontend)
+  // Both tiers get a signed video URL; frontend enforces the 30s preview limit for free users
+  const shouldSignVideo = !!videoPath
+  const shouldSignPdf   = !!pdfPath
 
   if (!shouldSignVideo && !shouldSignPdf) {
     return json({ videoUrl: null, pdfUrl: null, tier })
@@ -126,7 +127,12 @@ Deno.serve(async (req: Request) => {
         : Promise.resolve(null),
 
       shouldSignPdf
-        ? getSignedUrl(s3, new GetObjectCommand({ Bucket: bucketName, Key: pdfPath! }), { expiresIn: SIGNED_URL_TTL })
+        ? getSignedUrl(s3, new GetObjectCommand({
+            Bucket: bucketName,
+            Key: pdfPath!,
+            ResponseContentDisposition: 'inline',
+            ResponseContentType: 'application/pdf',
+          }), { expiresIn: SIGNED_URL_TTL })
         : Promise.resolve(null),
     ])
 

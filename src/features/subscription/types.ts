@@ -1,5 +1,8 @@
 export type SubscriptionTier = 'free' | 'standard'
 
+/** Valid subscription durations in months */
+export type SubscriptionDuration = 1 | 3 | 6
+
 export interface TierPermissions {
   /** Max seconds of video playable. Number.MAX_SAFE_INTEGER = no limit. */
   videoPreviewSeconds: number
@@ -13,6 +16,34 @@ export interface TierPermissions {
   showAnswersAfterQuiz: boolean
 }
 
+/**
+ * A purchasable duration option for the Standard plan.
+ * All prices are computed from config — never hardcoded here.
+ */
+export interface DurationOption {
+  months: SubscriptionDuration
+  label: string          // '1 Month' | '3 Months' | '6 Months'
+  priceTotal: number     // total amount charged (PHP)
+  pricePerMonth: number  // effective per-month rate (PHP)
+  discountPercent: number // 0 | 10 | 20
+  badge?: string         // optional callout e.g. 'Best Value'
+}
+
+/**
+ * Snapshot of the current user's active subscription.
+ * Populated by authStore.syncSubscription() from Supabase.
+ */
+export interface ActiveSubscription {
+  tier: SubscriptionTier
+  durationMonths: number
+  /** ISO date string — null means the subscription never expires */
+  expiresAt: string | null
+  /** Whole days until expiry — null when expiresAt is null (lifetime) */
+  daysRemaining: number | null
+  isExpired: boolean
+}
+
+/** Legacy shape — used by the plan card UI */
 export interface SubscriptionPlan {
   id: string
   name: string

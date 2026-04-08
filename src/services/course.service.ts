@@ -14,6 +14,12 @@ import type { Course } from '@/features/courses/types'
 
 // ── Raw DB row shape returned by Supabase ─────────────────────────────────────
 
+interface CategoryRef {
+  id: string
+  name: string
+  slug: string
+}
+
 interface CourseRow {
   id: string
   title: string
@@ -21,9 +27,18 @@ interface CourseRow {
   thumbnail: string
   thumbnail_url: string | null
   category: string
+  category_id: string | null
+  /** Joined from categories table via category_id FK */
+  cat: CategoryRef | null
   duration: string
-  lessons: [{ count: number }]   // embedded count from .select('lessons(count)')
+  difficulty: string | null
+  tags: string[] | null
+  created_at: string
+  lessons: [{ count: number }]
 }
+
+const COURSE_SELECT =
+  'id, title, description, thumbnail, thumbnail_url, category, category_id, duration, difficulty, tags, created_at, lessons:lessons(count), cat:categories(id,name,slug)'
 
 // ── Mapper: DB row → app type ─────────────────────────────────────────────────
 
@@ -34,8 +49,13 @@ function toAppCourse(row: CourseRow): Course {
     description:  row.description,
     thumbnail:    row.thumbnail,
     thumbnailUrl: row.thumbnail_url ?? null,
-    category:     row.category,
+    // Prefer joined category name; fall back to legacy text column
+    category:     row.cat?.name ?? row.category ?? '',
+    categoryId:   row.category_id ?? null,
     duration:     row.duration,
+    difficulty:   (row.difficulty as Course['difficulty']) ?? undefined,
+    tags:         row.tags ?? [],
+    createdAt:    row.created_at,
     lessons:      row.lessons?.[0]?.count ?? 0,
   }
 }
@@ -49,9 +69,9 @@ function toAppCourse(row: CourseRow): Course {
 export async function getCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, thumbnail, thumbnail_url, category, duration, lessons:lessons(count)')
+    .select(COURSE_SELECT)
     .eq('is_published', true)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
 
   if (error) {
     throw new ApiError(500, 'COURSES_FETCH_FAILED', error.message)
@@ -67,7 +87,7 @@ export async function getCourses(): Promise<Course[]> {
 export async function getCourseById(id: string): Promise<Course | undefined> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, thumbnail, thumbnail_url, category, duration, lessons:lessons(count)')
+    .select(COURSE_SELECT)
     .eq('id', id)
     .eq('is_published', true)
     .maybeSingle()

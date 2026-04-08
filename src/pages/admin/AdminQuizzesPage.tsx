@@ -8,6 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QuizModal } from '@/features/admin/components/QuizModal'
 import {
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  type ColConfig,
+} from '@/features/admin/components/AdminTable'
+import {
   getAdminQuizzes,
   getAdminQuizFull,
   deleteAdminQuiz,
@@ -16,9 +20,24 @@ import {
 } from '@/services/admin.service'
 import { toast } from '@/lib/toast'
 
+// ── Column layout ─────────────────────────────────────────────────────────────
+
+const GRID_COLS = 'grid-cols-[1fr_6rem_7rem_5rem]'
+
+const HEADER_COLS: ColConfig[] = [
+  { label: 'Lesson' },
+  { label: 'Questions', center: true, smOnly: true },
+  { label: 'Created',   center: true, smOnly: true },
+  { label: 'Actions',   center: true },
+]
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type ModalState =
   | { open: false }
   | { open: true; quiz: AdminQuizFull | null; loading: boolean }
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminQuizzesPage() {
   const [quizzes,   setQuizzes]   = useState<AdminQuiz[]>([])
@@ -28,7 +47,6 @@ export function AdminQuizzesPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
 
-  // ── Load ─────────────────────────────────────────────────────────────────────
   const load = useCallback(() => {
     setLoading(true)
     setLoadError(null)
@@ -42,7 +60,6 @@ export function AdminQuizzesPage() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Open edit modal ───────────────────────────────────────────────────────────
   async function handleEdit(quiz: AdminQuiz) {
     setModal({ open: true, quiz: null, loading: true })
     try {
@@ -54,7 +71,6 @@ export function AdminQuizzesPage() {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────────
   async function handleDelete(quiz: AdminQuiz) {
     setDeleting((prev) => new Set(prev).add(quiz.id))
     setConfirmId(null)
@@ -69,7 +85,6 @@ export function AdminQuizzesPage() {
     }
   }
 
-  // ── Modal saved ───────────────────────────────────────────────────────────────
   function handleSaved(_quizId: string, _lessonId: string, isEdit: boolean) {
     setModal({ open: false })
     toast.success(isEdit ? 'Quiz updated' : 'Quiz created')
@@ -105,16 +120,8 @@ export function AdminQuizzesPage() {
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
+        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
-        {/* Header row */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>Lesson</span>
-          <span className="hidden sm:block text-center">Questions</span>
-          <span className="hidden sm:block text-center">Created</span>
-          <span className="text-center">Actions</span>
-        </div>
-
-        {/* Skeletons */}
         {loading ? (
           <div className="divide-y">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -200,7 +207,7 @@ function QuizRow({
 }: QuizRowProps) {
   return (
     <div className="divide-y">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-3.5 hover:bg-muted/20 transition-colors">
+      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
 
         {/* Lesson info */}
         <div className="min-w-0">
@@ -241,42 +248,13 @@ function QuizRow({
         </div>
       </div>
 
-      {/* Inline delete confirmation */}
       {isConfirmingDelete && (
-        <div className="flex items-center justify-between gap-4 border-t border-destructive/20 bg-destructive/5 px-4 py-3">
-          <p className="text-sm text-destructive">
-            Delete quiz for <span className="font-semibold">"{quiz.lessonTitle}"</span>? This cannot be undone.
-          </p>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={onCancelDelete}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
-          </div>
-        </div>
+        <DeleteConfirmRow
+          message={<>Delete quiz for <strong>"{quiz.lessonTitle}"</strong>? This cannot be undone.</>}
+          onConfirm={onDelete}
+          onCancel={onCancelDelete}
+        />
       )}
-    </div>
-  )
-}
-
-// ── EmptyState ────────────────────────────────────────────────────────────────
-
-function EmptyState({
-  icon: Icon, title, description, action,
-}: {
-  icon: React.ElementType
-  title: string
-  description: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-muted/60">
-        <Icon className="size-7 text-muted-foreground/60" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
-      </div>
-      {action}
     </div>
   )
 }

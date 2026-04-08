@@ -19,6 +19,7 @@ import { AdminLessonsPage } from '@/pages/admin/AdminLessonsPage'
 import { AdminQuizzesPage } from '@/pages/admin/AdminQuizzesPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminSubscriptionsPage } from '@/pages/admin/AdminSubscriptionsPage'
+import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
               { path: 'quizzes',       element: <AdminQuizzesPage />      },
               { path: 'users',         element: <AdminUsersPage />        },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
+              { path: 'categories',   element: <AdminCategoriesPage />   },
             ],
           },
         ],

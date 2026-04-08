@@ -14,10 +14,11 @@ export const ROUTES = {
   LESSON:  (id: string) => `/lesson/${id}`,
 
   // Admin panel
-  ADMIN:               '/admin',
-  ADMIN_COURSES:       '/admin/courses',
-  ADMIN_LESSONS:       '/admin/lessons',
-  ADMIN_QUIZZES:       '/admin/quizzes',
-  ADMIN_USERS:         '/admin/users',
-  ADMIN_SUBSCRIPTIONS: '/admin/subscriptions',
+  ADMIN:                '/admin',
+  ADMIN_COURSES:        '/admin/courses',
+  ADMIN_LESSONS:        '/admin/lessons',
+  ADMIN_QUIZZES:        '/admin/quizzes',
+  ADMIN_USERS:          '/admin/users',
+  ADMIN_SUBSCRIPTIONS:  '/admin/subscriptions',
+  ADMIN_CATEGORIES:     '/admin/categories',
 } as const

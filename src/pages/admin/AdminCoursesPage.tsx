@@ -10,6 +10,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CourseModal } from '@/features/admin/components/CourseModal'
 import { CourseThumbnail } from '@/components/CourseThumbnail'
 import {
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  type ColConfig,
+} from '@/features/admin/components/AdminTable'
+import {
   getAdminCourses,
   setCoursePublished,
   deleteCourse,
@@ -18,9 +22,25 @@ import {
 import { toast } from '@/lib/toast'
 import { ROUTES } from '@/constants/routes'
 
+// ── Column layout (single source of truth for header + rows) ──────────────────
+
+const GRID_COLS = 'grid-cols-[3rem_1fr_4rem_6rem_9rem]'
+
+const HEADER_COLS: ColConfig[] = [
+  { label: 'Thumb',   smOnly: true },
+  { label: 'Course' },
+  { label: 'Lessons', center: true, smOnly: true },
+  { label: 'Status',  center: true },
+  { label: 'Actions', center: true },
+]
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type ModalState =
   | { open: false }
   | { open: true; course: AdminCourse | null }
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminCoursesPage() {
   const [courses,   setCourses]   = useState<AdminCourse[]>([])
@@ -31,7 +51,6 @@ export function AdminCoursesPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
 
-  // ── Load ─────────────────────────────────────────────────────────────────────
   const load = useCallback(() => {
     setLoading(true)
     setLoadError(null)
@@ -45,7 +64,6 @@ export function AdminCoursesPage() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Publish toggle ────────────────────────────────────────────────────────────
   async function handleTogglePublished(course: AdminCourse) {
     setToggling((prev) => new Set(prev).add(course.id))
     const next = !course.isPublished
@@ -62,7 +80,6 @@ export function AdminCoursesPage() {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────────
   async function handleDelete(course: AdminCourse) {
     setDeleting((prev) => new Set(prev).add(course.id))
     setConfirmId(null)
@@ -77,7 +94,6 @@ export function AdminCoursesPage() {
     }
   }
 
-  // ── Modal saved ───────────────────────────────────────────────────────────────
   function handleSaved(saved: AdminCourse, isEdit: boolean) {
     setCourses((prev) => {
       const exists = prev.some((c) => c.id === saved.id)
@@ -118,17 +134,8 @@ export function AdminCoursesPage() {
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
+        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
-        {/* Header row */}
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="hidden sm:block w-12">Thumb</span>
-          <span>Course</span>
-          <span className="hidden sm:block text-center">Lessons</span>
-          <span className="text-center">Status</span>
-          <span className="text-center">Actions</span>
-        </div>
-
-        {/* Loading skeletons */}
         {loading ? (
           <div className="divide-y">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -210,7 +217,7 @@ function CourseRow({
 }: CourseRowProps) {
   return (
     <div className="divide-y">
-      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 px-4 py-3.5 hover:bg-muted/20 transition-colors">
+      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
 
         {/* Thumbnail */}
         <div className="hidden sm:block w-12 shrink-0">
@@ -234,7 +241,7 @@ function CourseRow({
         </div>
 
         {/* Lesson count */}
-        <span className="hidden sm:flex justify-center min-w-12 text-sm tabular-nums text-muted-foreground">
+        <span className="hidden sm:flex justify-center text-sm tabular-nums text-muted-foreground">
           {course.lessonCount}
         </span>
 
@@ -255,13 +262,11 @@ function CourseRow({
             disabled={isToggling || isDeleting}
             onClick={onTogglePublished}
           >
-            {isToggling ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : course.isPublished ? (
-              <EyeOff className="size-4" />
-            ) : (
-              <Eye className="size-4" />
-            )}
+            {isToggling
+              ? <Loader2 className="size-4 animate-spin" />
+              : course.isPublished
+                ? <EyeOff className="size-4" />
+                : <Eye className="size-4" />}
           </Button>
           <Button
             variant="ghost" size="icon" className="size-8"
@@ -287,45 +292,13 @@ function CourseRow({
         </div>
       </div>
 
-      {/* Inline delete confirmation */}
       {isConfirmingDelete && (
-        <div className="flex items-center justify-between gap-4 bg-destructive/5 px-4 py-3 border-t border-destructive/20">
-          <p className="text-sm text-destructive">
-            Delete <span className="font-semibold">"{course.title}"</span>? This cannot be undone.
-          </p>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={onCancelDelete}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
-          </div>
-        </div>
+        <DeleteConfirmRow
+          message={<>Delete <strong>"{course.title}"</strong>? This cannot be undone.</>}
+          onConfirm={onDelete}
+          onCancel={onCancelDelete}
+        />
       )}
-    </div>
-  )
-}
-
-// ── EmptyState ────────────────────────────────────────────────────────────────
-
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ElementType
-  title: string
-  description: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-muted/60">
-        <Icon className="size-7 text-muted-foreground/60" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
-      </div>
-      {action}
     </div>
   )
 }

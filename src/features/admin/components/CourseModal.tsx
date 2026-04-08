@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Upload, ImageIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,8 +9,10 @@ import {
   updateCourse,
   type AdminCourse,
 } from '@/services/admin.service'
+import { getAllCategories } from '@/services/categoriesApi'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
+import type { Category } from '@/features/categories/types'
 
 interface CourseModalProps {
   /** null = create mode, non-null = edit mode */
@@ -24,13 +26,24 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
 
   const [title,            setTitle]            = useState(course?.title       ?? '')
   const [description,      setDescription]      = useState(course?.description ?? '')
+  const [categoryId,       setCategoryId]       = useState<string>(course?.categoryId ?? '')
   const [thumbnailFile,    setThumbnailFile]    = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(course?.thumbnailUrl ?? null)
   const [saving,           setSaving]           = useState(false)
   const [uploadProgress,   setUploadProgress]   = useState(0)
   const [error,            setError]            = useState<string | null>(null)
+  const [categories,       setCategories]       = useState<Category[]>([])
+  const [catsLoading,      setCatsLoading]      = useState(true)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load categories for the dropdown
+  useEffect(() => {
+    getAllCategories()
+      .then(setCategories)
+      .catch(() => { /* silently fail — admin can still save without category */ })
+      .finally(() => setCatsLoading(false))
+  }, [])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -53,17 +66,21 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
     setError(null)
 
     try {
+      const catId = categoryId || null
+
       // ── 1. Create or update course record ───────────────────────────────────
       let courseId = course?.id
       if (isEdit) {
         await updateCourse(course.id, {
           title:       trimmedTitle,
           description: description.trim(),
+          categoryId:  catId,
         })
       } else {
         courseId = await createCourse({
           title:       trimmedTitle,
           description: description.trim(),
+          categoryId:  catId,
         })
       }
 
@@ -79,12 +96,15 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
         await updateCourse(courseId, { thumbnailUrl })
       }
 
+      const selectedCat = categories.find((c) => c.id === catId)
+
       onSaved({
         id:           courseId!,
         title:        trimmedTitle,
         description:  description.trim(),
         thumbnailUrl,
-        category:     course?.category    ?? '',
+        category:     selectedCat?.name ?? course?.category ?? '',
+        categoryId:   catId,
         duration:     course?.duration    ?? '',
         isPublished:  course?.isPublished ?? false,
         lessonCount:  course?.lessonCount ?? 0,
@@ -194,6 +214,38 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
               disabled={saving}
               className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-1.5">
+            <label htmlFor="course-category" className="text-sm font-medium">
+              Category
+            </label>
+            {catsLoading ? (
+              <div className="h-9 rounded-md border bg-muted animate-pulse" />
+            ) : categories.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No categories yet.{' '}
+                <a href="/admin/categories" className="underline hover:text-foreground">
+                  Create one first.
+                </a>
+              </p>
+            ) : (
+              <select
+                id="course-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                disabled={saving}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">— No category —</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Upload progress bar */}

@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Users,
   CreditCard,
+  Tag,
   ChevronLeft,
   Menu,
   X,
@@ -22,6 +23,7 @@ import { cn } from '@/utils/cn'
 const NAV_ITEMS = [
   { to: ROUTES.ADMIN,               label: 'Dashboard',     icon: LayoutDashboard, end: true  },
   { to: ROUTES.ADMIN_COURSES,       label: 'Courses',       icon: BookOpen,        end: false },
+  { to: ROUTES.ADMIN_CATEGORIES,    label: 'Categories',    icon: Tag,             end: false },
   { to: ROUTES.ADMIN_LESSONS,       label: 'Lessons',       icon: BookMarked,      end: false },
   { to: ROUTES.ADMIN_QUIZZES,       label: 'Quizzes',       icon: ClipboardList,   end: false },
   { to: ROUTES.ADMIN_USERS,         label: 'Users',         icon: Users,           end: false },
@@ -33,6 +35,7 @@ const NAV_ITEMS = [
 const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN]:               'Dashboard',
   [ROUTES.ADMIN_COURSES]:       'Courses',
+  [ROUTES.ADMIN_CATEGORIES]:    'Categories',
   [ROUTES.ADMIN_LESSONS]:       'Lessons',
   [ROUTES.ADMIN_QUIZZES]:       'Quizzes',
   [ROUTES.ADMIN_USERS]:         'Users',
@@ -109,8 +112,8 @@ export function AdminLayout() {
       {/* ── Sidebar ── */}
       <aside
         className={cn(
-          // Desktop: sticky sidebar
           'hidden md:flex flex-col border-r bg-card transition-all duration-200',
+          'sticky top-16 self-start h-[calc(100vh-4rem)]',
           collapsed ? 'w-[60px]' : 'w-60',
         )}
       >
@@ -233,7 +236,7 @@ function SidebarContent({
   onToggleCollapse: () => void
 }) {
   return (
-    <div className="sticky top-16 flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-full">
       {/* Brand area */}
       <div
         className={cn(

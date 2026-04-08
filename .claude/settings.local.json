@@ -6,7 +6,10 @@
       "Bash(npm run:*)",
       "Bash(grep -r '\"\"lucide-react\"\"' package.json)",
       "Bash(npx tsc:*)",
-      "Bash(supabase functions:*)"
+      "Bash(supabase functions:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(ls -1 /Users/johnryatienza/Documents/projects/elearning-review-platform/supabase/migrations/*.sql)"
     ]
   }
 }

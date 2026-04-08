@@ -6,12 +6,32 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  AdminTableHeader, ADMIN_ROW_BASE, filterTabClass,
+  type ColConfig,
+} from '@/features/admin/components/AdminTable'
+import {
   getAdminSubscriptions,
   setSubscriptionActive,
   type AdminSubscription,
 } from '@/services/admin.service'
 
+// ── Column layout ─────────────────────────────────────────────────────────────
+
+const GRID_COLS = 'grid-cols-[1fr_6rem_7rem_7rem_8rem]'
+
+const HEADER_COLS: ColConfig[] = [
+  { label: 'User' },
+  { label: 'Plan',    center: true, smOnly: true },
+  { label: 'Status',  center: true },
+  { label: 'Expires', center: true, smOnly: true },
+  { label: 'Toggle',  center: true },
+]
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type StatusFilter = 'all' | 'active' | 'inactive'
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminSubscriptionsPage() {
   const [subs,      setSubs]      = useState<AdminSubscription[]>([])
@@ -20,8 +40,8 @@ export function AdminSubscriptionsPage() {
   const [search,    setSearch]    = useState('')
   const [filter,    setFilter]    = useState<StatusFilter>('all')
   const [toggling,  setToggling]  = useState<Set<string>>(new Set())
+  const [confirmId, setConfirmId] = useState<string | null>(null)
 
-  // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     getAdminSubscriptions()
@@ -35,11 +55,10 @@ export function AdminSubscriptionsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // ── Toggle active ─────────────────────────────────────────────────────────────
   async function handleToggle(sub: AdminSubscription) {
     const next = !sub.isActive
+    setConfirmId(null)
     setToggling((prev) => new Set(prev).add(sub.id))
-    // Optimistic update
     setSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, isActive: next } : s))
     try {
       await setSubscriptionActive(sub.id, next)
@@ -49,7 +68,6 @@ export function AdminSubscriptionsPage() {
           : `${sub.userName ?? 'Subscription'} deactivated`,
       )
     } catch (err) {
-      // Revert on failure
       setSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, isActive: sub.isActive } : s))
       toast.error(err, 'Failed to update subscription.')
     } finally {
@@ -57,20 +75,18 @@ export function AdminSubscriptionsPage() {
     }
   }
 
-  // ── Filtered list ─────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return subs.filter((s) => {
       const matchesStatus =
         filter === 'all' ||
-        (filter === 'active' && s.isActive) ||
+        (filter === 'active'   && s.isActive) ||
         (filter === 'inactive' && !s.isActive)
       const matchesSearch = !q || (s.userName ?? '').toLowerCase().includes(q)
       return matchesStatus && matchesSearch
     })
   }, [subs, search, filter])
 
-  // ── Counts ───────────────────────────────────────────────────────────────────
   const activeCount   = subs.filter((s) => s.isActive).length
   const inactiveCount = subs.length - activeCount
 
@@ -99,11 +115,7 @@ export function AdminSubscriptionsPage() {
 
         <div className="flex items-center gap-2">
           {(['all', 'active', 'inactive'] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={filterTabClass(filter === f)}
-            >
+            <button key={f} onClick={() => setFilter(f)} className={filterTabClass(filter === f)}>
               {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Inactive'}
             </button>
           ))}
@@ -120,17 +132,8 @@ export function AdminSubscriptionsPage() {
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
+        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
-        {/* Header row */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>User</span>
-          <span className="hidden sm:block text-center">Plan</span>
-          <span className="text-center">Status</span>
-          <span className="hidden sm:block text-center">Expires</span>
-          <span className="text-center">Toggle</span>
-        </div>
-
-        {/* Skeletons */}
         {loading ? (
           <div className="divide-y">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -174,7 +177,10 @@ export function AdminSubscriptionsPage() {
                 key={sub.id}
                 sub={sub}
                 isToggling={toggling.has(sub.id)}
-                onToggle={() => handleToggle(sub)}
+                isConfirming={confirmId === sub.id}
+                onToggleClick={() => setConfirmId(sub.id)}
+                onConfirm={() => handleToggle(sub)}
+                onCancel={() => setConfirmId(null)}
               />
             ))}
           </div>
@@ -187,15 +193,6 @@ export function AdminSubscriptionsPage() {
           Showing {filtered.length} of {subs.length} subscription{subs.length !== 1 ? 's' : ''}
         </p>
       )}
-
-      {/* SQL note for toggle to work */}
-      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
-        <strong>Required migration:</strong> The toggle requires an admin UPDATE policy on{' '}
-        <code className="font-mono">subscriptions</code>. Run in Supabase SQL editor:
-        <pre className="mt-1.5 font-mono whitespace-pre-wrap break-all">
-          {`CREATE POLICY "subscriptions: admin updates all"\n  ON public.subscriptions FOR UPDATE\n  USING (public.is_admin());`}
-        </pre>
-      </div>
     </div>
   )
 }
@@ -205,60 +202,92 @@ export function AdminSubscriptionsPage() {
 interface SubscriptionRowProps {
   sub: AdminSubscription
   isToggling: boolean
-  onToggle: () => void
+  isConfirming: boolean
+  onToggleClick: () => void
+  onConfirm: () => void
+  onCancel: () => void
 }
 
-function SubscriptionRow({ sub, isToggling, onToggle }: SubscriptionRowProps) {
-  return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 px-4 py-3.5 hover:bg-muted/20 transition-colors">
+function planLabel(planId: string): string {
+  return planId === 'free' ? 'Free' : 'Standard'
+}
 
-      {/* User */}
-      <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{sub.userName ?? 'Unknown user'}</p>
-        <p className="text-xs text-muted-foreground tabular-nums">
-          Since {formatDate(sub.startedAt)}
-        </p>
+function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfirm, onCancel }: SubscriptionRowProps) {
+  return (
+    <div className="divide-y">
+      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
+
+        {/* User */}
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{sub.userName ?? 'Unknown user'}</p>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            Since {formatDate(sub.startedAt)}
+          </p>
+        </div>
+
+        {/* Plan */}
+        <span className="hidden sm:flex justify-center">
+          <Badge variant="secondary">
+            {planLabel(sub.planId)}
+          </Badge>
+        </span>
+
+        {/* Status */}
+        <span className="flex justify-center">
+          {sub.isActive ? (
+            <Badge variant="success" className="gap-1">
+              <CheckCircle2 className="size-3" />
+              Active
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-muted-foreground">
+              <XCircle className="size-3" />
+              Inactive
+            </Badge>
+          )}
+        </span>
+
+        {/* Expires */}
+        <span className="hidden sm:block text-xs text-muted-foreground text-center tabular-nums">
+          {sub.expiresAt ? formatDate(sub.expiresAt) : '—'}
+        </span>
+
+        {/* Toggle */}
+        <span className="flex justify-center">
+          <Button
+            variant={sub.isActive ? 'outline' : 'default'}
+            size="sm"
+            disabled={isToggling}
+            onClick={onToggleClick}
+            className="text-xs"
+          >
+            {isToggling ? '…' : sub.isActive ? 'Deactivate' : 'Activate'}
+          </Button>
+        </span>
       </div>
 
-      {/* Plan */}
-      <span className="hidden sm:flex justify-center">
-        <Badge variant="secondary" className="capitalize">
-          {sub.planId}
-        </Badge>
-      </span>
-
-      {/* Status */}
-      <span className="flex justify-center">
-        {sub.isActive ? (
-          <Badge variant="success" className="gap-1">
-            <CheckCircle2 className="size-3" />
-            Active
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="gap-1 text-muted-foreground">
-            <XCircle className="size-3" />
-            Inactive
-          </Badge>
-        )}
-      </span>
-
-      {/* Expires */}
-      <span className="hidden sm:block text-xs text-muted-foreground text-center tabular-nums">
-        {sub.expiresAt ? formatDate(sub.expiresAt) : '—'}
-      </span>
-
-      {/* Toggle */}
-      <span className="flex justify-center">
-        <Button
-          variant={sub.isActive ? 'outline' : 'default'}
-          size="sm"
-          disabled={isToggling}
-          onClick={onToggle}
-          className="text-xs"
-        >
-          {isToggling ? '…' : sub.isActive ? 'Deactivate' : 'Activate'}
-        </Button>
-      </span>
+      {/* Inline confirmation */}
+      {isConfirming && (
+        <div className="flex items-center justify-between gap-4 border-t border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-sm">
+            {sub.isActive ? (
+              <>
+                Deactivate subscription for{' '}
+                <span className="font-semibold">{sub.userName ?? 'this user'}</span>?
+              </>
+            ) : (
+              <>
+                Activate <span className="font-semibold">Standard</span> subscription for{' '}
+                <span className="font-semibold">{sub.userName ?? 'this user'}</span>?
+              </>
+            )}
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+            <Button size="sm" onClick={onConfirm}>Confirm</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -267,13 +296,4 @@ function SubscriptionRow({ sub, isToggling, onToggle }: SubscriptionRowProps) {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function filterTabClass(active: boolean): string {
-  return [
-    'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-    active
-      ? 'bg-primary text-primary-foreground'
-      : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground',
-  ].join(' ')
 }

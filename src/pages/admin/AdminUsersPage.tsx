@@ -6,11 +6,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  AdminTableHeader, filterTabClass, ADMIN_ROW_BASE,
+  type ColConfig,
+} from '@/features/admin/components/AdminTable'
+import {
   getAdminUsers,
   setUserRole,
   updateAdminUser,
   type AdminUser,
 } from '@/services/admin.service'
+
+// ── Column layout ─────────────────────────────────────────────────────────────
+
+const GRID_COLS = 'grid-cols-[1fr_6rem_8rem_7rem_2rem]'
+
+const HEADER_COLS: ColConfig[] = [
+  { label: 'User' },
+  { label: 'Role',         center: true },
+  { label: 'Subscription', center: true },
+  { label: 'Joined',       center: true, smOnly: true },
+  { label: '' },
+]
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type RoleFilter = 'all' | 'admin' | 'user'
 
@@ -123,7 +141,6 @@ export function AdminUsersPage() {
 
   // ── Counts ───────────────────────────────────────────────────────────────────
   const adminCount = users.filter((u) => u.role === 'admin').length
-  const subCount   = users.filter((u) => u.isSubscribed).length
 
   return (
     <div className="space-y-6">
@@ -133,7 +150,7 @@ export function AdminUsersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Users</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {users.length} total · {adminCount} admin{adminCount !== 1 ? 's' : ''} · {subCount} Pro
+            {users.length} total · {adminCount} admin{adminCount !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
@@ -174,14 +191,7 @@ export function AdminUsersPage() {
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
 
-        {/* Header row */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>User</span>
-          <span className="text-center">Role</span>
-          <span className="text-center">Subscription</span>
-          <span className="hidden sm:block text-center">Joined</span>
-          <span />
-        </div>
+        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
         {/* Skeletons */}
         {loading ? (
@@ -282,7 +292,7 @@ function UserRow({
 }: UserRowProps) {
   return (
     <div className="divide-y">
-      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 px-4 py-3.5 hover:bg-muted/20 transition-colors">
+      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
 
         {/* User info */}
         <div className="flex items-center gap-3 min-w-0">
@@ -323,10 +333,10 @@ function UserRow({
           </button>
         </span>
 
-        {/* Subscription */}
+        {/* Subscription — read-only */}
         <span className="flex justify-center">
           {user.isSubscribed ? (
-            <Badge variant="success">Pro</Badge>
+            <Badge variant="success">Standard</Badge>
           ) : (
             <Badge variant="outline">Free</Badge>
           )}
@@ -457,11 +467,3 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function filterTabClass(active: boolean): string {
-  return [
-    'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-    active
-      ? 'bg-primary text-primary-foreground'
-      : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground',
-  ].join(' ')
-}

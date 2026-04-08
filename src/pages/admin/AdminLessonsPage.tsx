@@ -8,6 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LessonModal } from '@/features/admin/components/LessonModal'
 import {
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  filterTabClass, type ColConfig,
+} from '@/features/admin/components/AdminTable'
+import {
   getAdminLessons,
   deleteAdminLesson,
   getCoursesForSelect,
@@ -16,9 +20,25 @@ import {
 } from '@/services/admin.service'
 import { toast } from '@/lib/toast'
 
+// ── Column layout ─────────────────────────────────────────────────────────────
+
+const GRID_COLS = 'grid-cols-[1fr_4rem_4rem_3.5rem_5rem]'
+
+const HEADER_COLS: ColConfig[] = [
+  { label: 'Lesson' },
+  { label: 'Order',   center: true, smOnly: true },
+  { label: 'Video',   center: true },
+  { label: 'PDF',     center: true },
+  { label: 'Actions', center: true },
+]
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type ModalState =
   | { open: false }
   | { open: true; lesson: AdminLesson | null }
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminLessonsPage() {
   const [lessons,   setLessons]   = useState<AdminLesson[]>([])
@@ -30,7 +50,6 @@ export function AdminLessonsPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
 
-  // ── Load ─────────────────────────────────────────────────────────────────────
   const load = useCallback(() => {
     setLoading(true)
     setLoadError(null)
@@ -44,7 +63,6 @@ export function AdminLessonsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Delete ────────────────────────────────────────────────────────────────────
   async function handleDelete(lesson: AdminLesson) {
     setDeleting((prev) => new Set(prev).add(lesson.id))
     setConfirmId(null)
@@ -59,7 +77,6 @@ export function AdminLessonsPage() {
     }
   }
 
-  // ── Modal saved ───────────────────────────────────────────────────────────────
   function handleSaved(saved: AdminLesson, isEdit: boolean) {
     setLessons((prev) => {
       const exists = prev.some((l) => l.id === saved.id)
@@ -121,17 +138,8 @@ export function AdminLessonsPage() {
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
+        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
-        {/* Header row */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>Lesson</span>
-          <span className="hidden sm:block text-center w-16">Order</span>
-          <span className="text-center">Video</span>
-          <span className="text-center">PDF</span>
-          <span className="text-center">Actions</span>
-        </div>
-
-        {/* Loading skeletons */}
         {loading ? (
           <div className="divide-y">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -210,7 +218,7 @@ function LessonRow({
 }: LessonRowProps) {
   return (
     <div className="divide-y">
-      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 px-4 py-3.5 hover:bg-muted/20 transition-colors">
+      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
 
         {/* Title + course */}
         <div className="min-w-0">
@@ -223,7 +231,7 @@ function LessonRow({
         </div>
 
         {/* Order */}
-        <span className="hidden sm:flex justify-center w-16 text-sm tabular-nums text-muted-foreground">
+        <span className="hidden sm:flex justify-center text-sm tabular-nums text-muted-foreground">
           #{lesson.order}
         </span>
 
@@ -259,53 +267,13 @@ function LessonRow({
         </div>
       </div>
 
-      {/* Inline delete confirmation */}
       {isConfirmingDelete && (
-        <div className="flex items-center justify-between gap-4 border-t border-destructive/20 bg-destructive/5 px-4 py-3">
-          <p className="text-sm text-destructive">
-            Delete <span className="font-semibold">"{lesson.title}"</span>? This cannot be undone.
-          </p>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={onCancelDelete}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
-          </div>
-        </div>
+        <DeleteConfirmRow
+          message={<>Delete <strong>"{lesson.title}"</strong>? This cannot be undone.</>}
+          onConfirm={onDelete}
+          onCancel={onCancelDelete}
+        />
       )}
     </div>
   )
-}
-
-// ── EmptyState ────────────────────────────────────────────────────────────────
-
-function EmptyState({
-  icon: Icon, title, description, action,
-}: {
-  icon: React.ElementType
-  title: string
-  description: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-muted/60">
-        <Icon className="size-7 text-muted-foreground/60" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
-      </div>
-      {action}
-    </div>
-  )
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function filterTabClass(active: boolean): string {
-  return [
-    'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-    active
-      ? 'bg-primary text-primary-foreground'
-      : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground',
-  ].join(' ')
 }

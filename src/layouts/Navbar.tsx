@@ -73,8 +73,10 @@ export function Navbar() {
             <NavLink to={ROUTES.HOME} end className={navLinkClass}>Home</NavLink>
             {isAuthenticated && (
               <>
-                <NavLink to={ROUTES.COURSES}   className={navLinkClass}>Courses</NavLink>
-                <NavLink to={ROUTES.DASHBOARD} className={navLinkClass}>Dashboard</NavLink>
+                <NavLink to={ROUTES.COURSES} className={navLinkClass}>Courses</NavLink>
+                {!isAdmin && (
+                  <NavLink to={ROUTES.DASHBOARD} className={navLinkClass}>Dashboard</NavLink>
+                )}
                 {isAdmin && (
                   <NavLink to={ROUTES.ADMIN} className={navLinkClass}>
                     <span className="flex items-center gap-1.5">
@@ -91,10 +93,10 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                {isSubscribed && <Badge variant="pro">Pro</Badge>}
+                {isSubscribed && <Badge variant="pro">Standard</Badge>}
                 {!isSubscribed && !isAdmin && (
                   <Button asChild variant="outline" size="sm">
-                    <Link to={ROUTES.SUBSCRIPTION}>Upgrade to Pro</Link>
+                    <Link to={ROUTES.SUBSCRIPTION}>Upgrade to Standard</Link>
                   </Button>
                 )}
                 <div className="flex items-center gap-2">
@@ -133,8 +135,10 @@ export function Navbar() {
             <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
             {isAuthenticated && (
               <>
-                <MobileNavLink to={ROUTES.COURSES}   onClick={() => setMobileOpen(false)}>Courses</MobileNavLink>
-                <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>Dashboard</MobileNavLink>
+                <MobileNavLink to={ROUTES.COURSES} onClick={() => setMobileOpen(false)}>Courses</MobileNavLink>
+                {!isAdmin && (
+                  <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>Dashboard</MobileNavLink>
+                )}
                 {isAdmin && (
                   <MobileNavLink to={ROUTES.ADMIN} onClick={() => setMobileOpen(false)}>
                     <ShieldCheck className="size-4 inline-block mr-1.5 -mt-0.5" />
@@ -152,11 +156,11 @@ export function Navbar() {
                       <p className="text-sm font-medium">{user?.name}</p>
                       <p className="text-xs text-muted-foreground">{user?.email}</p>
                     </div>
-                    {isSubscribed && <Badge variant="pro" className="ml-auto">Pro</Badge>}
+                    {isSubscribed && <Badge variant="pro" className="ml-auto">Standard</Badge>}
                   </div>
                   {!isSubscribed && !isAdmin && (
                     <Button asChild className="w-full" size="sm">
-                      <Link to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Pro</Link>
+                      <Link to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Standard</Link>
                     </Button>
                   )}
                   <Button variant="outline" className="w-full" size="sm" onClick={handleLogoutClick}>

@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, BookOpen } from 'lucide-react'
+import { Clock, BookOpen, Bookmark, BookmarkCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { CourseThumbnail } from '@/components/CourseThumbnail'
+import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { useAuthStore } from '@/store/authStore'
+import { cn } from '@/utils/cn'
 import type { Course } from '../types'
 
 interface CourseCardProps {
@@ -9,10 +13,27 @@ interface CourseCardProps {
 }
 
 export function CourseCard({ course }: CourseCardProps) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isSaved  = useSavedCoursesStore((s) => s.isSaved(course.id))
+  const toggle   = useSavedCoursesStore((s) => s.toggle)
+  const [saving, setSaving] = useState(false)
+
+  async function handleToggleSave(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (saving) return
+    setSaving(true)
+    try {
+      await toggle(course.id)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <Link
       to={`/course/${course.id}`}
-      className="group flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+      className="group relative flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}
       <CourseThumbnail
@@ -27,6 +48,29 @@ export function CourseCard({ course }: CourseCardProps) {
             {course.category}
           </Badge>
         </div>
+
+        {/* Save button — only for authenticated users */}
+        {isAuthenticated && (
+          <button
+            onClick={handleToggleSave}
+            disabled={saving}
+            aria-label={isSaved ? 'Remove from dashboard' : 'Save to dashboard'}
+            className={cn(
+              'absolute top-2.5 right-2.5 flex size-8 items-center justify-center',
+              'rounded-full backdrop-blur-sm transition-all duration-150',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-white',
+              isSaved
+                ? 'bg-primary text-white hover:bg-primary/80'
+                : 'bg-black/30 text-white hover:bg-black/50',
+              saving && 'opacity-60 cursor-not-allowed',
+            )}
+          >
+            {isSaved
+              ? <BookmarkCheck className="size-4" />
+              : <Bookmark className="size-4" />
+            }
+          </button>
+        )}
       </CourseThumbnail>
 
       {/* Body */}

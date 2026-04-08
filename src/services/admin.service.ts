@@ -26,6 +26,7 @@ export interface AdminCourse {
   title: string
   description: string
   category: string
+  categoryId: string | null
   duration: string
   isPublished: boolean
   lessonCount: number
@@ -36,6 +37,7 @@ export interface AdminCourse {
 export interface CourseFormData {
   title: string
   description: string
+  categoryId?: string | null
 }
 
 export interface AdminLesson {
@@ -116,11 +118,18 @@ export interface AdminUser {
 
 // ── Raw DB shapes ─────────────────────────────────────────────────────────────
 
+interface CategoryRef {
+  id: string
+  name: string
+}
+
 interface CourseRow {
   id: string
   title: string
   description: string
   category: string
+  category_id: string | null
+  cat: CategoryRef | null
   duration: string
   is_published: boolean
   thumbnail_url: string | null
@@ -215,7 +224,7 @@ export async function getAdminStats(): Promise<AdminStats> {
 export async function getAdminCourses(): Promise<AdminCourse[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration, is_published, thumbnail_url, created_at, lessons:lessons(count)')
+    .select('id, title, description, category, category_id, duration, is_published, thumbnail_url, created_at, lessons:lessons(count), cat:categories(id,name)')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_COURSES_FAILED', error.message)
@@ -224,7 +233,8 @@ export async function getAdminCourses(): Promise<AdminCourse[]> {
     id:           row.id,
     title:        row.title,
     description:  row.description ?? '',
-    category:     row.category,
+    category:     row.cat?.name ?? row.category ?? '',
+    categoryId:   row.category_id ?? null,
     duration:     row.duration,
     isPublished:  row.is_published,
     lessonCount:  row.lessons[0]?.count ?? 0,
@@ -237,10 +247,11 @@ export async function createCourse(data: CourseFormData): Promise<string> {
   const { data: row, error } = await supabase
     .from('courses')
     .insert({
-      title:       data.title,
-      description: data.description,
-      category:    '',
-      duration:    '',
+      title:        data.title,
+      description:  data.description,
+      category:     '',
+      category_id:  data.categoryId ?? null,
+      duration:     '',
       is_published: false,
     })
     .select('id')
@@ -255,9 +266,10 @@ export async function updateCourse(
   data: Partial<CourseFormData & { thumbnailUrl: string }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
-  if (data.title       !== undefined) update.title        = data.title
-  if (data.description !== undefined) update.description  = data.description
+  if (data.title        !== undefined) update.title         = data.title
+  if (data.description  !== undefined) update.description   = data.description
   if (data.thumbnailUrl !== undefined) update.thumbnail_url = data.thumbnailUrl
+  if ('categoryId' in data)            update.category_id   = data.categoryId ?? null
 
   const { error } = await supabase
     .from('courses')
@@ -576,4 +588,33 @@ export async function setSubscriptionActive(id: string, isActive: boolean): Prom
     .eq('id', id)
 
   if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
+}
+
+/**
+ * Activate or deactivate a subscription for a user by userId.
+ * Creates a new subscription row if none exists (for activation).
+ *
+ * Required SQL policies (run once):
+ *   CREATE POLICY "subscriptions: admin inserts"
+ *     ON public.subscriptions FOR INSERT WITH CHECK (public.is_admin());
+ *   CREATE POLICY "subscriptions: admin updates all"
+ *     ON public.subscriptions FOR UPDATE USING (public.is_admin());
+ */
+export async function setUserSubscriptionStatus(userId: string, isActive: boolean): Promise<void> {
+  if (isActive) {
+    // Upsert: create subscription if none exists, otherwise re-activate
+    const { error } = await supabase
+      .from('subscriptions')
+      .upsert(
+        { user_id: userId, is_active: true, tier: 'standard', started_at: new Date().toISOString() },
+        { onConflict: 'user_id' },
+      )
+    if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
+  } else {
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({ is_active: false })
+      .eq('user_id', userId)
+    if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
+  }
 }

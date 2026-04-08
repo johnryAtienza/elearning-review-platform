@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { Clock, BookOpen, Tag, ChevronLeft, Play, Film, FileText, HelpCircle } from 'lucide-react'
+import { Clock, BookOpen, Tag, ChevronLeft, Play, Film, FileText, HelpCircle, Bookmark, BookmarkCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -8,6 +8,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { LessonList } from '@/features/lessons/components/LessonList'
 import { CourseThumbnail } from '@/components/CourseThumbnail'
 import { useAuthStore } from '@/store/authStore'
+import { useSavedCoursesStore } from '@/store/savedCoursesStore'
 import { getCourseById } from '@/features/courses/services/courseService'
 import { getLessonsByCourse } from '@/features/lessons/services/lessonService'
 import { ROUTES } from '@/constants/routes'
@@ -18,6 +19,15 @@ import type { Lesson } from '@/features/lessons/types'
 export function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>()
   const { isAuthenticated, isSubscribed } = useAuthStore()
+  const isSaved = useSavedCoursesStore((s) => courseId ? s.isSaved(courseId) : false)
+  const toggle  = useSavedCoursesStore((s) => s.toggle)
+  const [saving, setSaving] = useState(false)
+
+  async function handleToggleSave() {
+    if (!courseId || saving) return
+    setSaving(true)
+    try { await toggle(courseId) } finally { setSaving(false) }
+  }
 
   const [course, setCourse] = useState<Course | undefined>()
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -209,6 +219,21 @@ export function CourseDetailPage() {
                     Free access with preview. Upgrade to unlock everything.
                   </p>
                 </>
+              )}
+
+              {/* Save to dashboard — authenticated users only */}
+              {isAuthenticated && (
+                <Button
+                  variant={isSaved ? 'secondary' : 'outline'}
+                  className="w-full gap-2"
+                  onClick={handleToggleSave}
+                  disabled={saving}
+                >
+                  {isSaved
+                    ? <><BookmarkCheck className="size-4" /> Saved to Dashboard</>
+                    : <><Bookmark className="size-4" /> Save to Dashboard</>
+                  }
+                </Button>
               )}
             </div>
           </div>

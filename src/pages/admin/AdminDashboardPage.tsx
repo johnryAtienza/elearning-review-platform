@@ -47,7 +47,7 @@ export function AdminDashboardPage() {
           icon={Users}
           sub={
             stats
-              ? `${stats.activeSubscriptions} Pro · ${stats.totalUsers - stats.activeSubscriptions} Free`
+              ? `${stats.activeSubscriptions} Standard · ${stats.totalUsers - stats.activeSubscriptions} Free`
               : undefined
           }
           loading={loading}

@@ -11,6 +11,7 @@ import {
   onAuthChange,
 } from '@/features/auth/services/authService'
 import { supabase } from '@/services/supabaseClient'
+import { useSavedCoursesStore } from './savedCoursesStore'
 
 interface AuthState {
   user: User | null
@@ -111,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
           await get().syncSubscription()
+          void useSavedCoursesStore.getState().fetch()
         }
         set({ isInitializing: false })
 
@@ -118,8 +120,10 @@ export const useAuthStore = create<AuthState>()(
           if (user) {
             set({ user, isAuthenticated: true, isAdmin: user.role === 'admin' })
             await get().syncSubscription()
+            void useSavedCoursesStore.getState().fetch()
           } else {
             set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
+            useSavedCoursesStore.getState().reset()
           }
         })
       },
@@ -128,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
         const { user } = await login({ email, password })
         set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
         await get().syncSubscription()
+        void useSavedCoursesStore.getState().fetch()
       },
 
       register: async (firstName, lastName, email, password, mobileNumber) => {
@@ -143,6 +148,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         await logout()
         set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
+        useSavedCoursesStore.getState().reset()
       },
 
       refreshToken: async () => {

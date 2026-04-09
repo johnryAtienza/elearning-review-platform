@@ -65,7 +65,6 @@ export const useAuthStore = create<AuthState>()(
         }
 
         const now = new Date()
-        const nowIso = now.toISOString()
 
         const { data, error } = await supabase
           .from('subscriptions')
@@ -103,8 +102,6 @@ export const useAuthStore = create<AuthState>()(
             isExpired: false,
           },
         })
-
-        void nowIso // suppress unused-variable lint
       },
 
       initialize: async () => {

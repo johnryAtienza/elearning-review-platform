@@ -1,6 +1,15 @@
 import { AlertCircle } from 'lucide-react'
 import { Button } from './button'
 
+/** Inline form-level error banner — use inside cards/forms. */
+export function FormAlert({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+      {children}
+    </div>
+  )
+}
+
 interface ErrorMessageProps {
   message?: string
   onRetry?: () => void

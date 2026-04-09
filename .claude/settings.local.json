@@ -9,7 +9,8 @@
       "Bash(supabase functions:*)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(ls -1 /Users/johnryatienza/Documents/projects/elearning-review-platform/supabase/migrations/*.sql)"
+      "Bash(ls -1 /Users/johnryatienza/Documents/projects/elearning-review-platform/supabase/migrations/*.sql)",
+      "Bash(npx vite:*)"
     ]
   }
 }

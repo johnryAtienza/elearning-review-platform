@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
 import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
@@ -135,6 +135,12 @@ export function LessonPage() {
     ? undefined
     : permissions.videoPreviewSeconds
 
+  // Single completion hint shown below the quiz section
+  const completionHint = getCompletionHint({
+    isSubscribed, isWatched, videoProgress, quiz, submitted, previewEnded,
+    previewSeconds: permissions.videoPreviewSeconds,
+  })
+
   function scrollTo(ref: React.RefObject<HTMLDivElement | null>) {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -211,9 +217,7 @@ export function LessonPage() {
 
           {/* Content error (non-blocking) */}
           {contentError && !contentError.isSubscriptionRequired && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              Could not load secure content: {contentError.message}
-            </div>
+            <FormAlert>Could not load secure content: {contentError.message}</FormAlert>
           )}
 
           {/* ── Video ── */}
@@ -273,26 +277,9 @@ export function LessonPage() {
             </div>
           )}
 
-          {/* Completion hints */}
-          {isSubscribed && !isWatched && videoProgress < 95 && (
-            <p className="text-center text-xs text-muted-foreground">
-              Watch at least 95% of the video, then click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.
-            </p>
-          )}
-          {isSubscribed && !isWatched && videoProgress >= 95 && (
-            <p className="text-center text-xs text-muted-foreground">
-              Click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.
-            </p>
-          )}
-          {isSubscribed && isWatched && quiz && !submitted && (
-            <p className="text-center text-xs text-muted-foreground">
-              Submit the quiz to unlock navigation.
-            </p>
-          )}
-          {!isSubscribed && !previewEnded && (
-            <p className="text-center text-xs text-muted-foreground">
-              Watch the {permissions.videoPreviewSeconds}s preview to continue.
-            </p>
+          {/* Completion hint */}
+          {completionHint && (
+            <p className="text-center text-xs text-muted-foreground">{completionHint}</p>
           )}
 
           {/* ── Navigation ── */}
@@ -347,6 +334,31 @@ export function LessonPage() {
       </aside>
     </div>
   )
+}
+
+// ── Completion hint ───────────────────────────────────────────────────────────
+
+function getCompletionHint({
+  isSubscribed, isWatched, videoProgress, quiz, submitted, previewEnded, previewSeconds,
+}: {
+  isSubscribed: boolean
+  isWatched: boolean
+  videoProgress: number
+  quiz: Quiz | undefined
+  submitted: boolean
+  previewEnded: boolean
+  previewSeconds: number
+}): ReactNode {
+  if (isSubscribed) {
+    if (!isWatched && videoProgress < 95)
+      return <>Watch at least 95% of the video, then click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.</>
+    if (!isWatched)
+      return <>Click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.</>
+    if (quiz && !submitted)
+      return 'Submit the quiz to unlock navigation.'
+    return null
+  }
+  return !previewEnded ? `Watch the ${previewSeconds}s preview to continue.` : null
 }
 
 // ── Free tier informational banner ────────────────────────────────────────────

@@ -11,8 +11,9 @@
  * search via `search_vector` column) without changing the public API.
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { getAllCourses } from '../services/courseService'
+import { useDebounce } from '@/hooks/useDebounce'
 import type { Course, SortOption, DurationFilter } from '../types'
 
 // ── Duration bucketing ────────────────────────────────────────────────────────
@@ -144,9 +145,9 @@ export function useCourses(): UseCoursesResult {
   const [error,    setError]    = useState<string | null>(null)
 
   // Search
-  const [search,          setSearch]          = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [isSearching,     setIsSearching]     = useState(false)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, DEBOUNCE_MS)
+  const isSearching = search !== debouncedSearch
 
   // Filters
   const [category, setCategory] = useState('All')
@@ -154,20 +155,6 @@ export function useCourses(): UseCoursesResult {
 
   // Sort
   const [sort, setSort] = useState<SortOption>('relevant')
-
-  // Debounce
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  function handleSetSearch(value: string) {
-    setSearch(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (value !== debouncedSearch) {
-      setIsSearching(true)
-      debounceRef.current = setTimeout(() => {
-        setDebouncedSearch(value)
-        setIsSearching(false)
-      }, DEBOUNCE_MS)
-    }
-  }
 
   // Fetch
   useEffect(() => {
@@ -242,7 +229,7 @@ export function useCourses(): UseCoursesResult {
     isSearching,
     error,
     search,
-    setSearch: handleSetSearch,
+    setSearch,
     debouncedSearch,
     category,
     setCategory,

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Loader2, MailCheck, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { FormAlert } from '@/components/ui/ErrorMessage'
 import { useAuthStore } from '@/store/authStore'
 import { ApiError } from '@/services/ApiError'
 import { ROUTES } from '@/constants/routes'
@@ -123,11 +124,7 @@ export function RegisterPage() {
         </div>
 
         <div className="rounded-xl border bg-card p-6 shadow-sm space-y-5">
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+          {error && <FormAlert>{error}</FormAlert>}
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {/* First + Last name */}

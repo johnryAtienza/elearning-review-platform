@@ -223,30 +223,12 @@ const supabaseProvider: IAuthProvider = {
   },
 }
 
-// ── Firebase provider ─────────────────────────────────────────────────────────
-
-const firebaseProvider: IAuthProvider = {
-  async login(_credentials: LoginCredentials): Promise<AuthResponse> {
-    throw new Error('Firebase provider not yet configured. Set VITE_AUTH_PROVIDER=mock or supabase.')
-  },
-  async register(_data: RegisterData): Promise<AuthResponse> {
-    throw new Error('Firebase provider not yet configured.')
-  },
-  async logout(): Promise<void> {
-    throw new Error('Firebase provider not yet configured.')
-  },
-  async refreshToken(): Promise<string | null> { return null },
-  async getSession(): Promise<User | null> { return null },
-  onAuthChange(_callback) { return noopUnsubscribe() },
-}
-
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 const providers: Record<string, IAuthProvider> = {
-  mock: mockProvider,
-  rest: restProvider,
+  mock:     mockProvider,
+  rest:     restProvider,
   supabase: supabaseProvider,
-  firebase: firebaseProvider,
 }
 
 function getProvider(): IAuthProvider {

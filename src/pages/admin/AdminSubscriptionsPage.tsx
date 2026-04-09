@@ -31,6 +31,12 @@ const HEADER_COLS: ColConfig[] = [
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  all:      'All',
+  active:   'Active',
+  inactive: 'Inactive',
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminSubscriptionsPage() {
@@ -114,9 +120,9 @@ export function AdminSubscriptionsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(['all', 'active', 'inactive'] as StatusFilter[]).map((f) => (
+          {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={filterTabClass(filter === f)}>
-              {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Inactive'}
+              {STATUS_LABELS[f]}
             </button>
           ))}
         </div>

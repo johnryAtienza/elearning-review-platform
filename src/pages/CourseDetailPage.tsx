@@ -18,7 +18,7 @@ import type { Lesson } from '@/features/lessons/types'
 
 export function CourseDetailPage() {
   const { courseId } = useParams<{ courseId: string }>()
-  const { isAuthenticated, isSubscribed } = useAuthStore()
+  const { isAuthenticated, isSubscribed, isAdmin } = useAuthStore()
   const isSaved = useSavedCoursesStore((s) => courseId ? s.isSaved(courseId) : false)
   const toggle  = useSavedCoursesStore((s) => s.toggle)
   const [saving, setSaving] = useState(false)
@@ -192,7 +192,7 @@ export function CourseDetailPage() {
                 </ul>
               )}
 
-              {isSubscribed ? (
+              {isAdmin ? null : isSubscribed ? (
                 <Button asChild className="w-full">
                   <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>Start First Lesson</Link>
                 </Button>
@@ -221,8 +221,8 @@ export function CourseDetailPage() {
                 </>
               )}
 
-              {/* Save to dashboard — authenticated users only */}
-              {isAuthenticated && (
+              {/* Save to dashboard — non-admin authenticated users only */}
+              {isAuthenticated && !isAdmin && (
                 <Button
                   variant={isSaved ? 'secondary' : 'outline'}
                   className="w-full gap-2"

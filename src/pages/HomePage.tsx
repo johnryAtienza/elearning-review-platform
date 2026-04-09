@@ -7,6 +7,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { useCourses } from '@/features/courses/hooks/useCourses'
 import { useAuthStore } from '@/store/authStore'
 
+
 // ── Stats config ──────────────────────────────────────────────────────────────
 
 interface Stat {
@@ -90,6 +91,7 @@ function StatItem({ stat, delay }: { stat: Stat; delay: number }) {
 export function HomePage() {
   const { courses, loading, error } = useCourses()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isAdmin = useAuthStore((s) => s.isAdmin)
 
   return (
     <div>
@@ -131,20 +133,22 @@ export function HomePage() {
             Learn at your own pace with interactive lessons and quizzes.
           </p>
 
-          {/* CTA buttons */}
-          <div
-            className="flex flex-wrap justify-center gap-3 opacity-0"
-            style={{ animation: 'heroFadeUp 0.6s ease forwards', animationDelay: '360ms' }}
-          >
-            <Button asChild size="lg" className="h-11 px-7 text-base">
-              <Link to="/register">Start Learning Free</Link>
-            </Button>
-            {!isAuthenticated && (
-              <Button variant="outline" asChild size="lg" className="h-11 px-7 text-base">
-                <Link to="/login">Log in</Link>
+          {/* CTA buttons — hidden for admins */}
+          {!isAdmin && (
+            <div
+              className="flex flex-wrap justify-center gap-3 opacity-0"
+              style={{ animation: 'heroFadeUp 0.6s ease forwards', animationDelay: '360ms' }}
+            >
+              <Button asChild size="lg" className="h-11 px-7 text-base">
+                <Link to="/register">Start Learning Free</Link>
               </Button>
-            )}
-          </div>
+              {!isAuthenticated && (
+                <Button variant="outline" asChild size="lg" className="h-11 px-7 text-base">
+                  <Link to="/login">Log in</Link>
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Stats */}
           <div className="mt-4 flex flex-wrap justify-center gap-8 border-t pt-8 w-full max-w-lg">

@@ -14,6 +14,7 @@ interface CourseCardProps {
 
 export function CourseCard({ course }: CourseCardProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isAdmin = useAuthStore((s) => s.isAdmin)
   const isSaved  = useSavedCoursesStore((s) => s.isSaved(course.id))
   const toggle   = useSavedCoursesStore((s) => s.toggle)
   const [saving, setSaving] = useState(false)
@@ -49,8 +50,8 @@ export function CourseCard({ course }: CourseCardProps) {
           </Badge>
         </div>
 
-        {/* Save button — only for authenticated users */}
-        {isAuthenticated && (
+        {/* Save button — authenticated non-admin users only */}
+        {isAuthenticated && !isAdmin && (
           <button
             onClick={handleToggleSave}
             disabled={saving}

@@ -30,6 +30,7 @@ const DURATION_OPTIONS: { value: DurationFilter; label: string }[] = [
 
 export function CoursesPage() {
   const isSubscribed = useAuthStore((s) => s.isSubscribed)
+  const isAdmin = useAuthStore((s) => s.isAdmin)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filterPanelRef = useRef<HTMLDivElement>(null)
   const filterBtnRef   = useRef<HTMLButtonElement>(null)
@@ -77,10 +78,10 @@ export function CoursesPage() {
               : hasQuery || activeFilterCount > 0
                 ? `${filtered.length} of ${courses.length} courses`
                 : `${courses.length} courses available`}
-            {!isSubscribed && ' — subscribe to unlock lessons'}
+            {!isSubscribed && !isAdmin && ' — subscribe to unlock lessons'}
           </p>
         </div>
-        {!isSubscribed && (
+        {!isSubscribed && !isAdmin && (
           <Button asChild size="sm">
             <Link to="/subscription">Upgrade to Standard</Link>
           </Button>

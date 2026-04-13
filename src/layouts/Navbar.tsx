@@ -65,7 +65,7 @@ export function Navbar() {
             className="flex items-center gap-2 font-bold text-lg shrink-0"
             onClick={() => setMobileOpen(false)}
           >
-            <img src="/elearning-logo.png" alt="E-Learn" className="h-8 w-auto" />
+            <img src="/elearning-logo.png" alt="E-Learn" className="h-[50px] md:h-8 w-auto" />
           </Link>
 
           {/* Desktop nav */}
@@ -125,7 +125,7 @@ export function Navbar() {
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
           >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            {mobileOpen ? <X className="size-7" /> : <Menu className="size-7" />}
           </button>
         </div>
 

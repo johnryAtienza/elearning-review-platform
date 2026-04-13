@@ -46,6 +46,23 @@ const config = {
     /** Free tier: max PDF pages visible (env: VITE_FREE_PDF_MAX_PAGES) */
     freePdfMaxPages: Number(import.meta.env.VITE_FREE_PDF_MAX_PAGES ?? 5),
   },
+  /**
+   * Content protection settings.
+   * These are deterrents — full prevention is not possible on the web.
+   *
+   * Defaults: all enabled in production.
+   * Disable per-feature via env vars (set to "false" to turn off).
+   */
+  protection: {
+    /** Master switch — set VITE_CONTENT_PROTECTION_ENABLED=false to disable all */
+    enabled: import.meta.env.VITE_CONTENT_PROTECTION_ENABLED !== 'false',
+    /** Block DevTools keyboard shortcuts (F12, Ctrl+Shift+I, etc.) */
+    blockDevTools: import.meta.env.VITE_PROTECTION_BLOCK_DEVTOOLS !== 'false',
+    /** Show semi-transparent watermark over protected video content */
+    watermark: import.meta.env.VITE_PROTECTION_WATERMARK !== 'false',
+    /** Log suspicious blur/focus patterns that may indicate screen capture */
+    detectCapture: import.meta.env.VITE_PROTECTION_DETECT_CAPTURE !== 'false',
+  },
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',

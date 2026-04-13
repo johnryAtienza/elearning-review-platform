@@ -104,7 +104,7 @@ export function AdminLayout() {
       {/* ── Mobile backdrop ── */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          className="fixed top-16 inset-x-0 bottom-0 z-30 bg-black/40 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -128,7 +128,7 @@ export function AdminLayout() {
       {/* ── Mobile slide-in sidebar ── */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex flex-col w-64 border-r bg-card transition-transform duration-200 md:hidden',
+          'fixed top-16 bottom-0 left-0 z-40 flex flex-col w-64 border-r bg-card transition-transform duration-200 md:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >

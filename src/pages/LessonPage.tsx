@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,11 @@ import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
 import { LessonList } from '@/features/lessons/components/LessonList'
 import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
+import { ContentWatermark } from '@/components/ContentWatermark'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
+import { useContentProtection } from '@/hooks/useContentProtection'
+import { useScreenRecordingDetection } from '@/hooks/useScreenRecordingDetection'
 import { useQuizStore } from '@/store/quizStore'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
@@ -21,6 +24,7 @@ import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProg
 import type { ReviewerContent } from '@/features/lessons/types'
 import type { Quiz } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
+import config from '@/config'
 
 export function LessonPage() {
   const { lessonId } = useParams<{ lessonId: string }>()
@@ -45,6 +49,22 @@ export function LessonPage() {
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isSubscribed    = useAuthStore((s) => s.isSubscribed)
+  const isAdmin         = useAuthStore((s) => s.isAdmin)
+  const user            = useAuthStore((s) => s.user)
+
+  // ── Content protection (subscribed non-admin users only) ─────────────────
+  const protectionActive = config.protection.enabled && isSubscribed && !isAdmin
+
+  useContentProtection(protectionActive && config.protection.blockDevTools)
+
+  const handleSuspiciousCapture = useCallback((_count: number) => {
+    // Extend here: POST to an analytics endpoint to log capture attempts
+  }, [])
+
+  useScreenRecordingDetection(
+    protectionActive && config.protection.detectCapture,
+    handleSuspiciousCapture,
+  )
 
   // Derive tier + permissions from subscription status
   const tier        = tierFromSubscribed(isSubscribed)
@@ -224,17 +244,26 @@ export function LessonPage() {
           {contentLoading ? (
             <Skeleton className="aspect-video w-full rounded-xl" />
           ) : (
-            <VideoPlayer
-              key={lesson.id}
-              title={lesson.title}
-              thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
-              src={signedVideoUrl ?? undefined}
-              durationSeconds={30}
-              onEnded={() => setVideoProgress(100)}
-              previewDuration={videoPreviewSec}
-              onPreviewEnded={() => setPreviewEnded(true)}
-              onProgress={setVideoProgress}
-            />
+            <div
+              className="relative"
+              onContextMenu={(e) => protectionActive && e.preventDefault()}
+            >
+              <VideoPlayer
+                key={lesson.id}
+                title={lesson.title}
+                thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
+                src={signedVideoUrl ?? undefined}
+                durationSeconds={30}
+                onEnded={() => setVideoProgress(100)}
+                previewDuration={videoPreviewSec}
+                onPreviewEnded={() => setPreviewEnded(true)}
+                onProgress={setVideoProgress}
+              />
+              <ContentWatermark
+                label={user?.email ?? user?.id ?? ''}
+                enabled={protectionActive && config.protection.watermark}
+              />
+            </div>
           )}
 
           {/* ── CTA action bar ── */}

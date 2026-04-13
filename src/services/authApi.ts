@@ -216,7 +216,9 @@ const supabaseProvider: IAuthProvider = {
   },
 
   onAuthChange(callback: (user: User | null) => void): () => void {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ignore token refreshes — they don't change auth state, only re-trigger syncs
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return
       callback(session?.user ? toUser(session.user) : null)
     })
     return () => subscription.unsubscribe()

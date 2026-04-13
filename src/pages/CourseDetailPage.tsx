@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { Clock, BookOpen, Tag, ChevronLeft, Play, Film, FileText, HelpCircle, Bookmark, BookmarkCheck } from 'lucide-react'
+import { Clock, BookOpen, Tag, ChevronLeft, Play, Film, FileText, HelpCircle, Bookmark, BookmarkCheck, CalendarClock, PlusCircle, EyeOff, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,6 +10,7 @@ import { CourseThumbnail } from '@/components/CourseThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedCoursesStore } from '@/store/savedCoursesStore'
 import { getCourseById } from '@/features/courses/services/courseService'
+import { courseApi } from '@/services/courseApi'
 import { getLessonsByCourse } from '@/features/lessons/services/lessonService'
 import { ROUTES } from '@/constants/routes'
 import config from '@/config'
@@ -32,6 +33,16 @@ export function CourseDetailPage() {
   const [course, setCourse] = useState<Course | undefined>()
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
+
+  const totalDuration = useMemo(() => {
+    const total = lessons.reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0)
+    if (total === 0) return null
+    const h = Math.floor(total / 60)
+    const m = total % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+  }, [lessons])
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,7 +52,8 @@ export function CourseDetailPage() {
     setLoading(true)
     setError(null)
 
-    Promise.all([getCourseById(courseId), getLessonsByCourse(courseId)])
+    const fetchCourse = isAdmin ? courseApi.getByIdAdmin(courseId) : getCourseById(courseId)
+    Promise.all([fetchCourse, getLessonsByCourse(courseId)])
       .then(([c, ls]) => {
         if (cancelled) return
         if (!c) { setNotFound(true) } else { setCourse(c); setLessons(ls) }
@@ -84,6 +96,25 @@ export function CourseDetailPage() {
         All Courses
       </Link>
 
+      {/* ── Draft preview banner (admin only) ── */}
+      {isAdmin && course.isPublished === false && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 px-4 py-3 mb-6">
+          <div className="flex items-center gap-2.5 text-sm text-amber-800 dark:text-amber-300">
+            <EyeOff className="size-4 shrink-0" />
+            <span>
+              <span className="font-semibold">Draft Preview</span>
+              {' '}— this course is not visible to students yet.
+            </span>
+          </div>
+          <Link
+            to="/admin/courses"
+            className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline"
+          >
+            Back to Admin
+          </Link>
+        </div>
+      )}
+
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* ── Left ── */}
         <div className="space-y-7 min-w-0">
@@ -109,10 +140,12 @@ export function CourseDetailPage() {
                 <BookOpen className="size-4" />
                 {lessons.length} lessons
               </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="size-4" />
-                {course.duration}
-              </span>
+              {totalDuration && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="size-4" />
+                  {totalDuration}
+                </span>
+              )}
               <span className="flex items-center gap-1.5">
                 <Tag className="size-4" />
                 {course.category}
@@ -120,34 +153,59 @@ export function CourseDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h2 className="font-semibold">What you&apos;ll learn</h2>
-            <ul className="grid sm:grid-cols-2 gap-y-2 gap-x-4">
-              {lessons.slice(0, 8).map((l) => (
-                <li key={l.id} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span className="mt-0.5 text-primary shrink-0">✓</span>
-                  {l.title}
-                </li>
-              ))}
-              {lessons.length > 8 && (
-                <li className="text-sm text-muted-foreground col-span-2">
-                  + {lessons.length - 8} more lessons
-                </li>
+          {lessons.length === 0 ? (
+            <div className="rounded-xl border bg-card p-10 flex flex-col items-center text-center gap-3">
+              <div className="rounded-full bg-muted p-4">
+                <CalendarClock className="size-8 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-semibold text-lg">Lessons Coming Soon</h2>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Content is being prepared for this course. Check back soon!
+                </p>
+              </div>
+              {isAdmin && (
+                <Link
+                  to="/admin/lessons"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
+                >
+                  <PlusCircle className="size-4" />
+                  Add lessons in Admin
+                </Link>
               )}
-            </ul>
-          </div>
-
-          <div className="space-y-3">
-            <h2 className="font-semibold text-lg">
-              Course Content
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                {lessons.length} lessons · {course.duration}
-              </span>
-            </h2>
-            <div className="rounded-xl border overflow-hidden">
-              <LessonList lessons={lessons} isSubscribed={isSubscribed} isGuest={!isAuthenticated} />
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="rounded-xl border bg-card p-5 space-y-3">
+                <h2 className="font-semibold">What you&apos;ll learn</h2>
+                <ul className="grid sm:grid-cols-2 gap-y-2 gap-x-4">
+                  {lessons.slice(0, 8).map((l) => (
+                    <li key={l.id} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="mt-0.5 text-primary shrink-0">✓</span>
+                      {l.title}
+                    </li>
+                  ))}
+                  {lessons.length > 8 && (
+                    <li className="text-sm text-muted-foreground col-span-2">
+                      + {lessons.length - 8} more lessons
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <h2 className="font-semibold text-lg">
+                  Course Content
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {lessons.length} lessons{totalDuration ? ` · ${totalDuration}` : ''}
+                  </span>
+                </h2>
+                <div className="rounded-xl border overflow-hidden">
+                  <LessonList lessons={lessons} isSubscribed={isSubscribed} isGuest={!isAuthenticated} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Right: sticky enroll card ── */}
@@ -160,49 +218,76 @@ export function CourseDetailPage() {
               className="h-32"
             />
             <div className="p-5 space-y-4">
-              {/* Tier badge */}
-              <div className="flex items-center justify-between">
-                <p className="font-semibold">{isSubscribed ? 'Ready to start?' : isAuthenticated ? 'Free access' : 'Get started'}</p>
-                {isAuthenticated && (
-                  <span className={
-                    isSubscribed
-                      ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
-                      : 'inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400'
-                  }>
-                    {isSubscribed ? 'Standard Plan' : 'Free Plan'}
-                  </span>
-                )}
-              </div>
+              {/* Draft preview admin card */}
+              {isAdmin && course.isPublished === false ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <EyeOff className="size-4 text-amber-500 shrink-0" />
+                    <p className="font-semibold text-sm">Draft — not published</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Students cannot see this course until it is published.
+                  </p>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/admin/courses">
+                      <Pencil className="size-4 mr-1.5" />
+                      Edit in Admin
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Tier badge */}
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold">{isSubscribed ? 'Ready to start?' : isAuthenticated ? 'Free access' : 'Get started'}</p>
+                    {isAuthenticated && (
+                      <span className={
+                        isSubscribed
+                          ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
+                          : 'inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400'
+                      }>
+                        {isSubscribed ? 'Standard Plan' : 'Free Plan'}
+                      </span>
+                    )}
+                  </div>
 
-              {/* Free plan access summary */}
-              {isAuthenticated && !isSubscribed && (
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <Play className="size-3.5 text-amber-500 shrink-0" />
-                    30-second video preview per lesson
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <FileText className="size-3.5 text-amber-500 shrink-0" />
-                    First 5 pages of reviewer PDFs
-                  </li>
-                  <li className="flex items-center gap-2 line-through opacity-50">
-                    <HelpCircle className="size-3.5 shrink-0" />
-                    Quizzes locked
-                  </li>
-                </ul>
+                  {/* Free plan access summary */}
+                  {isAuthenticated && !isSubscribed && (
+                    <ul className="space-y-1.5 text-xs text-muted-foreground">
+                      <li className="flex items-center gap-2">
+                        <Play className="size-3.5 text-amber-500 shrink-0" />
+                        30-second video preview per lesson
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <FileText className="size-3.5 text-amber-500 shrink-0" />
+                        First 5 pages of reviewer PDFs
+                      </li>
+                      <li className="flex items-center gap-2 line-through opacity-50">
+                        <HelpCircle className="size-3.5 shrink-0" />
+                        Quizzes locked
+                      </li>
+                    </ul>
+                  )}
+                </>
               )}
 
               {isAdmin ? null : isSubscribed ? (
-                <Button asChild className="w-full">
-                  <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>Start First Lesson</Link>
+                <Button asChild className="w-full" disabled={lessons.length === 0}>
+                  {lessons.length > 0
+                    ? <Link to={ROUTES.LESSON(lessons[0].id)}>Start First Lesson</Link>
+                    : <span>No lessons yet</span>
+                  }
                 </Button>
               ) : isAuthenticated ? (
                 <>
-                  <Button asChild className="w-full">
-                    <Link to={ROUTES.LESSON(lessons[0]?.id ?? '')}>
-                      <Play className="size-4 mr-1.5" />
-                      Start Free Preview
-                    </Link>
+                  <Button asChild className="w-full" disabled={lessons.length === 0}>
+                    {lessons.length > 0
+                      ? <Link to={ROUTES.LESSON(lessons[0].id)}>
+                          <Play className="size-4 mr-1.5" />
+                          Start Free Preview
+                        </Link>
+                      : <span>No lessons yet</span>
+                    }
                   </Button>
                   <Button asChild variant="outline" className="w-full">
                     <Link to={ROUTES.SUBSCRIPTION}>
@@ -242,7 +327,9 @@ export function CourseDetailPage() {
             <h3 className="font-semibold">This course includes</h3>
             <ul className="space-y-2 text-muted-foreground">
               <li className="flex items-center gap-2"><BookOpen className="size-4" /> {lessons.length} on-demand lessons</li>
-              <li className="flex items-center gap-2"><Clock className="size-4" /> {course.duration} total length</li>
+              {totalDuration && (
+                <li className="flex items-center gap-2"><Clock className="size-4" /> {totalDuration} total length</li>
+              )}
               <li className="flex items-center gap-2"><Film className="size-4" /> Video lessons {isSubscribed ? '(full access)' : '(30s free preview)'}</li>
               <li className="flex items-center gap-2"><FileText className="size-4" /> Reviewer PDFs {isSubscribed ? '(full access)' : '(5 pages free)'}</li>
               <li className="flex items-center gap-2"><HelpCircle className="size-4" /> Quizzes {isSubscribed ? '(with scores & answers)' : '(Standard plan only)'}</li>

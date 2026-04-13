@@ -5,6 +5,7 @@ export interface Lesson {
   title: string
   description: string
   duration: string
+  durationMinutes: number | null
   /** Present when fetched from Supabase as a subscribed user. */
   videoUrl?: string
   /** Present when fetched from Supabase as a subscribed user. */

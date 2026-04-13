@@ -5,6 +5,8 @@ import type { Quiz, QuizQuestion } from '@/features/quiz/types'
 interface QuizRow {
   id: string
   lesson_id: string
+  description: string | null
+  randomize_questions: boolean
 }
 
 interface QuizQuestionRow {
@@ -32,7 +34,7 @@ function toQuizQuestion(row: QuizQuestionRow): QuizQuestion {
 export async function getQuizByLessonId(lessonId: string): Promise<Quiz | undefined> {
   const { data: quizData, error: quizError } = await supabase
     .from('quizzes')
-    .select('id, lesson_id')
+    .select('id, lesson_id, description, randomize_questions')
     .eq('lesson_id', lessonId)
     .maybeSingle()
 
@@ -51,6 +53,8 @@ export async function getQuizByLessonId(lessonId: string): Promise<Quiz | undefi
 
   return {
     lessonId,
-    questions: (questionsData as unknown as QuizQuestionRow[]).map(toQuizQuestion),
+    description:  quiz.description ?? null,
+    randomize:    quiz.randomize_questions ?? false,
+    questions:    (questionsData as unknown as QuizQuestionRow[]).map(toQuizQuestion),
   }
 }

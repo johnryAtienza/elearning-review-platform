@@ -40,9 +40,12 @@ export function LessonPage() {
   const [isWatched,      setIsWatched]      = useState(false)
   const [markingWatched, setMarkingWatched] = useState(false)
 
-  // Refs for scroll-to behaviour from LessonCTAs
-  const reviewerRef = useRef<HTMLDivElement>(null)
-  const quizRef     = useRef<HTMLDivElement>(null)
+  // Tab state — only one of reviewer/quiz is visible at a time
+  const [activeTab,       setActiveTab]       = useState<'reviewer' | 'quiz' | null>(null)
+  const [reviewerVisited, setReviewerVisited] = useState(false)
+
+  // Ref for scrolling to the tab panel when a tab is activated
+  const tabPanelRef = useRef<HTMLDivElement>(null)
 
   const setLessonId = useQuizStore((s) => s.setLessonId)
   const submitted   = useQuizStore((s) => s.submitted)
@@ -91,6 +94,8 @@ export function LessonPage() {
     setMarkingWatched(false)
     setReviewerContent(undefined)
     setQuiz(undefined)
+    setActiveTab(null)
+    setReviewerVisited(false)
 
     const lessonId = data.lesson.id
 
@@ -103,6 +108,12 @@ export function LessonPage() {
       setReviewerContent(rc)
       setQuiz(qz)
       setIsWatched(watched)
+      // Restore tab state for previously-watched lessons
+      if (watched) {
+        const defaultTab = (rc || signedPdfUrl) ? 'reviewer' : qz ? 'quiz' : null
+        setActiveTab(defaultTab)
+        if (defaultTab === 'reviewer') setReviewerVisited(true)
+      }
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -115,10 +126,16 @@ export function LessonPage() {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
+      // Auto-open reviewer (or quiz as fallback) after marking watched
+      const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
+      setActiveTab(defaultTab)
+      if (defaultTab === 'reviewer') setReviewerVisited(true)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
-      // Still unlock locally even if backend save fails
       setIsWatched(true)
+      const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
+      setActiveTab(defaultTab)
+      if (defaultTab === 'reviewer') setReviewerVisited(true)
     } finally {
       setMarkingWatched(false)
     }
@@ -161,8 +178,10 @@ export function LessonPage() {
     previewSeconds: permissions.videoPreviewSeconds,
   })
 
-  function scrollTo(ref: React.RefObject<HTMLDivElement | null>) {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  function handleTabChange(tab: 'reviewer' | 'quiz') {
+    setActiveTab(tab)
+    if (tab === 'reviewer') setReviewerVisited(true)
+    setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
   return (
@@ -273,9 +292,9 @@ export function LessonPage() {
             markingWatched={markingWatched}
             onMarkWatched={handleMarkWatched}
             hasReviewer={!!(reviewerContent || signedPdfUrl)}
-            onViewReviewer={() => scrollTo(reviewerRef)}
             hasQuiz={!!quiz}
-            onTakeQuiz={() => scrollTo(quizRef)}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
           />
 
           {/* ── Free tier banner ── */}
@@ -283,26 +302,26 @@ export function LessonPage() {
             <FreeTierBanner previewEnded={previewEnded} previewSeconds={permissions.videoPreviewSeconds} />
           )}
 
-          {/* ── Reviewer ── */}
-          {(reviewerContent || signedPdfUrl) && (
-            <div ref={reviewerRef}>
-              <ReviewerSection
-                content={reviewerContent}
-                pdfUrl={signedPdfUrl ?? undefined}
-                visible={contentUnlocked}
-                tier={tier}
-              />
-            </div>
-          )}
-
-          {/* ── Quiz ── */}
-          {quiz && (
-            <div ref={quizRef}>
-              <QuizComponent
-                questions={quiz.questions}
-                visible={contentUnlocked}
-                locked={!permissions.quizEnabled}
-              />
+          {/* ── Reviewer / Quiz tab panel ── */}
+          {activeTab !== null && (
+            <div ref={tabPanelRef}>
+              {activeTab === 'reviewer' && (reviewerContent || signedPdfUrl) && (
+                <ReviewerSection
+                  content={reviewerContent}
+                  pdfUrl={signedPdfUrl ?? undefined}
+                  visible={contentUnlocked}
+                  tier={tier}
+                />
+              )}
+              {activeTab === 'quiz' && quiz && (
+                <QuizComponent
+                  questions={quiz.questions}
+                  description={quiz.description}
+                  randomize={quiz.randomize}
+                  visible={contentUnlocked}
+                  locked={!permissions.quizEnabled}
+                />
+              )}
             </div>
           )}
 

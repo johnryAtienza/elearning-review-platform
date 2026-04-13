@@ -11,6 +11,14 @@ interface LessonListProps {
   isGuest?: boolean
 }
 
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
 export function LessonList({ lessons, isSubscribed, activeLessonId, isGuest = false }: LessonListProps) {
   return (
     <ol className="space-y-1">
@@ -37,7 +45,11 @@ export function LessonList({ lessons, isSubscribed, activeLessonId, isGuest = fa
             <span className="flex-1 min-w-0 truncate font-medium">{lesson.title}</span>
 
             {/* Duration */}
-            <span className="text-xs text-muted-foreground shrink-0">{lesson.duration}</span>
+            {(lesson.durationMinutes != null || lesson.duration) && (
+              <span className="text-xs text-muted-foreground shrink-0">
+                {lesson.durationMinutes != null ? formatDuration(lesson.durationMinutes) : lesson.duration}
+              </span>
+            )}
 
             {/* Right-side indicator */}
             {isActive ? (

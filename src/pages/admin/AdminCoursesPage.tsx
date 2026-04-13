@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen, Eye, EyeOff, Loader2, ExternalLink,
-  Pencil, Trash2, Plus, AlertTriangle,
+  Pencil, Trash2, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CourseModal } from '@/features/admin/components/CourseModal'
 import { CourseThumbnail } from '@/components/CourseThumbnail'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
 } from '@/features/admin/components/AdminTable'
 import {
@@ -125,12 +125,7 @@ export function AdminCoursesPage() {
       </div>
 
       {/* ── Load error ── */}
-      {loadError && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {loadError}
-        </div>
-      )}
+      <LoadError message={loadError} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -256,39 +251,46 @@ function CourseRow({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost" size="icon" className="size-8"
-            title={course.isPublished ? 'Unpublish' : 'Publish'}
-            disabled={isToggling || isDeleting}
-            onClick={onTogglePublished}
-          >
-            {isToggling
-              ? <Loader2 className="size-4 animate-spin" />
-              : course.isPublished
-                ? <EyeOff className="size-4" />
-                : <Eye className="size-4" />}
-          </Button>
-          <Button
-            variant="ghost" size="icon" className="size-8"
-            title="Edit course" disabled={isDeleting} onClick={onEdit}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost" size="icon" className="size-8"
-            title="View on site" disabled={isDeleting} asChild
-          >
-            <Link to={ROUTES.COURSE(course.id)}>
-              <ExternalLink className="size-4" />
-            </Link>
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete course" disabled={isDeleting} onClick={onConfirmDelete}
-          >
-            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-          </Button>
+          <Tip label={course.isPublished ? 'Unpublish' : 'Publish'}>
+            <Button
+              variant="ghost" size="icon" className="size-8"
+              disabled={isToggling || isDeleting}
+              onClick={onTogglePublished}
+            >
+              {isToggling
+                ? <Loader2 className="size-4 animate-spin" />
+                : course.isPublished
+                  ? <EyeOff className="size-4" />
+                  : <Eye className="size-4" />}
+            </Button>
+          </Tip>
+          <Tip label="Edit course">
+            <Button
+              variant="ghost" size="icon" className="size-8"
+              disabled={isDeleting} onClick={onEdit}
+            >
+              <Pencil className="size-4" />
+            </Button>
+          </Tip>
+          <Tip label={course.isPublished ? 'View on site' : 'Preview draft'}>
+            <Button
+              variant="ghost" size="icon" className="size-8"
+              disabled={isDeleting} asChild
+            >
+              <Link to={ROUTES.COURSE(course.id)} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className={`size-4 ${!course.isPublished ? 'text-amber-500' : ''}`} />
+              </Link>
+            </Button>
+          </Tip>
+          <Tip label="Delete course" align="right">
+            <Button
+              variant="ghost" size="icon"
+              className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={isDeleting} onClick={onConfirmDelete}
+            >
+              {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+            </Button>
+          </Tip>
         </div>
       </div>
 
@@ -302,3 +304,4 @@ function CourseRow({
     </div>
   )
 }
+

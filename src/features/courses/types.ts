@@ -15,6 +15,8 @@ export interface Course {
   difficulty?: 'Beginner' | 'Intermediate' | 'Advanced'
   /** Free-form keyword tags for search */
   tags?: string[]
+  /** Whether the course is published and visible to students. Undefined for legacy data. */
+  isPublished?: boolean
 }
 
 export type SortOption = 'relevant' | 'newest' | 'az' | 'most-lessons'

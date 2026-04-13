@@ -14,6 +14,8 @@ export interface QuizQuestion {
 
 export interface Quiz {
   lessonId: string
+  description?: string | null
+  randomize: boolean
   questions: QuizQuestion[]
 }
 

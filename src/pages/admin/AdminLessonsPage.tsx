@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BookMarked, Plus, Pencil, Trash2, Loader2,
-  FileVideo, FileText, CheckCircle2, AlertTriangle,
+  FileVideo, FileText, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LessonModal } from '@/features/admin/components/LessonModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
-  filterTabClass, type ColConfig,
+  filterTabClass, Tip, LoadError, type ColConfig,
 } from '@/features/admin/components/AdminTable'
 import {
   getAdminLessons,
@@ -129,12 +129,7 @@ export function AdminLessonsPage() {
       )}
 
       {/* ── Load error ── */}
-      {loadError && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {loadError}
-        </div>
-      )}
+      <LoadError message={loadError} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -200,6 +195,16 @@ export function AdminLessonsPage() {
   )
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatLessonDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
 // ── LessonRow ─────────────────────────────────────────────────────────────────
 
 interface LessonRowProps {
@@ -227,6 +232,11 @@ function LessonRow({
             <Badge variant="secondary" className="text-xs font-normal py-0">
               {lesson.courseTitle}
             </Badge>
+            {lesson.durationMinutes != null && (
+              <span className="text-xs text-muted-foreground">
+                {formatLessonDuration(lesson.durationMinutes)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -251,19 +261,23 @@ function LessonRow({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost" size="icon" className="size-8"
-            title="Edit lesson" disabled={isDeleting} onClick={onEdit}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete lesson" disabled={isDeleting} onClick={onConfirmDelete}
-          >
-            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-          </Button>
+          <Tip label="Edit lesson">
+            <Button
+              variant="ghost" size="icon" className="size-8"
+              disabled={isDeleting} onClick={onEdit}
+            >
+              <Pencil className="size-4" />
+            </Button>
+          </Tip>
+          <Tip label="Delete lesson" align="right">
+            <Button
+              variant="ghost" size="icon"
+              className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={isDeleting} onClick={onConfirmDelete}
+            >
+              {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+            </Button>
+          </Tip>
         </div>
       </div>
 

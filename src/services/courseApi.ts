@@ -16,4 +16,10 @@ export const courseApi = {
     if (config.auth.provider === 'supabase')   return courseService.getCourseById(id)
     return apiClient.get<Course>(`/courses/${id}`)
   },
+
+  async getByIdAdmin(id: string): Promise<Course | undefined> {
+    if (config.api.useMock)                    return COURSES.find((c) => c.id === id)
+    if (config.auth.provider === 'supabase')   return courseService.getCourseByIdAdmin(id)
+    return apiClient.get<Course>(`/courses/${id}`)
+  },
 }

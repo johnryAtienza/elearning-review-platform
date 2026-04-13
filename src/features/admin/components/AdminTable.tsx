@@ -9,6 +9,7 @@
  *      copy-pasting the same markup across every admin page.
  */
 
+import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/button'
 
@@ -115,5 +116,44 @@ export function filterTabClass(active: boolean): string {
     active
       ? 'bg-primary text-primary-foreground'
       : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+  )
+}
+
+// ── LoadError ─────────────────────────────────────────────────────────────────
+
+export function LoadError({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+      {message}
+    </div>
+  )
+}
+
+// ── formatAdminDate ───────────────────────────────────────────────────────────
+
+export function formatAdminDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ── Tip (styled hover tooltip for icon buttons) ───────────────────────────────
+
+interface TipProps {
+  label: string
+  children: React.ReactNode
+  /** 'center' centers the tooltip above the button; 'right' anchors it to the right edge (use for the last action button to prevent overflow). */
+  align?: 'center' | 'right'
+}
+
+export function Tip({ label, children, align = 'center' }: TipProps) {
+  const alignClass = align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'
+  return (
+    <div className="relative group/tip">
+      {children}
+      <div className={`pointer-events-none absolute bottom-full ${alignClass} mb-1.5 z-50 whitespace-nowrap rounded-md border bg-popover text-popover-foreground shadow-md px-2 py-1 text-xs opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150`}>
+        {label}
+      </div>
+    </div>
   )
 }

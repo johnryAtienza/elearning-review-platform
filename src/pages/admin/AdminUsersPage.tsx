@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Search, AlertTriangle, ShieldCheck, User, Pencil } from 'lucide-react'
+import { Users, Search, ShieldCheck, User, Pencil } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  AdminTableHeader, filterTabClass, ADMIN_ROW_BASE,
+  AdminTableHeader, filterTabClass, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
   type ColConfig,
 } from '@/features/admin/components/AdminTable'
 import {
@@ -181,12 +181,7 @@ export function AdminUsersPage() {
       </div>
 
       {/* ── Load error ── */}
-      {loadError && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {loadError}
-        </div>
-      )}
+      <LoadError message={loadError} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -310,27 +305,28 @@ function UserRow({
 
         {/* Role — clickable to toggle */}
         <span className="flex justify-center">
-          <button
-            type="button"
-            disabled={isTogglingRole}
-            onClick={onRoleClick}
-            title={user.role === 'admin' ? 'Demote to user' : 'Promote to admin'}
-            className="rounded transition-opacity disabled:opacity-50"
-          >
-            {isTogglingRole ? (
-              <Badge variant="secondary" className="opacity-60">…</Badge>
-            ) : user.role === 'admin' ? (
-              <Badge variant="pro" className="cursor-pointer hover:opacity-80 gap-1">
-                <ShieldCheck className="size-3" />
-                Admin
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="cursor-pointer hover:opacity-80 gap-1">
-                <User className="size-3" />
-                User
-              </Badge>
-            )}
-          </button>
+          <Tip label={user.role === 'admin' ? 'Demote to user' : 'Promote to admin'}>
+            <button
+              type="button"
+              disabled={isTogglingRole}
+              onClick={onRoleClick}
+              className="rounded transition-opacity disabled:opacity-50"
+            >
+              {isTogglingRole ? (
+                <Badge variant="secondary" className="opacity-60">…</Badge>
+              ) : user.role === 'admin' ? (
+                <Badge variant="pro" className="cursor-pointer hover:opacity-80 gap-1">
+                  <ShieldCheck className="size-3" />
+                  Admin
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="cursor-pointer hover:opacity-80 gap-1">
+                  <User className="size-3" />
+                  User
+                </Badge>
+              )}
+            </button>
+          </Tip>
         </span>
 
         {/* Subscription — read-only */}
@@ -344,18 +340,19 @@ function UserRow({
 
         {/* Joined date */}
         <span className="hidden sm:block text-xs text-muted-foreground text-center tabular-nums">
-          {formatDate(user.createdAt)}
+          {formatAdminDate(user.createdAt)}
         </span>
 
         {/* Edit button */}
-        <button
-          type="button"
-          onClick={onEditClick}
-          title="Edit user"
-          className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Pencil className="size-3.5" />
-        </button>
+        <Tip label="Edit user" align="right">
+          <button
+            type="button"
+            onClick={onEditClick}
+            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+        </Tip>
       </div>
 
       {/* Inline edit form */}
@@ -463,7 +460,4 @@ function Initials({ name }: { name: string }) {
   )
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 

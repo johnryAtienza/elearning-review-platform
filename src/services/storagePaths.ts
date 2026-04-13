@@ -29,4 +29,8 @@ export const storagePaths = {
   /** e.g. quizzes/questions/abc123/option-0.webp */
   quizOptionImage: (questionId: string, optionIndex: number, ext = 'webp') =>
     `quizzes/questions/${questionId}/option-${optionIndex}.${ext}`,
+
+  /** e.g. quizzes/questions/abc123/answer.webp */
+  quizAnswerImage: (questionId: string, ext = 'webp') =>
+    `quizzes/questions/${questionId}/answer.${ext}`,
 }

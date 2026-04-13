@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import type { QuizQuestion } from '@/features/quiz/types'
 import { answerLabel, PASSING_SCORE_PCT } from '@/features/quiz/utils'
+import { MathText } from '@/components/MathText'
 
 interface ResultSummaryProps {
   questions: QuizQuestion[]
@@ -46,7 +47,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                 <p className="font-medium text-sm">
                   <span className="mr-1.5">{isCorrect ? '✓' : '✗'}</span>
                   <span className="mr-2 text-muted-foreground">{qi + 1}.</span>
-                  {q.question}
+                  <MathText text={q.question} />
                 </p>
                 {q.questionImageUrl && (
                   <img
@@ -77,7 +78,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                           : cn(
                               'flex items-center gap-2 px-3 py-1.5',
                               isAnswer && 'bg-green-100 text-green-800 font-medium',
-                              isSelected && !isAnswer && 'bg-red-100 text-red-700 line-through',
+                              isSelected && !isAnswer && 'bg-red-100 text-red-700',
                             )
                       )}
                     >
@@ -89,7 +90,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                             className="rounded object-contain max-h-20 w-full"
                           />
                           {choice.text && (
-                            <span className="text-xs">{choice.text}</span>
+                            <MathText text={choice.text} className="text-xs" />
                           )}
                         </>
                       ) : (
@@ -97,7 +98,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                           <span className="text-muted-foreground shrink-0">
                             {answerLabel(ci)}.
                           </span>
-                          {choice.text}
+                          <MathText text={choice.text} />
                         </>
                       )}
                       {isAnswer && (

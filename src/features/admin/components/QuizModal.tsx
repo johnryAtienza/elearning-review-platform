@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   X, Plus, Trash2, ChevronUp, ChevronDown,
-  ImageIcon, CheckCircle2, Loader2, Upload,
+  ImageIcon, CheckCircle2, Loader2, Upload, Info, FileSearch,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,10 +9,12 @@ import { uploadToStorage } from '@/services/storageClient'
 import { storagePaths } from '@/services/storagePaths'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
+import { MathText } from '@/components/MathText'
 import {
   getAdminLessons,
   createAdminQuiz,
-  deleteQuizQuestions,
+  updateAdminQuiz,
+  deleteQuizQuestionsByIds,
   upsertQuizQuestion,
   type AdminQuizFull,
   type AdminQuizOption,
@@ -29,6 +31,8 @@ interface DraftOption {
 
 interface DraftQuestion {
   key: string              // doubles as DB id (pre-generated UUID)
+  isNew: boolean           // true if added this session (not yet in DB)
+  isDirty: boolean         // true if existing question was modified
   questionText: string
   questionFile: File | null
   questionPreview: string | null
@@ -36,6 +40,10 @@ interface DraftQuestion {
   useOptionImages: boolean
   options: DraftOption[]
   correctAnswer: number
+  answerText: string
+  answerFile: File | null
+  answerPreview: string | null
+  useAnswerImage: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,20 +56,28 @@ function newOption(): DraftOption {
 
 function newQuestion(): DraftQuestion {
   return {
-    key: uid(),
-    questionText: '',
-    questionFile: null,
+    key:             uid(),
+    isNew:           true,
+    isDirty:         false,
+    questionText:    '',
+    questionFile:    null,
     questionPreview: null,
     useQuestionImage: false,
-    useOptionImages: false,
-    options: [newOption(), newOption()],
-    correctAnswer: 0,
+    useOptionImages:  false,
+    options:         [newOption(), newOption()],
+    correctAnswer:   0,
+    answerText:      '',
+    answerFile:      null,
+    answerPreview:   null,
+    useAnswerImage:  false,
   }
 }
 
 function fromExistingQuestion(q: AdminQuizFull['questions'][number]): DraftQuestion {
   return {
     key:              q.id,
+    isNew:            false,
+    isDirty:          false,
     questionText:     q.questionText,
     questionFile:     null,
     questionPreview:  q.questionImageUrl,
@@ -73,7 +89,11 @@ function fromExistingQuestion(q: AdminQuizFull['questions'][number]): DraftQuest
       file:    null,
       preview: o.imageUrl,
     })),
-    correctAnswer: q.correctAnswer,
+    correctAnswer:  q.correctAnswer,
+    answerText:     q.answerText ?? '',
+    answerFile:     null,
+    answerPreview:  q.answerImageUrl ?? null,
+    useAnswerImage: Boolean(q.answerImageUrl),
   }
 }
 
@@ -88,27 +108,35 @@ interface QuizModalProps {
 export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
   const isEdit = quiz !== null
 
-  const [lessonId,    setLessonId]    = useState(quiz?.lessonId ?? '')
-  const [lessons,     setLessons]     = useState<{ id: string; title: string; courseTitle: string }[]>([])
-  const [lessonsLoad, setLessonsLoad] = useState(true)
-  const [questions,   setQuestions]   = useState<DraftQuestion[]>(
+  const [lessonId,     setLessonId]     = useState(quiz?.lessonId ?? '')
+  const [description,  setDescription]  = useState(quiz?.description ?? '')
+  const [randomize,    setRandomize]    = useState(quiz?.randomize ?? false)
+  const [lessons,      setLessons]      = useState<{ id: string; title: string; courseTitle: string }[]>([])
+  const [lessonsLoad,  setLessonsLoad]  = useState(true)
+  const [questions,    setQuestions]    = useState<DraftQuestion[]>(
     quiz ? quiz.questions.map(fromExistingQuestion) : [newQuestion()],
   )
-  const [saving,      setSaving]      = useState(false)
-  const [uploadStep,  setUploadStep]  = useState('')
-  const [error,       setError]       = useState<string | null>(null)
+  const [saving,            setSaving]           = useState(false)
+  const [uploadStep,        setUploadStep]        = useState('')
+  const [error,             setError]             = useState<string | null>(null)
+  const [activePreviewKey,  setActivePreviewKey]  = useState<string | null>(null)
 
-  // ── Load lessons ─────────────────────────────────────────────────────────────
+  // Tracks DB ids of questions explicitly deleted during this edit session
+  const deletedIdsRef = useRef<string[]>([])
+
+  // ── Load lessons (runs once on mount) ────────────────────────────────────────
+  const initialLessonId = useRef(quiz?.lessonId ?? '')
   useEffect(() => {
     getAdminLessons()
       .then((ls) => {
         const mapped = ls.map((l) => ({ id: l.id, title: l.title, courseTitle: l.courseTitle }))
         setLessons(mapped)
-        if (!lessonId && mapped.length > 0) setLessonId(mapped[0].id)
+        // Auto-select first lesson only if no lesson was pre-selected
+        if (!initialLessonId.current && mapped.length > 0) setLessonId(mapped[0].id)
       })
       .catch(() => setError('Failed to load lessons.'))
       .finally(() => setLessonsLoad(false))
-  }, [lessonId])
+  }, [])
 
   // ── Validation ────────────────────────────────────────────────────────────────
   function validate(): string | null {
@@ -142,25 +170,44 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
     try {
       // 1. Get or create quiz record
       setUploadStep('Preparing quiz…')
-      const quizId = isEdit ? quiz.id : await createAdminQuiz(lessonId)
+      const trimmedDescription = description.trim() || null
+      const quizId = isEdit
+        ? quiz.id
+        : await createAdminQuiz(lessonId, trimmedDescription, randomize)
+      if (isEdit) await updateAdminQuiz(quizId, trimmedDescription, randomize)
 
-      // 2. In edit mode, delete all existing questions (we re-upsert by key/id)
-      if (isEdit) {
-        setUploadStep('Clearing old questions…')
-        await deleteQuizQuestions(quizId)
+      // 2. In edit mode, delete only questions that were explicitly removed
+      if (isEdit && deletedIdsRef.current.length > 0) {
+        setUploadStep('Removing deleted questions…')
+        await deleteQuizQuestionsByIds(deletedIdsRef.current)
       }
 
-      // 3. Count images to upload
+      // 3. Only process questions that are new or were edited.
+      //    In create mode every question is new so this is the full list.
+      const questionsToSave = isEdit
+        ? questions.filter((q) => q.isNew || q.isDirty)
+        : questions
+
+      if (questionsToSave.length === 0) {
+        // Nothing changed — skip straight to done
+        onSaved(quizId, lessonId)
+        return
+      }
+
+      // 4. Count images to upload (only from questions being saved)
       let totalImages = 0
       let uploadedImages = 0
-      for (const q of questions) {
+      for (const q of questionsToSave) {
         if (q.questionFile) totalImages++
+        if (q.answerFile)   totalImages++
         for (const o of q.options) { if (o.file) totalImages++ }
       }
 
-      // 4. Process each question
-      for (let qi = 0; qi < questions.length; qi++) {
-        const q = questions[qi]
+      // 5. Process each question that needs saving
+      for (let si = 0; si < questionsToSave.length; si++) {
+        const q = questionsToSave[si]
+        // Order is derived from the full questions array (includes untouched ones)
+        const order = questions.findIndex((qq) => qq.key === q.key) + 1
 
         // Upload question image
         let questionImageUrl = (!q.questionFile ? q.questionPreview : null)
@@ -189,8 +236,19 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
           finalOptions.push({ text: o.text.trim(), imageUrl })
         }
 
+        // Upload answer image
+        let answerImageUrl: string | null = (!q.answerFile ? q.answerPreview : null)
+        if (q.answerFile) {
+          uploadedImages++
+          setUploadStep(`Uploading images (${uploadedImages}/${totalImages})…`)
+          const ext  = q.answerFile.name.split('.').pop() ?? 'webp'
+          const path = storagePaths.quizAnswerImage(q.key, ext)
+          const res  = await uploadToStorage(q.answerFile, path)
+          answerImageUrl = res.publicUrl
+        }
+
         // Upsert question
-        setUploadStep(`Saving question ${qi + 1}/${questions.length}…`)
+        setUploadStep(`Saving question ${si + 1}/${questionsToSave.length}…`)
         await upsertQuizQuestion({
           id:               q.key,
           quizId,
@@ -198,7 +256,9 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
           questionImageUrl: questionImageUrl ?? null,
           options:          finalOptions,
           correctAnswer:    q.correctAnswer,
-          order:            qi + 1,
+          order,
+          answerText:       q.answerText.trim() || null,
+          answerImageUrl:   answerImageUrl ?? null,
         })
       }
 
@@ -212,14 +272,32 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
   }
 
   // ── Question list mutations ───────────────────────────────────────────────────
+
+  // Mark existing questions dirty when their content changes
   const updateQuestion = useCallback((key: string, patch: Partial<DraftQuestion>) => {
-    setQuestions((prev) => prev.map((q) => q.key === key ? { ...q, ...patch } : q))
+    setQuestions((prev) => prev.map((q) => {
+      if (q.key !== key) return q
+      return { ...q, ...patch, isDirty: q.isNew ? false : true }
+    }))
   }, [])
 
+  // Track removed DB questions; shift-dirty any existing questions whose order changed
   const removeQuestion = useCallback((key: string) => {
-    setQuestions((prev) => prev.filter((q) => q.key !== key))
+    setQuestions((prev) => {
+      const idx = prev.findIndex((q) => q.key === key)
+      if (idx < 0) return prev
+      const target = prev[idx]
+      if (!target.isNew) {
+        // Will need a targeted DELETE for this question
+        deletedIdsRef.current.push(target.key)
+      }
+      const next = prev.filter((q) => q.key !== key)
+      // All existing questions after the removed slot shift up by 1 → mark dirty
+      return next.map((q, i) => (i >= idx && !q.isNew) ? { ...q, isDirty: true } : q)
+    })
   }, [])
 
+  // Mark both swapped questions dirty (their order value changed)
   const moveQuestion = useCallback((key: string, dir: -1 | 1) => {
     setQuestions((prev) => {
       const i = prev.findIndex((q) => q.key === key)
@@ -228,7 +306,9 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
       if (j < 0 || j >= prev.length) return prev
       const next = [...prev]
       ;[next[i], next[j]] = [next[j], next[i]]
-      return next
+      return next.map((q, idx) =>
+        (idx === i || idx === j) && !q.isNew ? { ...q, isDirty: true } : q,
+      )
     })
   }, [])
 
@@ -285,6 +365,56 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
               )}
             </div>
 
+            {/* Description */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Description</label>
+                <span className="text-xs text-muted-foreground">
+                  {description.length}/1000
+                </span>
+              </div>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+                placeholder="Add instructions or additional details for this quiz…"
+                disabled={saving}
+                rows={4}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            {/* Randomize toggle */}
+            <div className="rounded-lg border bg-muted/20 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium">Randomize Questions</label>
+                  <div className="relative group/rnd inline-flex">
+                    <Info className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-default transition-colors" />
+                    <div className={cn(
+                      'pointer-events-none absolute top-full left-0 mt-1.5 z-50',
+                      'w-72 rounded-md border bg-popover text-popover-foreground shadow-md',
+                      'px-3 py-2 text-xs leading-relaxed',
+                      'opacity-0 group-hover/rnd:opacity-100 transition-opacity duration-150',
+                    )}>
+                      <p className="font-semibold mb-1">Randomize Questions</p>
+                      <p className="text-muted-foreground">
+                        When <span className="font-medium text-foreground">On</span>, questions will appear in a different random order each time a student takes the quiz.
+                      </p>
+                      <p className="text-muted-foreground mt-1">
+                        When <span className="font-medium text-foreground">Off</span> (default), questions follow the order you set here.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <Toggle
+                  label={randomize ? 'On' : 'Off'}
+                  checked={randomize}
+                  disabled={saving}
+                  onChange={setRandomize}
+                />
+              </div>
+            </div>
+
             {/* Questions */}
             <div className="space-y-4">
               {questions.map((q, qi) => (
@@ -294,6 +424,8 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
                   index={qi}
                   total={questions.length}
                   disabled={saving}
+                  showPreview={activePreviewKey === q.key}
+                  onTogglePreview={() => setActivePreviewKey((prev) => prev === q.key ? null : q.key)}
                   onChange={(patch) => updateQuestion(q.key, patch)}
                   onRemove={() => removeQuestion(q.key)}
                   onMoveUp={() => moveQuestion(q.key, -1)}
@@ -352,6 +484,8 @@ interface QuestionEditorProps {
   index: number
   total: number
   disabled: boolean
+  showPreview: boolean
+  onTogglePreview: () => void
   onChange: (patch: Partial<DraftQuestion>) => void
   onRemove: () => void
   onMoveUp: () => void
@@ -360,8 +494,20 @@ interface QuestionEditorProps {
 
 function QuestionEditor({
   question, index, total, disabled,
+  showPreview, onTogglePreview,
   onChange, onRemove, onMoveUp, onMoveDown,
 }: QuestionEditorProps) {
+  const previewRef = useRef<HTMLDivElement>(null)
+  const prevShowPreview = useRef(false)
+
+  // Scroll into view when preview opens
+  useEffect(() => {
+    if (showPreview && !prevShowPreview.current) {
+      setTimeout(() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+    }
+    prevShowPreview.current = showPreview
+  }, [showPreview])
+
   function updateOption(key: string, patch: Partial<DraftOption>) {
     onChange({
       options: question.options.map((o) => o.key === key ? { ...o, ...patch } : o),
@@ -383,11 +529,30 @@ function QuestionEditor({
   }
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className="rounded-xl border bg-card">
       {/* Question header */}
-      <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5 rounded-t-xl">
         <span className="text-sm font-semibold">Question {index + 1}</span>
         <div className="flex items-center gap-0.5">
+          <div className="relative group/preview inline-flex">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn('size-7', showPreview && 'text-primary bg-primary/10')}
+              onClick={onTogglePreview}
+            >
+              <FileSearch className="size-3.5" />
+            </Button>
+            <div className={cn(
+              'pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-50',
+              'whitespace-nowrap rounded-md border bg-popover text-popover-foreground shadow-md',
+              'px-2 py-1 text-xs',
+              'opacity-0 group-hover/preview:opacity-100 transition-opacity duration-150',
+            )}>
+              {showPreview ? 'Hide preview' : 'Show preview'}
+            </div>
+          </div>
           <Button variant="ghost" size="icon" className="size-7" disabled={disabled || index === 0} onClick={onMoveUp}>
             <ChevronUp className="size-3.5" />
           </Button>
@@ -406,9 +571,12 @@ function QuestionEditor({
         {/* Question text */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Question
-            </label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Question
+              </label>
+              <MathHint />
+            </div>
             <Toggle
               label="Use image"
               checked={question.useQuestionImage}
@@ -445,9 +613,12 @@ function QuestionEditor({
         {/* Options */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Options
-            </label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Options
+              </label>
+              <MathHint />
+            </div>
             <Toggle
               label="Use images"
               checked={question.useOptionImages}
@@ -491,6 +662,100 @@ function QuestionEditor({
             </Button>
           )}
         </div>
+
+        {/* Answer explanation */}
+        <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wide text-primary/70">
+              Answer Explanation
+            </label>
+            <Toggle
+              label="Add image"
+              checked={question.useAnswerImage}
+              disabled={disabled}
+              onChange={(v) => onChange({ useAnswerImage: v })}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground -mt-1">
+            Optional. Explain why the correct answer is right. Shown to students after submission.
+          </p>
+
+          <textarea
+            value={question.answerText}
+            onChange={(e) => onChange({ answerText: e.target.value })}
+            placeholder="Type the answer explanation here…"
+            disabled={disabled}
+            rows={3}
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          />
+
+          {question.useAnswerImage && (
+            <ImagePicker
+              preview={question.answerPreview}
+              accept="image/jpeg,image/png,image/webp"
+              maxBytes={UPLOAD_LIMITS.IMAGE}
+              label="answer image"
+              disabled={disabled}
+              onFile={(file) => onChange({
+                answerFile:    file,
+                answerPreview: file ? URL.createObjectURL(file) : null,
+              })}
+              onRemove={() => onChange({ answerFile: null, answerPreview: null })}
+            />
+          )}
+        </div>
+
+        {/* Preview panel */}
+        {showPreview && (
+          <div ref={previewRef} className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+
+            {/* Question */}
+            <div className="space-y-1.5">
+              {question.questionPreview && (
+                <img
+                  src={question.questionPreview}
+                  alt="Question"
+                  className="rounded-md border max-h-40 object-contain"
+                />
+              )}
+              {question.questionText ? (
+                <p className="font-semibold text-sm leading-snug">
+                  <MathText text={question.questionText} />
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No question text yet.</p>
+              )}
+            </div>
+
+            {/* Options */}
+            <ol className="space-y-1">
+              {question.options.map((opt, oi) => (
+                <li key={opt.key} className={cn(
+                  'flex items-start gap-2 text-sm px-2 py-1 rounded-md',
+                  question.correctAnswer === oi && 'bg-primary/10 text-primary font-medium',
+                )}>
+                  <span className={cn(
+                    'shrink-0 font-semibold w-5 text-right',
+                    question.correctAnswer === oi ? 'text-primary' : 'text-muted-foreground',
+                  )}>
+                    {OPTION_LABELS[oi]}.
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    {opt.preview && (
+                      <img src={opt.preview} alt={opt.text || `Option ${OPTION_LABELS[oi]}`} className="rounded object-contain max-h-14" />
+                    )}
+                    {opt.text
+                      ? <MathText text={opt.text} />
+                      : <span className="text-muted-foreground italic text-xs">Empty</span>
+                    }
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -667,6 +932,33 @@ function ImagePicker({ preview, accept, maxBytes, label, disabled, compact, onFi
         onChange={handleChange}
         disabled={disabled}
       />
+    </div>
+  )
+}
+
+// ── MathHint ──────────────────────────────────────────────────────────────────
+// Info icon that shows a tooltip explaining the $...$ math syntax.
+
+function MathHint() {
+  return (
+    <div className="relative group/math inline-flex">
+      <Info className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-default transition-colors" />
+      <div
+        className={cn(
+          'pointer-events-none absolute top-full left-0 mt-1.5 z-50',
+          'w-64 rounded-md border bg-popover text-popover-foreground shadow-md',
+          'px-3 py-2 text-xs leading-relaxed',
+          'opacity-0 group-hover/math:opacity-100 transition-opacity duration-150',
+        )}
+      >
+        <p className="font-semibold mb-1">Math expressions</p>
+        <p className="text-muted-foreground">
+          Wrap LaTeX with <code className="bg-muted px-1 rounded">$...$</code> to render as math.
+        </p>
+        <p className="text-muted-foreground mt-1">
+          Example: <code className="bg-muted px-1 rounded">{'$a^{n+2} b^{n+3}$'}</code>
+        </p>
+      </div>
     </div>
   )
 }

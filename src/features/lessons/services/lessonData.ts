@@ -6,7 +6,7 @@ const lesson = (
   title: string,
   description: string,
   duration: string,
-): Lesson => ({ id: `${courseId}-${order}`, courseId, order, title, description, duration })
+): Lesson => ({ id: `${courseId}-${order}`, courseId, order, title, description, duration, durationMinutes: null })
 
 export const LESSONS: Lesson[] = [
   // Course 1 — React Fundamentals

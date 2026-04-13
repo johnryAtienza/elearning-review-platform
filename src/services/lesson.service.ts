@@ -26,18 +26,20 @@ interface LessonPreviewRow {
   description: string
   order: number
   duration: string
+  duration_minutes: number | null
 }
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
 function toAppLesson(row: LessonPreviewRow): Lesson {
   return {
-    id:          row.id,
-    courseId:    row.course_id,
-    order:       row.order,
-    title:       row.title,
-    description: row.description,
-    duration:    row.duration,
+    id:              row.id,
+    courseId:        row.course_id,
+    order:           row.order,
+    title:           row.title,
+    description:     row.description,
+    duration:        row.duration,
+    durationMinutes: row.duration_minutes ?? null,
   }
 }
 
@@ -51,7 +53,7 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
 export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
   const { data, error } = await supabase
     .from('lesson_previews')
-    .select('id, course_id, title, description, order, duration')
+    .select('id, course_id, title, description, order, duration, duration_minutes')
     .eq('course_id', courseId)
     .order('order', { ascending: true })
 
@@ -71,7 +73,7 @@ export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> 
 export async function getLessonPreviewById(lessonId: string): Promise<Lesson | undefined> {
   const { data, error } = await supabase
     .from('lesson_previews')
-    .select('id, course_id, title, description, order, duration')
+    .select('id, course_id, title, description, order, duration, duration_minutes')
     .eq('id', lessonId)
     .maybeSingle()
 

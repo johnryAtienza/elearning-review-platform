@@ -133,10 +133,12 @@ export function SavedCourseCard({ course, watchedLessons, totalLessons }: SavedC
             <BookOpen className="size-3.5" />
             {course.lessons} lessons
           </span>
-          <span className="flex items-center gap-1 pt-2.5">
-            <Clock className="size-3.5" />
-            {course.duration}
-          </span>
+          {course.duration && (
+            <span className="flex items-center gap-1 pt-2.5">
+              <Clock className="size-3.5" />
+              {course.duration}
+            </span>
+          )}
         </div>
       </div>
     </Link>

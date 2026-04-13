@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CreditCard, Search, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { CreditCard, Search, CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  AdminTableHeader, ADMIN_ROW_BASE, filterTabClass,
+  AdminTableHeader, ADMIN_ROW_BASE, filterTabClass, LoadError, formatAdminDate,
   type ColConfig,
 } from '@/features/admin/components/AdminTable'
 import {
@@ -129,12 +129,7 @@ export function AdminSubscriptionsPage() {
       </div>
 
       {/* ── Load error ── */}
-      {loadError && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {loadError}
-        </div>
-      )}
+      <LoadError message={loadError} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -227,7 +222,7 @@ function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfi
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{sub.userName ?? 'Unknown user'}</p>
           <p className="text-xs text-muted-foreground tabular-nums">
-            Since {formatDate(sub.startedAt)}
+            Since {formatAdminDate(sub.startedAt)}
           </p>
         </div>
 
@@ -255,7 +250,7 @@ function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfi
 
         {/* Expires */}
         <span className="hidden sm:block text-xs text-muted-foreground text-center tabular-nums">
-          {sub.expiresAt ? formatDate(sub.expiresAt) : '—'}
+          {sub.expiresAt ? formatAdminDate(sub.expiresAt) : '—'}
         </span>
 
         {/* Toggle */}
@@ -298,8 +293,3 @@ function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfi
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}

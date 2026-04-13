@@ -1,17 +1,20 @@
 /**
  * LessonCTAs
  *
- * Action bar rendered below the video player with three CTAs:
- *   1. Mark as Watched  — disabled until videoProgress ≥ 95%
- *   2. View Reviewer    — disabled until isWatched
- *   3. Take Quiz        — disabled until isWatched
+ * Step-based action area rendered below the video player.
  *
- * For free-tier users the Reviewer/Quiz sections are always rendered
- * inline below (with tier-appropriate limits/locks). The CTA buttons
- * simply scroll to those sections when the lesson has been watched.
+ * Phase 1 — Not yet watched:
+ *   Shows a video progress track and a "Mark as Watched" button.
+ *   Button is disabled until videoProgress ≥ 95%.
+ *   No auto-marking — the user must click explicitly.
+ *
+ * Phase 2 — Watched:
+ *   Replaces the button with a ✓ Watched badge and a segmented tab
+ *   control (Reviewer | Quiz). Clicking a tab switches the visible
+ *   content panel; only one panel is ever shown at a time.
  */
 
-import { Check, BookOpen, ClipboardList, Loader2 } from 'lucide-react'
+import { Check, CheckCircle2, BookOpen, ClipboardList, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 
@@ -24,13 +27,15 @@ interface LessonCTAsProps {
   markingWatched: boolean
   onMarkWatched: () => void
 
-  /** Pass false to hide the Reviewer button (no reviewer content) */
+  /** Whether this lesson has reviewer content (text or PDF) */
   hasReviewer: boolean
-  onViewReviewer: () => void
-
-  /** Pass false to hide the Quiz button (no quiz for this lesson) */
+  /** Whether this lesson has a quiz */
   hasQuiz: boolean
-  onTakeQuiz: () => void
+
+  /** Currently visible tab — null means no panel is open (shouldn't happen in Phase 2) */
+  activeTab: 'reviewer' | 'quiz' | null
+  /** Called when the user clicks a tab button */
+  onTabChange: (tab: 'reviewer' | 'quiz') => void
 }
 
 const WATCH_THRESHOLD = 95
@@ -41,115 +46,147 @@ export function LessonCTAs({
   markingWatched,
   onMarkWatched,
   hasReviewer,
-  onViewReviewer,
   hasQuiz,
-  onTakeQuiz,
+  activeTab,
+  onTabChange,
 }: LessonCTAsProps) {
-  const canMarkWatched = videoProgress >= WATCH_THRESHOLD
-  const progressLabel  = `${Math.min(videoProgress, 100)}%`
+  const clampedProgress = Math.min(videoProgress, 100)
+  const canMarkWatched  = clampedProgress >= WATCH_THRESHOLD
 
+  // ── Phase 2: Watched ─────────────────────────────────────────────────────────
+  if (isWatched) {
+    return (
+      <div className="flex items-center gap-3 flex-wrap animate-in fade-in slide-in-from-bottom-1 duration-300">
+        {/* Watched badge */}
+        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-sm font-semibold shrink-0">
+          <CheckCircle2 className="size-4" />
+          Watched
+        </div>
+
+        {/* Only render the tab control if there's at least one tab to show */}
+        {(hasReviewer || hasQuiz) && (
+          <>
+            <div className="h-5 w-px bg-border shrink-0" />
+
+            {/* Segmented tab control */}
+            <div className="flex items-center gap-0.5 rounded-lg border bg-muted/40 p-1">
+              {hasReviewer && (
+                <TabButton
+                  active={activeTab === 'reviewer'}
+                  onClick={() => onTabChange('reviewer')}
+                  icon={<BookOpen className="size-3.5" />}
+                  label="Reviewer"
+                />
+              )}
+              {hasQuiz && (
+                <TabButton
+                  active={activeTab === 'quiz'}
+                  onClick={() => onTabChange('quiz')}
+                  icon={<ClipboardList className="size-3.5" />}
+                  label="Quiz"
+                />
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── Phase 1: Not yet watched ─────────────────────────────────────────────────
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {/* ── Mark as Watched ── */}
+    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+      {/* Video progress track */}
+      <div className="flex flex-1 items-center gap-2.5 min-w-0">
+        <div className="relative flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-full transition-all duration-500',
+              canMarkWatched ? 'bg-green-500' : 'bg-primary',
+            )}
+            style={{ width: `${clampedProgress}%` }}
+          />
+        </div>
+        <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-8 text-right">
+          {clampedProgress}%
+        </span>
+      </div>
+
+      {/* Mark as Watched */}
       <Tooltip
         label={
-          isWatched
-            ? undefined
-            : canMarkWatched
-              ? 'Click to mark this lesson as complete'
-              : `Watch at least ${WATCH_THRESHOLD}% of the video to mark as watched (${progressLabel} watched)`
+          canMarkWatched
+            ? 'Click to mark this lesson as complete'
+            : `Watch at least ${WATCH_THRESHOLD}% to enable (${clampedProgress}% watched)`
         }
       >
         <Button
-          variant={isWatched ? 'outline' : 'default'}
           size="sm"
-          disabled={isWatched || markingWatched || !canMarkWatched}
+          disabled={!canMarkWatched || markingWatched}
           onClick={onMarkWatched}
-          className={cn(
-            'gap-2 transition-all',
-            isWatched && 'border-green-500/40 text-green-600 dark:text-green-400',
-          )}
+          className="gap-2 shrink-0"
         >
           {markingWatched ? (
             <Loader2 className="size-4 animate-spin" />
-          ) : isWatched ? (
-            <Check className="size-4" />
           ) : (
-            <Check className="size-4 opacity-50" />
+            <Check className={cn('size-4', !canMarkWatched && 'opacity-40')} />
           )}
-          {isWatched ? 'Watched' : 'Mark as Watched'}
+          {markingWatched ? 'Saving…' : 'Mark as Watched'}
         </Button>
       </Tooltip>
-
-      {/* ── View Reviewer ── */}
-      {hasReviewer && (
-        <Tooltip
-          label={
-            isWatched
-              ? undefined
-              : 'Finish the video first to unlock the reviewer'
-          }
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!isWatched}
-            onClick={onViewReviewer}
-            className="gap-2"
-          >
-            <BookOpen className="size-4" />
-            View Reviewer
-          </Button>
-        </Tooltip>
-      )}
-
-      {/* ── Take Quiz ── */}
-      {hasQuiz && (
-        <Tooltip
-          label={
-            isWatched
-              ? undefined
-              : 'Complete the video to unlock the quiz'
-          }
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!isWatched}
-            onClick={onTakeQuiz}
-            className="gap-2"
-          >
-            <ClipboardList className="size-4" />
-            Take Quiz
-          </Button>
-        </Tooltip>
-      )}
     </div>
+  )
+}
+
+// ── TabButton ─────────────────────────────────────────────────────────────────
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150',
+        active
+          ? 'bg-background shadow-sm text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 // Wraps any child in a hover tooltip. Uses a div wrapper so pointer events
-// are captured even when the child button is disabled (pointer-events-none).
+// are captured even when the child button is disabled.
 
 function Tooltip({ label, children }: { label?: string; children: React.ReactNode }) {
   if (!label) return <>{children}</>
 
   return (
     <div className="relative group/tip inline-flex">
-      {/* pointer-events-auto ensures hover fires even over a disabled button */}
       <div className="pointer-events-auto">{children}</div>
-
       <span
         className={cn(
           'pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-          'w-56 text-center rounded-md border bg-popover',
+          'w-64 text-center rounded-md border bg-popover',
           'text-popover-foreground text-xs px-2.5 py-1.5 shadow-md leading-snug',
           'opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50',
         )}
       >
         {label}
-        {/* Arrow */}
         <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border" />
       </span>
     </div>

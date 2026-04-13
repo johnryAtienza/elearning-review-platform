@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import {
   createAdminLesson,
   updateAdminLesson,
   getCoursesForSelect,
+  getMaxLessonOrderInCourse,
   type AdminLesson,
   type CourseOption,
 } from '@/services/admin.service'
@@ -36,6 +37,11 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [courseId,     setCourseId]     = useState(lesson?.courseId ?? defaultCourseId ?? '')
   const [title,        setTitle]        = useState(lesson?.title ?? '')
   const [order,        setOrder]        = useState<number>(lesson?.order ?? 1)
+  const originalCourseId = useRef(lesson?.courseId ?? defaultCourseId ?? '')
+  const originalOrder    = useRef(lesson?.order ?? 1)
+
+  const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
+  const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
   const [videoFile,    setVideoFile]    = useState<File | null>(null)
   const [pdfFile,      setPdfFile]      = useState<File | null>(null)
 
@@ -48,20 +54,39 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [pdfProgress,  setPdfProgress]  = useState(0)
   const [error,        setError]        = useState<string | null>(null)
 
-  // ── Load courses for dropdown ─────────────────────────────────────────────────
+  // ── Load courses for dropdown (runs once on mount) ───────────────────────────
   useEffect(() => {
     getCoursesForSelect()
       .then((data) => {
         setCourses(data)
-        if (!courseId && data.length > 0) setCourseId(data[0].id)
+        // Auto-select first course only if no course was pre-selected
+        if (!originalCourseId.current && data.length > 0) setCourseId(data[0].id)
       })
       .catch(() => setError('Failed to load courses.'))
       .finally(() => setCoursesLoading(false))
-  }, [courseId])
+  }, [])
+
+  // ── Course change: auto-advance order to avoid constraint collision ───────────
+  const handleCourseChange = useCallback(async (newCourseId: string) => {
+    setCourseId(newCourseId)
+    if (newCourseId === originalCourseId.current) {
+      // Reverted to original course — restore original order
+      setOrder(originalOrder.current)
+    } else {
+      // New course selected — set order to next available slot
+      try {
+        const max = await getMaxLessonOrderInCourse(newCourseId)
+        setOrder(max + 1)
+      } catch {
+        // Non-fatal; user can adjust order manually
+      }
+    }
+  }, [])
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (saving) return                   // guard against double-submit
     if (!courseId)    { setError('Please select a course.'); return }
     if (!title.trim()) { setError('Title is required.');    return }
 
@@ -71,11 +96,12 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
     try {
       // 1. Create or update the lesson record
       setStage('creating')
+      const durationMinutes = durationHrs * 60 + durationMins || null
       let lessonId = lesson?.id
       if (isEdit) {
-        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order })
+        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, durationMinutes })
       } else {
-        lessonId = await createAdminLesson({ courseId, title: title.trim(), order })
+        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, durationMinutes })
       }
 
       // 2. Upload video (if a file was picked)
@@ -107,17 +133,23 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
 
       const courseTitle = courses.find((c) => c.id === courseId)?.title ?? lesson?.courseTitle ?? ''
       onSaved({
-        id:             lessonId!,
+        id:              lessonId!,
         courseId,
         courseTitle,
-        title:          title.trim(),
+        title:           title.trim(),
         order,
+        durationMinutes: durationMinutes,
         videoUrl,
         reviewerPdfUrl,
-        createdAt:      lesson?.createdAt ?? new Date().toISOString(),
+        createdAt:       lesson?.createdAt ?? new Date().toISOString(),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save lesson.')
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key')) {
+        setError('Another lesson in this course already has the same order number. Please use a different order value.')
+      } else {
+        setError(msg || 'Failed to save lesson.')
+      }
     } finally {
       setSaving(false)
       setStage('idle')
@@ -165,7 +197,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               <select
                 id="lesson-course"
                 value={courseId}
-                onChange={(e) => setCourseId(e.target.value)}
+                onChange={(e) => { void handleCourseChange(e.target.value) }}
                 disabled={saving || coursesLoading}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -211,6 +243,42 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               />
               <p className="text-xs text-muted-foreground">
                 Determines the position within the course.
+              </p>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Duration</label>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="lesson-duration-hrs"
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={durationHrs}
+                    onChange={(e) => setDurationHrs(Math.max(0, Math.min(23, Number(e.target.value))))}
+                    disabled={saving}
+                    className="w-20 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground">hr</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id="lesson-duration-mins"
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={durationMins}
+                    onChange={(e) => setDurationMins(Math.max(0, Math.min(59, Number(e.target.value))))}
+                    disabled={saving}
+                    className="w-20 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground">min</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Shown to students on the course page. Leave at 0 to hide.
               </p>
             </div>
 

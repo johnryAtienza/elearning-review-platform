@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Loader2, Tag, Search, X, ChevronUp, ChevronDown }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tip, LoadError } from '@/features/admin/components/AdminTable'
 import {
   getCategoriesWithCount,
   createCategory,
@@ -124,11 +125,7 @@ export function AdminCategoriesPage() {
       </div>
 
       {/* ── Error ── */}
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      <LoadError message={error} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border overflow-hidden">
@@ -204,24 +201,26 @@ export function AdminCategoriesPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-7"
-                          onClick={() => openEdit(cat)}
-                          title="Edit"
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setDeletingId(cat.id)}
-                          title="Delete"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        <Tip label="Edit category">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7"
+                            onClick={() => openEdit(cat)}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        </Tip>
+                        <Tip label="Delete category" align="right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeletingId(cat.id)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </Tip>
                       </div>
                     )}
                   </td>

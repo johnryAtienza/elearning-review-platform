@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   ClipboardList, Plus, Pencil, Trash2,
-  Loader2, AlertTriangle, BookMarked,
+  Loader2, BookMarked,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QuizModal } from '@/features/admin/components/QuizModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
   type ColConfig,
 } from '@/features/admin/components/AdminTable'
 import {
@@ -111,12 +111,7 @@ export function AdminQuizzesPage() {
       </div>
 
       {/* ── Load error ── */}
-      {loadError && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {loadError}
-        </div>
-      )}
+      <LoadError message={loadError} />
 
       {/* ── Table ── */}
       <div className="rounded-xl border shadow-sm overflow-hidden">
@@ -227,24 +222,28 @@ function QuizRow({
 
         {/* Created date */}
         <span className="hidden sm:block text-xs text-muted-foreground text-center tabular-nums">
-          {formatDate(quiz.createdAt)}
+          {formatAdminDate(quiz.createdAt)}
         </span>
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost" size="icon" className="size-8"
-            title="Edit quiz" disabled={isDeleting} onClick={onEdit}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Delete quiz" disabled={isDeleting} onClick={onConfirmDelete}
-          >
-            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-          </Button>
+          <Tip label="Edit quiz">
+            <Button
+              variant="ghost" size="icon" className="size-8"
+              disabled={isDeleting} onClick={onEdit}
+            >
+              <Pencil className="size-4" />
+            </Button>
+          </Tip>
+          <Tip label="Delete quiz" align="right">
+            <Button
+              variant="ghost" size="icon"
+              className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={isDeleting} onClick={onConfirmDelete}
+            >
+              {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+            </Button>
+          </Tip>
         </div>
       </div>
 
@@ -259,8 +258,3 @@ function QuizRow({
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}

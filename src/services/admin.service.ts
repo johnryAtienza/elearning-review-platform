@@ -46,6 +46,7 @@ export interface AdminLesson {
   courseTitle: string
   title: string
   order: number
+  durationMinutes: number | null
   videoUrl: string | null
   reviewerPdfUrl: string | null
   createdAt: string
@@ -66,6 +67,8 @@ export interface AdminQuizQuestion {
   options: AdminQuizOption[]
   correctAnswer: number
   order: number
+  answerText: string | null
+  answerImageUrl: string | null
 }
 
 export interface AdminQuiz {
@@ -73,6 +76,8 @@ export interface AdminQuiz {
   lessonId: string
   lessonTitle: string
   courseTitle: string
+  description: string | null
+  randomize: boolean
   questionCount: number
   createdAt: string
 }
@@ -85,6 +90,7 @@ export interface LessonFormData {
   courseId: string
   title: string
   order: number
+  durationMinutes?: number | null
 }
 
 export interface CourseOption {
@@ -142,6 +148,8 @@ interface CourseRow {
 interface QuizRow {
   id: string
   lesson_id: string
+  description: string | null
+  randomize_questions: boolean
   created_at: string
   lessons: { title: string; courses: { title: string } | null } | null
   quiz_questions: { count: number }[]
@@ -155,6 +163,8 @@ interface QuizQuestionRow {
   options: { text: string; image_url: string | null }[]
   correct_answer: number
   order: number
+  answer_text: string | null
+  answer_image_url: string | null
 }
 
 interface LessonRow {
@@ -162,6 +172,7 @@ interface LessonRow {
   course_id: string
   title: string
   order: number
+  duration_minutes: number | null
   video_url: string | null
   reviewer_pdf_url: string | null
   created_at: string
@@ -302,21 +313,22 @@ export async function deleteCourse(courseId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, course_id, title, order, video_url, reviewer_pdf_url, created_at, courses(title)')
+    .select('id, course_id, title, order, duration_minutes, video_url, reviewer_pdf_url, created_at, courses(title)')
     .order('course_id')
     .order('order', { ascending: true })
 
   if (error) throw new ApiError(500, 'ADMIN_LESSONS_FAILED', error.message)
 
   return (data as unknown as LessonRow[]).map((row) => ({
-    id:             row.id,
-    courseId:       row.course_id,
-    courseTitle:    row.courses?.title ?? 'Unknown',
-    title:          row.title,
-    order:          row.order,
-    videoUrl:       row.video_url,
-    reviewerPdfUrl: row.reviewer_pdf_url,
-    createdAt:      row.created_at,
+    id:              row.id,
+    courseId:        row.course_id,
+    courseTitle:     row.courses?.title ?? 'Unknown',
+    title:           row.title,
+    order:           row.order,
+    durationMinutes: row.duration_minutes ?? null,
+    videoUrl:        row.video_url,
+    reviewerPdfUrl:  row.reviewer_pdf_url,
+    createdAt:       row.created_at,
   }))
 }
 
@@ -330,15 +342,29 @@ export async function getCoursesForSelect(): Promise<CourseOption[]> {
   return data as CourseOption[]
 }
 
+/** Returns the highest `order` value among lessons in a course, or 0 if none. */
+export async function getMaxLessonOrderInCourse(courseId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('lessons')
+    .select('order')
+    .eq('course_id', courseId)
+    .order('order', { ascending: false })
+    .limit(1)
+
+  if (error) throw new ApiError(500, 'ADMIN_LESSON_ORDER_FAILED', error.message)
+  return (data as { order: number }[] | null)?.[0]?.order ?? 0
+}
+
 export async function createAdminLesson(data: LessonFormData): Promise<string> {
   const { data: row, error } = await supabase
     .from('lessons')
     .insert({
-      course_id:   data.courseId,
-      title:       data.title,
-      order:       data.order,
-      description: '',
-      duration:    '',
+      course_id:        data.courseId,
+      title:            data.title,
+      order:            data.order,
+      duration_minutes: data.durationMinutes ?? null,
+      description:      '',
+      duration:         '',
     })
     .select('id')
     .single()
@@ -355,6 +381,7 @@ export async function updateAdminLesson(
   if (data.courseId        !== undefined) update.course_id         = data.courseId
   if (data.title           !== undefined) update.title             = data.title
   if (data.order           !== undefined) update.order             = data.order
+  if (data.durationMinutes !== undefined) update.duration_minutes  = data.durationMinutes
   if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
   if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl
 
@@ -380,7 +407,7 @@ export async function deleteAdminLesson(lessonId: string): Promise<void> {
 export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('id, lesson_id, created_at, lessons(title, courses(title)), quiz_questions(count)')
+    .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, courses(title)), quiz_questions(count)')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZZES_FAILED', error.message)
@@ -390,6 +417,8 @@ export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
     lessonId:      row.lesson_id,
     lessonTitle:   row.lessons?.title ?? 'Unknown lesson',
     courseTitle:   row.lessons?.courses?.title ?? 'Unknown course',
+    description:   row.description ?? null,
+    randomize:     row.randomize_questions ?? false,
     questionCount: row.quiz_questions[0]?.count ?? 0,
     createdAt:     row.created_at,
   }))
@@ -399,12 +428,12 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
   const [quizRes, questionsRes] = await Promise.all([
     supabase
       .from('quizzes')
-      .select('id, lesson_id, created_at, lessons(title, courses(title))')
+      .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, courses(title))')
       .eq('id', quizId)
       .single(),
     supabase
       .from('quiz_questions')
-      .select('id, quiz_id, question_text, question_image_url, options, correct_answer, order')
+      .select('id, quiz_id, question_text, question_image_url, options, correct_answer, order, answer_text, answer_image_url')
       .eq('quiz_id', quizId)
       .order('order', { ascending: true }),
   ])
@@ -422,6 +451,8 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
     options: (q.options ?? []).map((o) => ({ text: o.text ?? '', imageUrl: o.image_url })),
     correctAnswer:    q.correct_answer,
     order:            q.order,
+    answerText:       q.answer_text ?? null,
+    answerImageUrl:   q.answer_image_url ?? null,
   }))
 
   return {
@@ -429,21 +460,32 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
     lessonId:      quiz.lesson_id,
     lessonTitle:   quiz.lessons?.title ?? 'Unknown lesson',
     courseTitle:   quiz.lessons?.courses?.title ?? 'Unknown course',
+    description:   quiz.description ?? null,
+    randomize:     quiz.randomize_questions ?? false,
     questionCount: questions.length,
     createdAt:     quiz.created_at,
     questions,
   }
 }
 
-export async function createAdminQuiz(lessonId: string): Promise<string> {
+export async function createAdminQuiz(lessonId: string, description?: string | null, randomize?: boolean): Promise<string> {
   const { data, error } = await supabase
     .from('quizzes')
-    .insert({ lesson_id: lessonId })
+    .insert({ lesson_id: lessonId, description: description ?? null, randomize_questions: randomize ?? false })
     .select('id')
     .single()
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZ_CREATE_FAILED', error.message)
   return (data as { id: string }).id
+}
+
+export async function updateAdminQuiz(quizId: string, description: string | null, randomize: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('quizzes')
+    .update({ description, randomize_questions: randomize })
+    .eq('id', quizId)
+
+  if (error) throw new ApiError(500, 'ADMIN_QUIZ_UPDATE_FAILED', error.message)
 }
 
 export async function upsertQuizQuestion(params: {
@@ -454,6 +496,8 @@ export async function upsertQuizQuestion(params: {
   options: AdminQuizOption[]
   correctAnswer: number
   order: number
+  answerText: string | null
+  answerImageUrl: string | null
 }): Promise<void> {
   const { error } = await supabase
     .from('quiz_questions')
@@ -465,6 +509,8 @@ export async function upsertQuizQuestion(params: {
       options: params.options.map((o) => ({ text: o.text, image_url: o.imageUrl })),
       correct_answer:     params.correctAnswer,
       order:              params.order,
+      answer_text:        params.answerText,
+      answer_image_url:   params.answerImageUrl,
     })
 
   if (error) throw new ApiError(500, 'ADMIN_QUESTION_UPSERT_FAILED', error.message)
@@ -475,6 +521,16 @@ export async function deleteQuizQuestions(quizId: string): Promise<void> {
     .from('quiz_questions')
     .delete()
     .eq('quiz_id', quizId)
+
+  if (error) throw new ApiError(500, 'ADMIN_QUESTION_DELETE_FAILED', error.message)
+}
+
+export async function deleteQuizQuestionsByIds(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase
+    .from('quiz_questions')
+    .delete()
+    .in('id', ids)
 
   if (error) throw new ApiError(500, 'ADMIN_QUESTION_DELETE_FAILED', error.message)
 }

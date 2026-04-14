@@ -114,7 +114,7 @@ export function AdminLayout() {
         className={cn(
           'hidden md:flex flex-col border-r bg-card transition-all duration-200',
           'sticky top-16 self-start h-[calc(100vh-4rem)]',
-          collapsed ? 'w-[60px]' : 'w-60',
+          collapsed ? 'w-15' : 'w-60',
         )}
       >
         <SidebarContent

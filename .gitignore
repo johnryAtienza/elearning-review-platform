@@ -16,6 +16,10 @@ node_modules
 dist
 dist-ssr
 *.local
+*.local.json
+
+# Claude Code — local session data and personal settings
+.claude/
 
 # Editor directories and files
 .vscode/*

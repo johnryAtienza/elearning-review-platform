@@ -1,13 +1,15 @@
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, Users, ChevronLeft } from 'lucide-react'
+import { type LucideIcon, LayoutDashboard, BookOpen, Users, ChevronLeft } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
-const NAV_ITEMS = [
+interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean }
+
+const NAV_ITEMS: NavItem[] = [
   { to: ROUTES.ADMIN,         label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: ROUTES.ADMIN_COURSES, label: 'Courses',   icon: BookOpen         },
-  { to: ROUTES.ADMIN_USERS,   label: 'Users',     icon: Users            },
-] as const
+  { to: ROUTES.ADMIN_COURSES, label: 'Courses',   icon: BookOpen },
+  { to: ROUTES.ADMIN_USERS,   label: 'Users',     icon: Users },
+]
 
 export function AdminLayout() {
   return (

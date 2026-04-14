@@ -41,8 +41,7 @@ export function LessonPage() {
   const [markingWatched, setMarkingWatched] = useState(false)
 
   // Tab state — only one of reviewer/quiz is visible at a time
-  const [activeTab,       setActiveTab]       = useState<'reviewer' | 'quiz' | null>(null)
-  const [reviewerVisited, setReviewerVisited] = useState(false)
+  const [activeTab, setActiveTab] = useState<'reviewer' | 'quiz' | null>(null)
 
   // Ref for scrolling to the tab panel when a tab is activated
   const tabPanelRef = useRef<HTMLDivElement>(null)
@@ -95,7 +94,6 @@ export function LessonPage() {
     setReviewerContent(undefined)
     setQuiz(undefined)
     setActiveTab(null)
-    setReviewerVisited(false)
 
     const lessonId = data.lesson.id
 
@@ -112,7 +110,6 @@ export function LessonPage() {
       if (watched) {
         const defaultTab = (rc || signedPdfUrl) ? 'reviewer' : qz ? 'quiz' : null
         setActiveTab(defaultTab)
-        if (defaultTab === 'reviewer') setReviewerVisited(true)
       }
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -129,13 +126,11 @@ export function LessonPage() {
       // Auto-open reviewer (or quiz as fallback) after marking watched
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
-      if (defaultTab === 'reviewer') setReviewerVisited(true)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
-      if (defaultTab === 'reviewer') setReviewerVisited(true)
     } finally {
       setMarkingWatched(false)
     }
@@ -180,7 +175,6 @@ export function LessonPage() {
 
   function handleTabChange(tab: 'reviewer' | 'quiz') {
     setActiveTab(tab)
-    if (tab === 'reviewer') setReviewerVisited(true)
     setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 

@@ -12,10 +12,6 @@ function RequiredMark() {
   return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
 }
 
-function passwordValid(p: string) {
-  return p.length >= 8 && /[A-Z]/.test(p) && /[0-9]/.test(p)
-}
-
 export function RegisterPage() {
   const register            = useAuthStore((s) => s.register)
   const confirmationPending = useAuthStore((s) => s.confirmationPending)

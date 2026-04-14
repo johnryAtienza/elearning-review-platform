@@ -121,7 +121,6 @@ export function AdminLayout() {
           collapsed={collapsed}
           initials={initials}
           userName={user?.name}
-          onToggleCollapse={() => setCollapsed((v) => !v)}
         />
       </aside>
 
@@ -228,12 +227,10 @@ function SidebarContent({
   collapsed,
   initials,
   userName,
-  onToggleCollapse,
 }: {
   collapsed: boolean
   initials: string
   userName?: string
-  onToggleCollapse: () => void
 }) {
   return (
     <div className="flex flex-col h-full">

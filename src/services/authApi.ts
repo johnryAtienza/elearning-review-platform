@@ -55,7 +55,7 @@ function noopUnsubscribe() { return () => {} }
 const mockProvider: IAuthProvider = {
   async login({ email }: LoginCredentials): Promise<AuthResponse> {
     return {
-      user: { id: crypto.randomUUID(), name: email.split('@')[0], email, role: 'user' },
+      user: { id: crypto.randomUUID(), name: email.split('@')[0], email, firstName: '', lastName: '', mobileNumber: '', role: 'user' },
       token: 'mock-token',
     }
   },

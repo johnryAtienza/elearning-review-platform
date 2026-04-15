@@ -7,6 +7,8 @@ import { GuestRoute } from '@/features/auth/components/GuestRoute'
 import { HomePage } from '@/pages/HomePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { CoursesPage } from '@/pages/CoursesPage'
@@ -30,12 +32,16 @@ export const router = createBrowserRouter([
       // Public
       { path: 'course/:courseId', element: <CourseDetailPage /> },
 
+      // Password reset — fully public (user arrives from email without a session)
+      { path: 'reset-password', element: <ResetPasswordPage /> },
+
       // Auth pages — redirect away if already logged in
       {
         element: <GuestRoute />,
         children: [
-          { path: 'login',    element: <LoginPage />    },
-          { path: 'register', element: <RegisterPage /> },
+          { path: 'login',           element: <LoginPage />           },
+          { path: 'register',        element: <RegisterPage />        },
+          { path: 'forgot-password', element: <ForgotPasswordPage /> },
         ],
       },
 

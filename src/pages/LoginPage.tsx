@@ -91,6 +91,12 @@ export function LoginPage() {
                 <label htmlFor="password" className="text-sm font-medium">
                   Password
                 </label>
+                <Link
+                  to={ROUTES.FORGOT_PASSWORD}
+                  className="text-xs text-muted-foreground hover:text-primary hover:underline underline-offset-4 transition-colors"
+                >
+                  Forgot password?
+                </Link>
               </div>
               <Input
                 id="password"

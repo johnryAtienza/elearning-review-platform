@@ -44,6 +44,11 @@ interface IAuthProvider {
    * Returns an unsubscribe function — call it on cleanup.
    */
   onAuthChange(callback: (user: User | null) => void): () => void
+  /**
+   * Send a password-reset email. Always resolves — never reveals whether the
+   * email exists (prevents user enumeration).
+   */
+  resetPasswordForEmail(email: string, redirectTo: string): Promise<void>
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -82,6 +87,10 @@ const mockProvider: IAuthProvider = {
 
   onAuthChange(_callback) {
     return noopUnsubscribe()
+  },
+
+  async resetPasswordForEmail(_email: string, _redirectTo: string): Promise<void> {
+    // No-op in mock mode — simulate a silent success
   },
 }
 
@@ -134,6 +143,12 @@ const restProvider: IAuthProvider = {
   onAuthChange(_callback) {
     // REST APIs don't push auth events — the store drives state.
     return noopUnsubscribe()
+  },
+
+  async resetPasswordForEmail(email: string, redirectTo: string): Promise<void> {
+    // Fire-and-forget — the response is intentionally not surfaced to the caller
+    // to prevent email enumeration. Errors are silently swallowed.
+    try { await apiClient.post('/auth/forgot-password', { email, redirectTo }) } catch { /* noop */ }
   },
 }
 
@@ -223,6 +238,13 @@ const supabaseProvider: IAuthProvider = {
     })
     return () => subscription.unsubscribe()
   },
+
+  async resetPasswordForEmail(email: string, redirectTo: string): Promise<void> {
+    // Errors are intentionally swallowed — the caller always shows a generic
+    // "if this email exists" message to prevent user enumeration.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+    if (error) console.error('[Auth] resetPasswordForEmail:', error.message)
+  },
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -246,10 +268,11 @@ function getProvider(): IAuthProvider {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  login:          (credentials: LoginCredentials) => getProvider().login(credentials),
-  register:       (data: RegisterData)            => getProvider().register(data),
-  logout:         ()                              => getProvider().logout(),
-  refreshToken:   ()                              => getProvider().refreshToken(),
-  getSession:     ()                              => getProvider().getSession(),
-  onAuthChange:   (cb: (user: User | null) => void) => getProvider().onAuthChange(cb),
+  login:                  (credentials: LoginCredentials)       => getProvider().login(credentials),
+  register:               (data: RegisterData)                  => getProvider().register(data),
+  logout:                 ()                                    => getProvider().logout(),
+  refreshToken:           ()                                    => getProvider().refreshToken(),
+  getSession:             ()                                    => getProvider().getSession(),
+  onAuthChange:           (cb: (user: User | null) => void)     => getProvider().onAuthChange(cb),
+  resetPasswordForEmail:  (email: string, redirectTo: string)   => getProvider().resetPasswordForEmail(email, redirectTo),
 }

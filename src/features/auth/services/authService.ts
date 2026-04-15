@@ -39,4 +39,13 @@ export function onAuthChange(callback: (user: User | null) => void): () => void 
   return authApi.onAuthChange(callback)
 }
 
+/**
+ * Send a password-reset email.
+ * Always resolves silently — never surfaces whether the email exists.
+ * redirectTo must be the full URL of your /reset-password page.
+ */
+export async function resetPasswordForEmail(email: string, redirectTo: string): Promise<void> {
+  return authApi.resetPasswordForEmail(email, redirectTo)
+}
+
 export type { LoginCredentials, RegisterData, AuthResponse }

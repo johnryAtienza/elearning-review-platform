@@ -4,12 +4,14 @@
  * Changing a path only needs to happen in one place — here and in router.tsx.
  */
 export const ROUTES = {
-  HOME:         '/',
-  LOGIN:        '/login',
-  REGISTER:     '/register',
-  DASHBOARD:    '/dashboard',
-  COURSES:      '/courses',
-  SUBSCRIPTION: '/subscription',
+  HOME:            '/',
+  LOGIN:           '/login',
+  REGISTER:        '/register',
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD:  '/reset-password',
+  DASHBOARD:       '/dashboard',
+  COURSES:         '/courses',
+  SUBSCRIPTION:    '/subscription',
   COURSE:  (id: string) => `/course/${id}`,
   LESSON:  (id: string) => `/lesson/${id}`,
 

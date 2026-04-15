@@ -15,6 +15,10 @@ export const ROUTES = {
   COURSE:  (id: string) => `/course/${id}`,
   LESSON:  (id: string) => `/lesson/${id}`,
 
+  PROFILE:          '/profile',
+  PAYMENT_SUCCESS:  '/payment-success',
+  PAYMENT_CANCEL:   '/payment-cancel',
+
   // Admin panel
   ADMIN:                '/admin',
   ADMIN_COURSES:        '/admin/courses',

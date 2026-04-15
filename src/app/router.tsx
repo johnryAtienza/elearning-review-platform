@@ -10,10 +10,13 @@ import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { CoursesPage } from '@/pages/CoursesPage'
 import { CourseDetailPage } from '@/pages/CourseDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
+import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
+import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
 import { AdminLessonsPage } from '@/pages/admin/AdminLessonsPage'
@@ -33,7 +36,11 @@ export const router = createBrowserRouter([
       { path: 'course/:courseId', element: <CourseDetailPage /> },
 
       // Password reset — fully public (user arrives from email without a session)
-      { path: 'reset-password', element: <ResetPasswordPage /> },
+      { path: 'reset-password',   element: <ResetPasswordPage />   },
+
+      // Payment result pages — public so users can land here after redirect
+      { path: 'payment-success',  element: <PaymentSuccessPage />  },
+      { path: 'payment-cancel',   element: <PaymentCancelPage />   },
 
       // Auth pages — redirect away if already logged in
       {
@@ -53,6 +60,7 @@ export const router = createBrowserRouter([
           { path: 'subscription',     element: <SubscriptionPage /> },
           { path: 'courses',          element: <CoursesPage />      },
           { path: 'lesson/:lessonId', element: <LessonPage />       },
+          { path: 'profile',          element: <ProfilePage />      },
         ],
       },
 

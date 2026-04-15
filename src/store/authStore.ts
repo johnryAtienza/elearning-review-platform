@@ -38,6 +38,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>
   register: (firstName: string, lastName: string, email: string, password: string, mobileNumber: string) => Promise<void>
   logout: () => Promise<void>
+  /** Patch the in-memory user after a profile update without a full re-fetch. */
+  setUser: (updates: Partial<User>) => void
   /**
    * Fetch the user's current subscription from Supabase and update the store.
    * Call this after login, on initialize, and after a successful subscribe action.
@@ -151,6 +153,12 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: async () => {
         const token = await refreshToken()
         if (!token) set({ user: null, isAuthenticated: false, isSubscribed: false, subscription: null })
+      },
+
+      setUser: (updates) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updates } : state.user,
+        }))
       },
     }),
     {

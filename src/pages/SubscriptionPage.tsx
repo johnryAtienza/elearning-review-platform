@@ -1,5 +1,5 @@
-import { Check, X, CalendarDays, Clock } from 'lucide-react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Check, X, CalendarDays, Clock, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/authStore'
@@ -27,20 +27,13 @@ export function SubscriptionPage() {
     durationOptions,
     selectedDuration,
     setSelectedDuration,
-    subscribe,
-    subscribing,
+    checkout,
+    checking,
     error,
     plans,
   } = useSubscription()
 
-  const navigate  = useNavigate()
-  const location  = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? ROUTES.COURSES
-
-  async function handleSubscribe() {
-    await subscribe()
-    navigate(from, { replace: true })
-  }
+  const navigate = useNavigate()
 
   // ── Derived display values ──────────────────────────────────────────────────
   const selectedOption = durationOptions.find((o) => o.months === selectedDuration) ?? durationOptions[0]
@@ -208,12 +201,20 @@ export function SubscriptionPage() {
               )}
 
               {isSubscribed ? (
-                <Button onClick={handleSubscribe} disabled={subscribing} className="w-full">
-                  {subscribing ? 'Processing…' : `Extend by ${selectedOption.label} — ${formatPrice(selectedOption.priceTotal)}`}
+                <Button onClick={checkout} disabled={checking} className="w-full">
+                  {checking ? (
+                    <><Loader2 className="size-4 animate-spin" />Redirecting to payment…</>
+                  ) : (
+                    `Extend by ${selectedOption.label} — ${formatPrice(selectedOption.priceTotal)}`
+                  )}
                 </Button>
               ) : isAuthenticated ? (
-                <Button onClick={handleSubscribe} disabled={subscribing} className="w-full">
-                  {subscribing ? 'Processing…' : `${plan.cta} — ${formatPrice(selectedOption.priceTotal)}`}
+                <Button onClick={checkout} disabled={checking} className="w-full">
+                  {checking ? (
+                    <><Loader2 className="size-4 animate-spin" />Redirecting to payment…</>
+                  ) : (
+                    `${plan.cta} — ${formatPrice(selectedOption.priceTotal)}`
+                  )}
                 </Button>
               ) : (
                 <Button onClick={() => navigate(ROUTES.REGISTER)} className="w-full">

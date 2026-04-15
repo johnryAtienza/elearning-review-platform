@@ -7,21 +7,24 @@ import type { SubscriptionDuration } from '../types'
 export function useSubscription() {
   const { isSubscribed, subscription, syncSubscription } = useAuthStore()
   const [selectedDuration, setSelectedDuration] = useState<SubscriptionDuration>(1)
-  const [subscribing, setSubscribing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [checking,  setChecking]  = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
 
-  /** Create or extend the Standard subscription for the selected duration. */
-  async function subscribe(): Promise<void> {
+  /**
+   * Create a PayMongo Checkout Session and redirect the user to PayMongo's
+   * payment page. After payment, PayMongo redirects to /payment-success.
+   * The browser navigates away — no further state updates happen here.
+   */
+  async function checkout(): Promise<void> {
     setError(null)
-    setSubscribing(true)
+    setChecking(true)
     try {
-      await subscriptionApi.subscribe(selectedDuration)
-      // Re-sync so the store reflects the new expiry immediately
-      await syncSubscription()
+      const { checkoutUrl } = await subscriptionApi.createCheckout(selectedDuration)
+      // Full page redirect to PayMongo — React state is irrelevant after this
+      window.location.href = checkoutUrl
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Subscription failed. Please try again.')
-    } finally {
-      setSubscribing(false)
+      setError(err instanceof Error ? err.message : 'Could not start checkout. Please try again.')
+      setChecking(false) // only reset if redirect didn't happen
     }
   }
 
@@ -35,11 +38,14 @@ export function useSubscription() {
     /** Currently selected duration (controls price shown on the page) */
     selectedDuration,
     setSelectedDuration,
-    /** Call to purchase / extend the subscription at selectedDuration */
-    subscribe,
-    subscribing,
+    /** Call to begin checkout for selectedDuration — redirects to PayMongo */
+    checkout,
+    /** True while the checkout session is being created */
+    checking,
     error,
     /** Legacy plan cards for the plan comparison section */
     plans: PLANS,
+    /** Direct subscription without payment — used internally / admin mode */
+    syncSubscription,
   }
 }

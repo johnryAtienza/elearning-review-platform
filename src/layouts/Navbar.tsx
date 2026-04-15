@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import { Menu, X, ShieldCheck } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Menu, User, X, ShieldCheck, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogoutModal } from '@/components/LogoutModal'
@@ -27,6 +27,100 @@ function UserAvatar({ name }: { name: string }) {
     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground select-none">
       {initials}
     </span>
+  )
+}
+
+// ── Profile dropdown ──────────────────────────────────────────────────────────
+
+interface ProfileDropdownProps {
+  name: string
+  email: string
+  onLogout: () => void
+}
+
+function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [open])
+
+  function handleViewProfile() {
+    setOpen(false)
+    navigate(ROUTES.PROFILE)
+  }
+
+  function handleLogout() {
+    setOpen(false)
+    onLogout()
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label="Open profile menu"
+        className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      >
+        <UserAvatar name={name} />
+        <span className="text-sm font-medium hidden lg:block">{name}</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-2 w-52 rounded-xl border bg-card shadow-lg z-50 overflow-hidden"
+        >
+          {/* Identity header */}
+          <div className="px-4 py-3 border-b">
+            <p className="text-sm font-semibold truncate">{name}</p>
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
+          </div>
+
+          {/* Actions */}
+          <div className="py-1">
+            <button
+              role="menuitem"
+              onClick={handleViewProfile}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+            >
+              <User className="size-4 shrink-0 text-muted-foreground" />
+              View Profile
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left text-destructive hover:text-destructive"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -99,13 +193,13 @@ export function Navbar() {
                     <Link to={ROUTES.SUBSCRIPTION}>Upgrade to Standard</Link>
                   </Button>
                 )}
-                <div className="flex items-center gap-2">
-                  {user && <UserAvatar name={user.name} />}
-                  <span className="text-sm font-medium hidden lg:block">{user?.name}</span>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleLogoutClick} className="text-muted-foreground">
-                  Log out
-                </Button>
+                {user && (
+                  <ProfileDropdown
+                    name={user.name}
+                    email={user.email}
+                    onLogout={handleLogoutClick}
+                  />
+                )}
               </>
             ) : (
               <>
@@ -163,6 +257,12 @@ export function Navbar() {
                       <Link to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Standard</Link>
                     </Button>
                   )}
+                  <Button asChild variant="outline" className="w-full" size="sm">
+                    <Link to={ROUTES.PROFILE} onClick={() => setMobileOpen(false)}>
+                      <User className="size-4 mr-2" />
+                      View Profile
+                    </Link>
+                  </Button>
                   <Button variant="outline" className="w-full" size="sm" onClick={handleLogoutClick}>
                     Log out
                   </Button>

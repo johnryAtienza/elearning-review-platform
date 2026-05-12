@@ -98,8 +98,8 @@ export function CourseDetailPage() {
 
       {/* ── Draft preview banner (admin only) ── */}
       {isAdmin && course.isPublished === false && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 px-4 py-3 mb-6">
-          <div className="flex items-center gap-2.5 text-sm text-amber-800 dark:text-amber-300">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 mb-6">
+          <div className="flex items-center gap-2.5 text-sm text-warning">
             <EyeOff className="size-4 shrink-0" />
             <span>
               <span className="font-semibold">Draft Preview</span>
@@ -108,7 +108,7 @@ export function CourseDetailPage() {
           </div>
           <Link
             to="/admin/courses"
-            className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline"
+            className="shrink-0 text-xs font-medium text-warning hover:underline"
           >
             Back to Admin
           </Link>
@@ -222,7 +222,7 @@ export function CourseDetailPage() {
               {isAdmin && course.isPublished === false ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <EyeOff className="size-4 text-amber-500 shrink-0" />
+                    <EyeOff className="size-4 text-warning shrink-0" />
                     <p className="font-semibold text-sm">Draft — not published</p>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -244,7 +244,7 @@ export function CourseDetailPage() {
                       <span className={
                         isSubscribed
                           ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
-                          : 'inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400'
+                          : 'inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning'
                       }>
                         {isSubscribed ? 'Standard Plan' : 'Free Plan'}
                       </span>
@@ -255,11 +255,11 @@ export function CourseDetailPage() {
                   {isAuthenticated && !isSubscribed && (
                     <ul className="space-y-1.5 text-xs text-muted-foreground">
                       <li className="flex items-center gap-2">
-                        <Play className="size-3.5 text-amber-500 shrink-0" />
+                        <Play className="size-3.5 text-warning shrink-0" />
                         30-second video preview per lesson
                       </li>
                       <li className="flex items-center gap-2">
-                        <FileText className="size-3.5 text-amber-500 shrink-0" />
+                        <FileText className="size-3.5 text-warning shrink-0" />
                         First 5 pages of reviewer PDFs
                       </li>
                       <li className="flex items-center gap-2 line-through opacity-50">

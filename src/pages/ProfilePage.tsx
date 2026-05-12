@@ -11,7 +11,7 @@ import { toast } from '@/lib/toast'
 
 function PasswordRule({ met, label }: { met: boolean; label: string }) {
   return (
-    <li className={`flex items-center gap-1.5 text-xs ${met ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+    <li className={`flex items-center gap-1.5 text-xs ${met ? 'text-success' : 'text-muted-foreground'}`}>
       {met ? <Check className="size-3 shrink-0" /> : <X className="size-3 shrink-0" />}
       {label}
     </li>

@@ -122,7 +122,7 @@ function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded,
       <div className="bg-black/80 px-4 py-2 flex items-center justify-between">
         <p className="text-white text-sm font-medium truncate">{title}</p>
         {previewDuration && (
-          <span className="text-xs text-amber-400 font-medium shrink-0 ml-3">
+          <span className="text-xs text-warning font-medium shrink-0 ml-3">
             {previewEnded ? 'Preview ended' : `${formatTime(previewDuration)} preview`}
           </span>
         )}
@@ -269,7 +269,7 @@ function MockVideoPlayer({
         <div className="absolute inset-x-0 top-0 bg-linear-to-b from-black/50 to-transparent p-4 flex items-center justify-between">
           <p className="text-white text-sm font-medium truncate">{title}</p>
           {previewDuration && !isPreviewEnded && (
-            <span className="text-xs text-amber-400 font-medium shrink-0 ml-3 bg-black/40 rounded px-1.5 py-0.5">
+            <span className="text-xs text-warning font-medium shrink-0 ml-3 bg-black/40 rounded px-1.5 py-0.5">
               {formatTime(previewDuration)} preview
             </span>
           )}
@@ -323,7 +323,7 @@ function MockVideoPlayer({
           {/* Preview limit marker */}
           {previewDuration && previewDuration < durationSeconds && (
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 rounded-full"
+              className="absolute top-0 bottom-0 w-0.5 bg-warning z-10 rounded-full"
               style={{ left: `${(previewDuration / durationSeconds) * 100}%` }}
               title={`Free preview limit: ${formatTime(previewDuration)}`}
             />
@@ -339,7 +339,7 @@ function MockVideoPlayer({
             <div
               className={[
                 'h-full rounded-full transition-all relative',
-                isPreviewEnded ? 'bg-amber-400' : 'bg-primary',
+                isPreviewEnded ? 'bg-warning' : 'bg-primary',
               ].join(' ')}
               style={{ width: `${progress}%` }}
             >

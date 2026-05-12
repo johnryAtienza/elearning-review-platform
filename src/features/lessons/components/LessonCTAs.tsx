@@ -58,7 +58,7 @@ export function LessonCTAs({
     return (
       <div className="flex items-center gap-3 flex-wrap animate-in fade-in slide-in-from-bottom-1 duration-300">
         {/* Watched badge */}
-        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-sm font-semibold shrink-0">
+        <div className="flex items-center gap-1.5 text-success text-sm font-semibold shrink-0">
           <CheckCircle2 className="size-4" />
           Watched
         </div>
@@ -102,7 +102,7 @@ export function LessonCTAs({
           <div
             className={cn(
               'absolute inset-y-0 left-0 rounded-full transition-all duration-500',
-              canMarkWatched ? 'bg-green-500' : 'bg-primary',
+              canMarkWatched ? 'bg-success' : 'bg-primary',
             )}
             style={{ width: `${clampedProgress}%` }}
           />

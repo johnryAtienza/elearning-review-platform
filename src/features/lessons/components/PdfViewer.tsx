@@ -94,7 +94,7 @@ export function PdfViewer({ src, title = 'Study Guide (PDF)', maxPages }: PdfVie
       ref={containerRef}
       className={[
         'rounded-xl border overflow-hidden shadow-sm select-none flex flex-col',
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0 bg-neutral-900' : '',
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0 bg-background' : '',
       ].join(' ')}
     >
       {/* ── Header bar ── */}
@@ -103,7 +103,7 @@ export function PdfViewer({ src, title = 'Study Guide (PDF)', maxPages }: PdfVie
           {title}
         </p>
         {isLimited && (
-          <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded px-2 py-0.5 shrink-0">
+          <span className="text-xs font-semibold text-warning bg-warning/15 rounded px-2 py-0.5 shrink-0">
             Preview · {maxPages} page{maxPages !== 1 ? 's' : ''}
           </span>
         )}
@@ -124,8 +124,8 @@ export function PdfViewer({ src, title = 'Study Guide (PDF)', maxPages }: PdfVie
         className={[
           'relative flex flex-col items-center overflow-y-auto',
           isFullscreen
-            ? 'flex-1 bg-neutral-800'
-            : 'bg-neutral-100 dark:bg-neutral-900 min-h-125',
+            ? 'flex-1 bg-card'
+            : 'bg-card min-h-125',
         ].join(' ')}
         onContextMenu={(e) => e.preventDefault()}
       >

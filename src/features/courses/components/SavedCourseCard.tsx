@@ -57,7 +57,7 @@ export function SavedCourseCard({ course, watchedLessons, totalLessons }: SavedC
         {/* Status badge */}
         <div className="absolute top-3 left-3">
           {completed ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/90 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/90 px-2.5 py-0.5 text-[10px] font-semibold text-success-foreground backdrop-blur-sm">
               <CheckCircle2 className="size-3" />
               Completed
             </span>
@@ -94,7 +94,7 @@ export function SavedCourseCard({ course, watchedLessons, totalLessons }: SavedC
         <div
           className={cn(
             'h-full transition-all duration-300',
-            completed ? 'bg-green-500' : 'bg-primary',
+            completed ? 'bg-success' : 'bg-primary',
           )}
           style={{ width: `${pct}%` }}
         />
@@ -111,7 +111,7 @@ export function SavedCourseCard({ course, watchedLessons, totalLessons }: SavedC
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{watchedLessons} / {totalLessons} lessons watched</span>
             {totalLessons > 0 && (
-              <span className={cn('font-semibold tabular-nums', completed ? 'text-green-600' : 'text-primary')}>
+              <span className={cn('font-semibold tabular-nums', completed ? 'text-success' : 'text-primary')}>
                 {pct}%
               </span>
             )}
@@ -120,7 +120,7 @@ export function SavedCourseCard({ course, watchedLessons, totalLessons }: SavedC
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-500',
-                completed ? 'bg-green-500' : 'bg-primary',
+                completed ? 'bg-success' : 'bg-primary',
               )}
               style={{ width: `${pct}%` }}
             />

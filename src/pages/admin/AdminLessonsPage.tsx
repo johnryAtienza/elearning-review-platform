@@ -248,14 +248,14 @@ function LessonRow({
         {/* Video indicator */}
         <span className="flex justify-center" title={lesson.videoUrl ? 'Video uploaded' : 'No video'}>
           {lesson.videoUrl
-            ? <CheckCircle2 className="size-4 text-green-600" />
+            ? <CheckCircle2 className="size-4 text-success" />
             : <FileVideo className="size-4 text-muted-foreground/30" />}
         </span>
 
         {/* PDF indicator */}
         <span className="flex justify-center" title={lesson.reviewerPdfUrl ? 'PDF uploaded' : 'No PDF'}>
           {lesson.reviewerPdfUrl
-            ? <CheckCircle2 className="size-4 text-green-600" />
+            ? <CheckCircle2 className="size-4 text-success" />
             : <FileText className="size-4 text-muted-foreground/30" />}
         </span>
 

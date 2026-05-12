@@ -51,8 +51,8 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-violet-600"
-          iconBg="bg-violet-50 dark:bg-violet-950/30"
+          iconColor="text-muted-foreground"
+          iconBg="bg-muted"
         />
         <StatCard
           label="Total Courses"
@@ -64,16 +64,16 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50 dark:bg-blue-950/30"
+          iconColor="text-muted-foreground"
+          iconBg="bg-muted"
         />
         <StatCard
           label="Total Lessons"
           value={stats?.totalLessons}
           icon={BookMarked}
           loading={loading}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50 dark:bg-emerald-950/30"
+          iconColor="text-muted-foreground"
+          iconBg="bg-muted"
         />
         <StatCard
           label="Active Subscriptions"
@@ -85,8 +85,8 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50 dark:bg-amber-950/30"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
         />
       </div>
 

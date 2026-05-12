@@ -8,9 +8,9 @@ export interface StatCardProps {
   /** Small descriptive line below the value. */
   sub?: string
   loading: boolean
-  /** Tailwind text color class for the icon, e.g. "text-blue-600" */
+  /** Tailwind text color class for the icon, e.g. "text-primary" or "text-muted-foreground" */
   iconColor: string
-  /** Tailwind bg class for the icon container, e.g. "bg-blue-50 dark:bg-blue-950/30" */
+  /** Tailwind bg class for the icon container, e.g. "bg-primary/15" or "bg-muted" */
   iconBg: string
 }
 

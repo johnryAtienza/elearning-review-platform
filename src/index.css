@@ -3,77 +3,132 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * CLASS S — Elevate Your Learning
+ * Dark-first identity. Single brand accent: #d45100.
+ * Surfaces are cool charcoal (slight navy bias) to harmonise with the
+ * graduation-cap / "CLASS" wordmark tones in the logo.
+ *
+ * Hex references (resolved to OKLCH below):
+ *   brand           #d45100   (lower S, deep orange CTAs / focus rings)
+ *   brand-bright    #f47820   (upper S, optional gradient companion)
+ *   brand-hover     #b94600   (button hover)
+ *   background      #181C22   (page surface)
+ *   surface-1       #1F2530   (cards at rest)
+ *   surface-2       #262C38   (modals / popovers)
+ *   surface-3       #303744   (card hover)
+ *   border          #2F3744
+ *   text-primary    #FFFFFF
+ *   text-secondary  #B3B8C2
+ *   text-tertiary   #7A8090
+ *   success         #46d369
+ *   warning         #f4a020
+ *   destructive     #e5484d
+ */
+
 :root {
   --radius: 0.5rem;
 
-  --background: oklch(0.99 0.003 70);
-  --foreground: oklch(0.14 0.015 55);
+  /* --- Brand accents --- */
+  --brand:        oklch(0.595 0.183 44);   /* #d45100 */
+  --brand-bright: oklch(0.720 0.180 55);   /* #f47820 */
+  --brand-hover:  oklch(0.530 0.170 42);   /* #b94600 */
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.14 0.015 55);
+  /* --- Surfaces --- */
+  --background: oklch(0.180 0.013 250);    /* #181C22 */
+  --foreground: oklch(1 0 0);              /* #FFFFFF */
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.14 0.015 55);
+  --card: oklch(0.230 0.018 252);          /* #1F2530 */
+  --card-foreground: oklch(1 0 0);
 
-  /* Warm orange primary */
-  --primary: oklch(0.60 0.19 50);
-  --primary-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.270 0.020 253);       /* #262C38 */
+  --popover-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.96 0.008 65);
-  --secondary-foreground: oklch(0.25 0.015 55);
+  /* --- Primary (mapped to brand) --- */
+  --primary: oklch(0.595 0.183 44);        /* #d45100 */
+  --primary-foreground: oklch(1 0 0);
 
-  --muted: oklch(0.96 0.008 65);
-  --muted-foreground: oklch(0.52 0.015 60);
+  /* --- Secondary / muted / accent (all on cool dark family) --- */
+  --secondary: oklch(0.270 0.020 253);     /* #262C38 */
+  --secondary-foreground: oklch(1 0 0);
 
-  --accent: oklch(0.94 0.025 55);
-  --accent-foreground: oklch(0.25 0.015 55);
+  --muted: oklch(0.230 0.018 252);         /* #1F2530 */
+  --muted-foreground: oklch(0.780 0.012 252); /* #B3B8C2 */
 
-  --destructive: oklch(0.55 0.22 25);
+  --accent: oklch(0.320 0.024 253);        /* #303744 — hover surface */
+  --accent-foreground: oklch(1 0 0);
 
-  --border: oklch(0.91 0.008 65);
-  --input: oklch(0.91 0.008 65);
-  --ring: oklch(0.60 0.19 50);
+  /* --- Status colors --- */
+  --success: oklch(0.780 0.210 145);       /* #46d369 */
+  --success-foreground: oklch(0.180 0.013 250);
 
-  --chart-1: oklch(0.60 0.19 50);
-  --chart-2: oklch(0.60 0.118 184);
-  --chart-3: oklch(0.52 0.12 240);
-  --chart-4: oklch(0.80 0.17 75);
-  --chart-5: oklch(0.65 0.20 30);
+  --warning: oklch(0.760 0.160 75);        /* #f4a020 */
+  --warning-foreground: oklch(0.180 0.013 250);
+
+  --destructive: oklch(0.630 0.210 25);    /* #e5484d */
+
+  /* --- Lines & focus --- */
+  --border: oklch(0.310 0.022 253);        /* #2F3744 */
+  --input:  oklch(0.310 0.022 253);
+  --ring:   oklch(0.595 0.183 44);         /* brand orange */
+
+  /* --- Charts: brand orange as the lead, cool blues / amber as support --- */
+  --chart-1: oklch(0.595 0.183 44);        /* brand */
+  --chart-2: oklch(0.720 0.180 55);        /* brand-bright */
+  --chart-3: oklch(0.650 0.150 240);       /* cool blue */
+  --chart-4: oklch(0.760 0.160 75);        /* warning amber */
+  --chart-5: oklch(0.780 0.210 145);       /* success green */
 }
 
+/*
+ * Dark mode block — kept as an exact duplicate of :root so any existing
+ * `dark:` Tailwind variants in the codebase continue to resolve to the
+ * same values. Dark is the only theme; the duplication is intentional
+ * and trivial to remove later if we drop the `dark:` prefix usage.
+ */
 .dark {
-  --background: oklch(0.13 0.012 55);
-  --foreground: oklch(0.97 0.005 65);
+  --brand:        oklch(0.595 0.183 44);
+  --brand-bright: oklch(0.720 0.180 55);
+  --brand-hover:  oklch(0.530 0.170 42);
 
-  --card: oklch(0.18 0.012 55);
-  --card-foreground: oklch(0.97 0.005 65);
+  --background: oklch(0.180 0.013 250);
+  --foreground: oklch(1 0 0);
 
-  --popover: oklch(0.18 0.012 55);
-  --popover-foreground: oklch(0.97 0.005 65);
+  --card: oklch(0.230 0.018 252);
+  --card-foreground: oklch(1 0 0);
 
-  --primary: oklch(0.70 0.185 50);
-  --primary-foreground: oklch(0.14 0.015 55);
+  --popover: oklch(0.270 0.020 253);
+  --popover-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.23 0.012 55);
-  --secondary-foreground: oklch(0.97 0.005 65);
+  --primary: oklch(0.595 0.183 44);
+  --primary-foreground: oklch(1 0 0);
 
-  --muted: oklch(0.23 0.012 55);
-  --muted-foreground: oklch(0.65 0.015 65);
+  --secondary: oklch(0.270 0.020 253);
+  --secondary-foreground: oklch(1 0 0);
 
-  --accent: oklch(0.26 0.018 55);
-  --accent-foreground: oklch(0.97 0.005 65);
+  --muted: oklch(0.230 0.018 252);
+  --muted-foreground: oklch(0.780 0.012 252);
 
-  --destructive: oklch(0.704 0.191 22.216);
+  --accent: oklch(0.320 0.024 253);
+  --accent-foreground: oklch(1 0 0);
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.70 0.185 50);
+  --success: oklch(0.780 0.210 145);
+  --success-foreground: oklch(0.180 0.013 250);
 
-  --chart-1: oklch(0.70 0.185 50);
-  --chart-2: oklch(0.70 0.17 162);
-  --chart-3: oklch(0.65 0.15 240);
-  --chart-4: oklch(0.83 0.17 80);
-  --chart-5: oklch(0.65 0.22 25);
+  --warning: oklch(0.760 0.160 75);
+  --warning-foreground: oklch(0.180 0.013 250);
+
+  --destructive: oklch(0.630 0.210 25);
+
+  --border: oklch(0.310 0.022 253);
+  --input:  oklch(0.310 0.022 253);
+  --ring:   oklch(0.595 0.183 44);
+
+  --chart-1: oklch(0.595 0.183 44);
+  --chart-2: oklch(0.720 0.180 55);
+  --chart-3: oklch(0.650 0.150 240);
+  --chart-4: oklch(0.760 0.160 75);
+  --chart-5: oklch(0.780 0.210 145);
 }
 
 @theme inline {
@@ -100,6 +155,16 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* New utilities exposed for the CLASS S identity */
+  --color-brand: var(--brand);
+  --color-brand-bright: var(--brand-bright);
+  --color-brand-hover: var(--brand-hover);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

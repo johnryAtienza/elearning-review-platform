@@ -209,7 +209,7 @@ export function LessonPage() {
               'hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
               isSubscribed
                 ? 'bg-primary/10 text-primary'
-                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                : 'bg-warning/15 text-warning',
             )}>
               {isSubscribed ? 'Standard' : 'Free'}
             </span>
@@ -415,7 +415,7 @@ function FreeTierBanner({ previewEnded, previewSeconds }: FreeTierBannerProps) {
     <div className={cn(
       'rounded-xl border px-5 py-4 flex items-start gap-4 transition-colors',
       previewEnded
-        ? 'border-amber-500/30 bg-amber-500/5'
+        ? 'border-warning/40 bg-warning/10'
         : 'border-border bg-muted/30',
     )}>
       <div className="flex-1 space-y-1 min-w-0">

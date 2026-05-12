@@ -59,7 +59,7 @@ export function LessonList({ lessons, isSubscribed, activeLessonId, isGuest = fa
             ) : isGuest ? (
               <span className="text-xs text-muted-foreground shrink-0">Sign in</span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 shrink-0">
+              <span className="inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning shrink-0">
                 Free
               </span>
             )}

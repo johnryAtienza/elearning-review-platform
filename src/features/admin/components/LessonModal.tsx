@@ -405,10 +405,10 @@ function FilePicker({
 
       ) : done ? (
         /* Done — green tick */
-        <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-4 py-3">
-          <CheckCircle2 className="size-4 shrink-0 text-green-600" />
+        <div className="flex items-center gap-2.5 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+          <CheckCircle2 className="size-4 shrink-0 text-success" />
           <p className="text-sm truncate">{file?.name}</p>
-          <span className="ml-auto text-xs text-green-600">Uploaded</span>
+          <span className="ml-auto text-xs text-success">Uploaded</span>
         </div>
 
       ) : file ? (
@@ -432,7 +432,7 @@ function FilePicker({
       ) : hasExisting ? (
         /* Existing file uploaded in prior session */
         <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <CheckCircle2 className="size-4 shrink-0 text-green-600" />
+          <CheckCircle2 className="size-4 shrink-0 text-success" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">Already uploaded</p>
             <p className="text-xs text-muted-foreground truncate">{existingPath}</p>

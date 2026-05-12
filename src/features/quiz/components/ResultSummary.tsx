@@ -21,13 +21,13 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
       <div
         className={cn(
           'rounded-xl border p-6 text-center space-y-1',
-          passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+          passed ? 'border-success/30 bg-success/10' : 'border-destructive/30 bg-destructive/10'
         )}
       >
-        <p className={cn('text-4xl font-bold', passed ? 'text-green-600' : 'text-red-500')}>
+        <p className={cn('text-4xl font-bold', passed ? 'text-success' : 'text-destructive')}>
           {pct}%
         </p>
-        <p className={cn('text-sm font-medium', passed ? 'text-green-700' : 'text-red-600')}>
+        <p className={cn('text-sm font-medium', passed ? 'text-success' : 'text-destructive')}>
           {result.score} / {result.total} correct &mdash;{' '}
           {passed ? 'Great work!' : 'Keep reviewing and try again.'}
         </p>
@@ -41,7 +41,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
           const hasImageChoices = q.choices.some((c) => c.imageUrl)
 
           return (
-            <li key={q.id} className={cn('rounded-lg border p-4 space-y-2', isCorrect ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50')}>
+            <li key={q.id} className={cn('rounded-lg border p-4 space-y-2', isCorrect ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5')}>
               {/* Question stem */}
               <div className="space-y-2">
                 <p className="font-medium text-sm">
@@ -71,14 +71,14 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                         hasImageChoices
                           ? cn(
                               'flex flex-col items-center gap-1 border p-1.5',
-                              isAnswer && 'border-green-400 bg-green-100',
-                              isSelected && !isAnswer && 'border-red-400 bg-red-100',
+                              isAnswer && 'border-success/50 bg-success/15',
+                              isSelected && !isAnswer && 'border-destructive/50 bg-destructive/15',
                               !isAnswer && !isSelected && 'border-transparent',
                             )
                           : cn(
                               'flex items-center gap-2 px-3 py-1.5',
-                              isAnswer && 'bg-green-100 text-green-800 font-medium',
-                              isSelected && !isAnswer && 'bg-red-100 text-red-700',
+                              isAnswer && 'bg-success/15 text-success font-medium',
+                              isSelected && !isAnswer && 'bg-destructive/15 text-destructive',
                             )
                       )}
                     >
@@ -102,12 +102,12 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                         </>
                       )}
                       {isAnswer && (
-                        <span className={cn('text-xs text-green-600 font-semibold', hasImageChoices ? '' : 'ml-auto')}>
+                        <span className={cn('text-xs text-success font-semibold', hasImageChoices ? '' : 'ml-auto')}>
                           Correct
                         </span>
                       )}
                       {isSelected && !isAnswer && (
-                        <span className={cn('text-xs text-red-500 font-semibold', hasImageChoices ? '' : 'ml-auto')}>
+                        <span className={cn('text-xs text-destructive font-semibold', hasImageChoices ? '' : 'ml-auto')}>
                           Your answer
                         </span>
                       )}

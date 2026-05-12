@@ -92,7 +92,7 @@ export function LessonUploadForm({
       {saving    && <p className="text-xs text-muted-foreground">Saving to database…</p>}
       {saveError && <p className="text-xs text-destructive">Failed to save: {saveError}</p>}
       {saved && !saving && !saveError && (
-        <p className="text-xs text-green-600 dark:text-green-400">Saved successfully.</p>
+        <p className="text-xs text-success">Saved successfully.</p>
       )}
     </div>
   )

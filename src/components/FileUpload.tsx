@@ -286,7 +286,7 @@ export function FileUpload({
       {/* ── Done ── */}
       {uploadState.status === 'done' && (
         <FileCard
-          icon={<CheckCircle2 className="size-4 shrink-0 text-green-600 dark:text-green-400" />}
+          icon={<CheckCircle2 className="size-4 shrink-0 text-success" />}
           primaryText={uploadState.file.name}
           secondaryText="Uploaded successfully"
           status="done"
@@ -354,7 +354,7 @@ function FileCard({ icon, primaryText, secondaryText, status, actions, dndHandle
       className={cn(
         'flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors',
         status === 'done'
-          ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30'
+          ? 'border-success/30 bg-success/10'
           : 'bg-muted/30',
         isDragOver && 'ring-2 ring-primary border-primary',
       )}
@@ -366,7 +366,7 @@ function FileCard({ icon, primaryText, secondaryText, status, actions, dndHandle
           className={cn(
             'text-xs truncate',
             status === 'done'
-              ? 'text-green-600 dark:text-green-400'
+              ? 'text-success'
               : 'text-muted-foreground',
           )}
         >

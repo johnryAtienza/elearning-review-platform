@@ -197,10 +197,10 @@ export function FileUpload({
 
       {/* Done */}
       {state.status === 'done' && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-4 py-3">
+        <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <CheckCircle className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+              <CheckCircle className="size-4 shrink-0 text-success" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{state.file.name}</p>
                 <p className="text-xs text-muted-foreground">Uploaded successfully</p>
@@ -223,7 +223,7 @@ export function FileUpload({
         <div className="rounded-lg border bg-muted/30 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <CheckCircle className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+              <CheckCircle className="size-4 shrink-0 text-success" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{label} uploaded</p>
                 <p className="truncate text-xs text-muted-foreground">{existingUrl}</p>

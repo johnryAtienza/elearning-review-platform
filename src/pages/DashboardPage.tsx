@@ -185,10 +185,16 @@ export function DashboardPage() {
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
+/*
+ * Single-accent discipline: stat cards stay grayscale (muted/foreground).
+ * One slot ('primary') is reserved for the most-actionable metric — pages
+ * that want to spotlight a stat opt in by passing accent="primary".
+ */
 const ACCENT_CLASSES = {
-  blue:   'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-  amber:  'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  blue:    'bg-muted text-muted-foreground',
+  purple:  'bg-muted text-muted-foreground',
+  amber:   'bg-muted text-muted-foreground',
+  primary: 'bg-primary/15 text-primary',
 }
 
 function StatCard({

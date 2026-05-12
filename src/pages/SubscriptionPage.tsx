@@ -115,7 +115,7 @@ export function SubscriptionPage() {
               <ul className="space-y-2 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className="size-4 shrink-0 text-green-500 mt-0.5" />
+                    <Check className="size-4 shrink-0 text-success mt-0.5" />
                     {f}
                   </li>
                 ))}
@@ -185,7 +185,7 @@ export function SubscriptionPage() {
                       {formatPrice(selectedOption.pricePerMonth)}/mo
                     </span>
                     {selectedOption.discountPercent > 0 && (
-                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-500/10 rounded px-1.5 py-0.5">
+                      <span className="text-xs font-semibold text-success bg-success/15 rounded px-1.5 py-0.5">
                         Save {selectedOption.discountPercent}%
                       </span>
                     )}
@@ -226,7 +226,7 @@ export function SubscriptionPage() {
               <ul className="space-y-2 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className="size-4 shrink-0 text-green-500 mt-0.5" />
+                    <Check className="size-4 shrink-0 text-success mt-0.5" />
                     {f}
                   </li>
                 ))}
@@ -279,7 +279,7 @@ export function SubscriptionPage() {
 }
 
 function ComparisonCell({ value, highlight = false }: { value: string | boolean; highlight?: boolean }) {
-  if (value === true)  return <Check className={cn('size-4', highlight ? 'text-primary' : 'text-green-500')} />
+  if (value === true)  return <Check className={cn('size-4', highlight ? 'text-primary' : 'text-success')} />
   if (value === false) return <X className="size-4 text-muted-foreground/40" />
   return (
     <span className={cn('text-xs font-medium', highlight ? 'text-primary' : 'text-muted-foreground')}>

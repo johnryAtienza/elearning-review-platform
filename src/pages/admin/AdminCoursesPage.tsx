@@ -278,7 +278,7 @@ function CourseRow({
               disabled={isDeleting} asChild
             >
               <Link to={ROUTES.COURSE(course.id)} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className={`size-4 ${!course.isPublished ? 'text-amber-500' : ''}`} />
+                <ExternalLink className={`size-4 ${!course.isPublished ? 'text-warning' : ''}`} />
               </Link>
             </Button>
           </Tip>

@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { Bell, Check, Mail, PlayCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { HeroBlock } from '@/features/home/components/HeroBlock'
+import { TestimonialsSection } from '@/features/home/components/TestimonialsSection'
 import { ANNOUNCEMENTS, type Announcement } from '@/constants/announcements'
 import { OFFERINGS, CONTACT_BLURB, type Offering } from '@/constants/offerings'
 import { ROUTES } from '@/constants/routes'
@@ -10,11 +12,15 @@ import { cn } from '@/utils/cn'
 /**
  * Public Home page (CLASS S Review).
  *
- * Wireframe layout (page 1):
- *   ┌──────────────────────────┬──────────────────────┐
- *   │ ANNOUNCEMENTS            │ Welcome Video        │
+ * Phase D layout (Enroll Now hero + testimonials added for conversion):
+ *   ┌──────────────────────────────────────────────────┐
+ *   │ HERO — Enroll Now + Log in                       │
+ *   ├──────────────────────────┬──────────────────────┤
+ *   │ ANNOUNCEMENTS            │ Welcome Video         │
  *   ├──────────────────────────┴──────────────────────┤
- *   │ REVIEW CLASSES OFFERED   (the offering cards)   │
+ *   │ REVIEW CLASSES OFFERED   (the offering cards)    │
+ *   ├──────────────────────────────────────────────────┤
+ *   │ TESTIMONIALS                                     │
  *   ├──────────────────────────────────────────────────┤
  *   │ Contact us                                       │
  *   └──────────────────────────────────────────────────┘
@@ -22,12 +28,15 @@ import { cn } from '@/utils/cn'
  * Content sources:
  *   - Announcements: src/constants/announcements.ts
  *   - Offerings:     src/constants/offerings.ts (incl. CONTACT_BLURB)
- *   - Welcome video: TODO — provide a real URL via VITE_HOME_WELCOME_VIDEO_URL
- *                    or wire to admin-managed table in a follow-up.
+ *   - Testimonials:  src/constants/testimonials.ts
+ *   - Welcome video: VITE_HOME_WELCOME_VIDEO_URL (optional)
  */
 export function HomePage() {
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-6xl">
+
+      {/* ── Hero (Enroll Now + Log in) ── */}
+      <HeroBlock />
 
       {/* ── Top row: Announcements + Welcome video ── */}
       <section className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
@@ -53,6 +62,9 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* ── Testimonials ── */}
+      <TestimonialsSection />
+
       {/* ── Contact ── */}
       <section className="rounded-xl border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -64,8 +76,8 @@ export function HomePage() {
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">{CONTACT_BLURB}</p>
           </div>
         </div>
-        <Button asChild size="lg" className="shrink-0">
-          <Link to={ROUTES.REGISTER}>Get started</Link>
+        <Button asChild size="lg" variant="outline" className="shrink-0">
+          <Link to={ROUTES.REGISTER}>Enroll Now</Link>
         </Button>
       </section>
     </div>

@@ -214,12 +214,12 @@ export function CourseDetailPage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to={ROUTES.SUBSCRIPTION}>Upgrade to Standard</Link>
+                  <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
                 </Button>
               </>
             ) : (
               <Button asChild>
-                <Link to={ROUTES.REGISTER}>Sign up to start</Link>
+                <Link to={ROUTES.REGISTER}>Enroll Now</Link>
               </Button>
             )
           )}
@@ -368,7 +368,7 @@ function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
         : isDayOne
           ? <Badge variant="success">Free</Badge>
           : !unlocked
-            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Standard required" />
+            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
             : null
       }
     </div>
@@ -427,13 +427,13 @@ function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
         'bg-card/60 border-dashed cursor-pointer',
         'hover:border-primary/40 hover:bg-card',
       )}
-      aria-label={`${lesson.title} — Standard plan required`}
+      aria-label={`${lesson.title} — Enroll to unlock`}
     >
       {header}
       {title}
       {contentTypes}
-      <p className="text-[11px] font-medium text-warning mt-1">
-        Standard required
+      <p className="text-[11px] font-semibold text-primary mt-1">
+        Enroll Now to unlock →
       </p>
     </Link>
   )

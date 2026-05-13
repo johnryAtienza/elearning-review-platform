@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import {
   Clock, BookOpen, Tag, ChevronLeft, Play, PlayCircle, FileText, ListChecks,
-  Bookmark, BookmarkCheck, CalendarClock, PlusCircle, EyeOff, Pencil,
+  Bookmark, BookmarkCheck, CalendarClock, PlusCircle, EyeOff, Pencil, Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,9 +19,14 @@ import type { Course } from '@/features/courses/types'
 import type { Lesson } from '@/features/lessons/types'
 
 /**
- * Phase A: until lessons gain `week_number` / `day_number` columns
- * (Phase B), we group client-side as `week = ceil(order / DAYS_PER_WEEK)`.
- * Default 6 days/week matches the client wireframe.
+ * Curriculum grid grouping.
+ *
+ * Prefers `lesson.weekNumber` (set after the add_lesson_week_day migration
+ * runs). Falls back to `ceil(order / DAYS_PER_WEEK)` for any lesson row
+ * that hasn't been backfilled yet so the page still renders correctly.
+ *
+ * `DAYS_PER_WEEK = 6` matches the client wireframe (Day 6 = Week 1 Exam,
+ * Day 12 = Week 2 Exam, etc.).
  */
 const DAYS_PER_WEEK = 6
 
@@ -30,11 +35,19 @@ interface WeekGroup {
   lessons: Lesson[]
 }
 
+function effectiveWeek(lesson: Lesson): number {
+  return lesson.weekNumber ?? Math.max(1, Math.ceil(lesson.order / DAYS_PER_WEEK))
+}
+
+function effectiveDay(lesson: Lesson): number {
+  return lesson.dayNumber ?? lesson.order
+}
+
 function groupLessonsByWeek(lessons: Lesson[]): WeekGroup[] {
-  const sorted = [...lessons].sort((a, b) => a.order - b.order)
+  const sorted = [...lessons].sort((a, b) => effectiveDay(a) - effectiveDay(b))
   const groups = new Map<number, Lesson[]>()
   for (const l of sorted) {
-    const week = Math.max(1, Math.ceil(l.order / DAYS_PER_WEEK))
+    const week = effectiveWeek(l)
     const arr = groups.get(week) ?? []
     arr.push(l)
     groups.set(week, arr)
@@ -237,7 +250,12 @@ export function CourseDetailPage() {
 
           <div className="space-y-8">
             {weekGroups.map((group) => (
-              <WeekBlock key={group.weekNumber} group={group} />
+              <WeekBlock
+                key={group.weekNumber}
+                group={group}
+                isSubscribed={isSubscribed}
+                isAuthenticated={isAuthenticated}
+              />
             ))}
           </div>
         </section>
@@ -281,7 +299,13 @@ function CourseIntroVideo({ course }: { course: Course }) {
 
 // ── Week block ───────────────────────────────────────────────────────────────
 
-function WeekBlock({ group }: { group: WeekGroup }) {
+interface WeekBlockProps {
+  group: WeekGroup
+  isSubscribed: boolean
+  isAuthenticated: boolean
+}
+
+function WeekBlock({ group, isSubscribed, isAuthenticated }: WeekBlockProps) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-bold tracking-wider uppercase text-foreground flex items-center gap-3">
@@ -294,7 +318,12 @@ function WeekBlock({ group }: { group: WeekGroup }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {group.lessons.map((lesson) => (
-          <DayCard key={lesson.id} lesson={lesson} />
+          <DayCard
+            key={lesson.id}
+            lesson={lesson}
+            isSubscribed={isSubscribed}
+            isAuthenticated={isAuthenticated}
+          />
         ))}
       </div>
     </div>
@@ -302,47 +331,110 @@ function WeekBlock({ group }: { group: WeekGroup }) {
 }
 
 // ── Day card ─────────────────────────────────────────────────────────────────
-// Each card represents one day of the curriculum. The wireframe shows three
-// content types per day (video / problem solutions / elements) — Phase A maps
-// these labels to the existing lesson shape (video + reviewer PDF + quiz).
-// The exact mapping is a Phase B decision; for now we display the labels as
-// hints and keep the card linking to the existing LessonPage.
+// One card per curriculum day. The wireframe shows three content types per
+// day (video / problem solutions / elements) — Phase A wired these as visual
+// hints; the exact backing data is still the existing LessonPage.
+//
+// Click rules (Phase B):
+//   - Subscribers       → navigate to the lesson.
+//   - Anyone, Day 1     → navigate to the lesson (free for everyone).
+//   - Free user, Day 2+ → render as a non-interactive locked card with a
+//                          link out to /subscription on the action affordance.
+//   - Guests            → can browse but click follows the same rules; the
+//                          /lesson/:id route guard sends them to /login.
 
-function DayCard({ lesson }: { lesson: Lesson }) {
-  const isExam = /\bexam\b/i.test(lesson.title)
+interface DayCardProps {
+  lesson: Lesson
+  isSubscribed: boolean
+  isAuthenticated: boolean
+}
+
+function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
+  const isExam   = /\bexam\b/i.test(lesson.title)
+  const day      = effectiveDay(lesson)
+  const isDayOne = day === 1
+  const unlocked = isSubscribed || isDayOne
+
+  const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
+  const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+
+  const header = (
+    <div className="flex items-center justify-between">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+        Day {day}
+      </span>
+      {isExam
+        ? <Badge variant="warning">Exam</Badge>
+        : isDayOne
+          ? <Badge variant="success">Free</Badge>
+          : !unlocked
+            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Standard required" />
+            : null
+      }
+    </div>
+  )
+
+  const title = (
+    <h4 className={cn(
+      'text-sm font-semibold leading-snug line-clamp-2 transition-colors',
+      unlocked && 'group-hover:text-primary',
+    )}>
+      {lesson.title}
+    </h4>
+  )
+
+  const contentTypes = (
+    <ul className="mt-auto space-y-0.5 pt-2">
+      <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <PlayCircle className="size-3 shrink-0" />
+        Video explainer
+      </li>
+      <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <FileText className="size-3 shrink-0" />
+        Problem solutions
+      </li>
+      <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <ListChecks className="size-3 shrink-0" />
+        Elements
+      </li>
+    </ul>
+  )
+
+  // Unlocked → real link to the lesson.
+  if (unlocked) {
+    return (
+      <Link
+        to={ROUTES.LESSON(lesson.id)}
+        className={cn(
+          cardBase, sharedFocus,
+          'bg-card hover:border-primary/40 hover:bg-card/80',
+        )}
+      >
+        {header}
+        {title}
+        {contentTypes}
+      </Link>
+    )
+  }
+
+  // Locked (free user, Day 2+) → show curriculum but route to the upgrade page.
+  // Guests get the same card; the /subscription route is public.
   return (
     <Link
-      to={ROUTES.LESSON(lesson.id)}
+      to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}
       className={cn(
-        'group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-colors',
-        'hover:border-primary/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        cardBase, sharedFocus,
+        'bg-card/60 border-dashed cursor-pointer',
+        'hover:border-primary/40 hover:bg-card',
       )}
+      aria-label={`${lesson.title} — Standard plan required`}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-          Day {lesson.order}
-        </span>
-        {isExam && <Badge variant="warning">Exam</Badge>}
-      </div>
-
-      <h4 className="text-sm font-semibold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-        {lesson.title}
-      </h4>
-
-      <ul className="mt-auto space-y-0.5 pt-2">
-        <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <PlayCircle className="size-3 shrink-0" />
-          Video explainer
-        </li>
-        <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <FileText className="size-3 shrink-0" />
-          Problem solutions
-        </li>
-        <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ListChecks className="size-3 shrink-0" />
-          Elements
-        </li>
-      </ul>
+      {header}
+      {title}
+      {contentTypes}
+      <p className="text-[11px] font-medium text-warning mt-1">
+        Standard required
+      </p>
     </Link>
   )
 }

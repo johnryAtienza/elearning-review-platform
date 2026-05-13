@@ -19,7 +19,7 @@ import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
-import { getPermissions, tierFromSubscribed, isUnlimited } from '@/features/subscription/services/accessControl'
+import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isDayOneFree } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import type { ReviewerContent } from '@/features/lessons/types'
 import type { Quiz } from '@/features/quiz/types'
@@ -68,9 +68,9 @@ export function LessonPage() {
     handleSuspiciousCapture,
   )
 
-  // Derive tier + permissions from subscription status
-  const tier        = tierFromSubscribed(isSubscribed)
-  const permissions = getPermissions(tier)
+  // Tier comes from subscription state alone; effective permissions are
+  // computed below once the lesson is loaded (Day 1 unlocks everything).
+  const tier = tierFromSubscribed(isSubscribed)
 
   const { data, loading, notFound, error } = useLesson(lessonId ?? '')
 
@@ -154,22 +154,34 @@ export function LessonPage() {
 
   const { lesson, course, siblings, prev, next, progress } = data
 
-  // Subscribed: PDF + quiz unlock after marking watched; Free: always visible (limited/locked)
-  const contentUnlocked = isSubscribed ? isWatched : true
+  // Effective permissions take Day 1 free-access into account.
+  // When the lesson is Day 1, every authenticated user gets standard-tier
+  // limits regardless of their subscription.
+  const permissions      = getEffectivePermissions(tier, lesson)
+  const effectiveTier    = getEffectiveTier(tier, lesson)
+  const dayOneBypass     = isDayOneFree(lesson)
+  // For navigation / progress / banner copy we still want to know if the
+  // *user* is technically subscribed vs. just getting Day 1 for free.
+  const hasFullAccess    = isSubscribed || dayOneBypass
 
-  // Navigation: subscribed needs isWatched + quiz submitted; free needs preview done
-  const navReady = isSubscribed
+  // Full-access (subscribed OR Day 1 free): PDF + quiz unlock after marking
+  // watched. Otherwise (Day 2+ on free tier): always visible (limited/locked).
+  const contentUnlocked = hasFullAccess ? isWatched : true
+
+  // Navigation: full-access needs isWatched + quiz submitted; otherwise
+  // (Day 2+ on free tier) just needs preview done.
+  const navReady = hasFullAccess
     ? isWatched && (quiz ? submitted : true)
     : previewEnded
 
-  // Video preview seconds — undefined when unlimited (standard tier)
+  // Video preview seconds — undefined when unlimited (standard tier or Day 1)
   const videoPreviewSec = isUnlimited(permissions.videoPreviewSeconds)
     ? undefined
     : permissions.videoPreviewSeconds
 
   // Single completion hint shown below the quiz section
   const completionHint = getCompletionHint({
-    isSubscribed, isWatched, videoProgress, quiz, submitted, previewEnded,
+    isSubscribed: hasFullAccess, isWatched, videoProgress, quiz, submitted, previewEnded,
     previewSeconds: permissions.videoPreviewSeconds,
   })
 
@@ -292,7 +304,9 @@ export function LessonPage() {
           />
 
           {/* ── Free tier banner ── */}
-          {!isSubscribed && (
+          {/* Suppressed when the lesson is Day 1 (free for everyone) — the banner
+              would lie about preview limits that no longer apply. */}
+          {!isSubscribed && !dayOneBypass && (
             <FreeTierBanner previewEnded={previewEnded} previewSeconds={permissions.videoPreviewSeconds} />
           )}
 
@@ -304,7 +318,7 @@ export function LessonPage() {
                   content={reviewerContent}
                   pdfUrl={signedPdfUrl ?? undefined}
                   visible={contentUnlocked}
-                  tier={tier}
+                  tier={effectiveTier}
                 />
               )}
               {activeTab === 'quiz' && quiz && (

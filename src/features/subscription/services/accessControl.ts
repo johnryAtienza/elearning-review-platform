@@ -36,6 +36,41 @@ export function getPermissions(tier: SubscriptionTier): TierPermissions {
   return TIER_PERMISSIONS[tier]
 }
 
+/**
+ * Effective permissions for a specific lesson.
+ *
+ * Day 1 lessons are free for everyone (no 30s video cap, no PDF page limit,
+ * no quiz lock) regardless of subscription tier. Day 2+ lessons follow the
+ * normal tier matrix.
+ *
+ * Pass the lesson by reference; only `dayNumber` is read so this works with
+ * any object that has the field (Lesson, AdminLesson, etc.).
+ */
+export function getEffectivePermissions(
+  tier: SubscriptionTier,
+  lesson: { dayNumber?: number | null } | null | undefined,
+): TierPermissions {
+  if (lesson?.dayNumber === 1) return TIER_PERMISSIONS.standard
+  return TIER_PERMISSIONS[tier]
+}
+
+/** True when the given lesson is the Day 1 free-access lesson. */
+export function isDayOneFree(lesson: { dayNumber?: number | null } | null | undefined): boolean {
+  return lesson?.dayNumber === 1
+}
+
+/**
+ * Effective tier for a specific lesson. Day 1 unlocks standard-tier access
+ * for any authenticated user. Useful for components (e.g. ReviewerSection)
+ * that derive their own permissions from a tier prop.
+ */
+export function getEffectiveTier(
+  tier: SubscriptionTier,
+  lesson: { dayNumber?: number | null } | null | undefined,
+): SubscriptionTier {
+  return lesson?.dayNumber === 1 ? 'standard' : tier
+}
+
 /** Derive tier from subscription status. Extend here if more tiers are added. */
 export function tierFromSubscribed(isSubscribed: boolean): SubscriptionTier {
   return isSubscribed ? 'standard' : 'free'

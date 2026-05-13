@@ -40,6 +40,13 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const originalCourseId = useRef(lesson?.courseId ?? defaultCourseId ?? '')
   const originalOrder    = useRef(lesson?.order ?? 1)
 
+  // Curriculum slot. Defaults derive from `order` using the wireframe's
+  // 6-day week pattern (week = ceil(order/6), day = order). Admin can override.
+  const defaultWeek = lesson?.weekNumber ?? Math.max(1, Math.ceil((lesson?.order ?? 1) / 6))
+  const defaultDay  = lesson?.dayNumber  ?? (lesson?.order ?? 1)
+  const [weekNumber, setWeekNumber] = useState<number>(defaultWeek)
+  const [dayNumber,  setDayNumber]  = useState<number>(defaultDay)
+
   const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
   const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
   const [videoFile,    setVideoFile]    = useState<File | null>(null)
@@ -99,9 +106,9 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       const durationMinutes = durationHrs * 60 + durationMins || null
       let lessonId = lesson?.id
       if (isEdit) {
-        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, durationMinutes })
+        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, weekNumber, dayNumber, durationMinutes })
       } else {
-        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, durationMinutes })
+        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, weekNumber, dayNumber, durationMinutes })
       }
 
       // 2. Upload video (if a file was picked)
@@ -138,6 +145,8 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
         courseTitle,
         title:           title.trim(),
         order,
+        weekNumber,
+        dayNumber,
         durationMinutes: durationMinutes,
         videoUrl,
         reviewerPdfUrl,
@@ -227,22 +236,51 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               />
             </div>
 
-            {/* Order */}
+            {/* Order + Week + Day (curriculum slot) */}
             <div className="space-y-1.5">
-              <label htmlFor="lesson-order" className="text-sm font-medium">
-                Order
-              </label>
-              <Input
-                id="lesson-order"
-                type="number"
-                min={1}
-                value={order}
-                onChange={(e) => setOrder(Number(e.target.value))}
-                disabled={saving}
-                className="w-28"
-              />
+              <label className="text-sm font-medium">Curriculum slot</label>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="lesson-order" className="text-xs text-muted-foreground">Order</label>
+                  <Input
+                    id="lesson-order"
+                    type="number"
+                    min={1}
+                    value={order}
+                    onChange={(e) => setOrder(Number(e.target.value))}
+                    disabled={saving}
+                    className="w-24 text-center"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="lesson-week" className="text-xs text-muted-foreground">Week</label>
+                  <Input
+                    id="lesson-week"
+                    type="number"
+                    min={1}
+                    value={weekNumber}
+                    onChange={(e) => setWeekNumber(Math.max(1, Number(e.target.value) || 1))}
+                    disabled={saving}
+                    className="w-24 text-center"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="lesson-day" className="text-xs text-muted-foreground">Day</label>
+                  <Input
+                    id="lesson-day"
+                    type="number"
+                    min={1}
+                    value={dayNumber}
+                    onChange={(e) => setDayNumber(Math.max(1, Number(e.target.value) || 1))}
+                    disabled={saving}
+                    className="w-24 text-center"
+                  />
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Determines the position within the course.
+                Order = position within the course. Week + Day drive the
+                curriculum grid on the course page. Day 1 lessons are free
+                for everyone (no subscription required).
               </p>
             </div>
 

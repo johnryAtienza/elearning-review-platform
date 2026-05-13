@@ -46,6 +46,10 @@ export interface AdminLesson {
   courseTitle: string
   title: string
   order: number
+  /** Curriculum week (1-based). Null until backfill runs or admin sets it. */
+  weekNumber: number | null
+  /** Curriculum day (1-based, sequential within course). Day 1 = free for everyone. */
+  dayNumber: number | null
   durationMinutes: number | null
   videoUrl: string | null
   reviewerPdfUrl: string | null
@@ -90,6 +94,8 @@ export interface LessonFormData {
   courseId: string
   title: string
   order: number
+  weekNumber?: number | null
+  dayNumber?: number | null
   durationMinutes?: number | null
 }
 
@@ -172,6 +178,8 @@ interface LessonRow {
   course_id: string
   title: string
   order: number
+  week_number: number | null
+  day_number: number | null
   duration_minutes: number | null
   video_url: string | null
   reviewer_pdf_url: string | null
@@ -313,7 +321,7 @@ export async function deleteCourse(courseId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, course_id, title, order, duration_minutes, video_url, reviewer_pdf_url, created_at, courses(title)')
+    .select('id, course_id, title, order, week_number, day_number, duration_minutes, video_url, reviewer_pdf_url, created_at, courses(title)')
     .order('course_id')
     .order('order', { ascending: true })
 
@@ -325,6 +333,8 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
     courseTitle:     row.courses?.title ?? 'Unknown',
     title:           row.title,
     order:           row.order,
+    weekNumber:      row.week_number ?? null,
+    dayNumber:       row.day_number  ?? null,
     durationMinutes: row.duration_minutes ?? null,
     videoUrl:        row.video_url,
     reviewerPdfUrl:  row.reviewer_pdf_url,
@@ -362,6 +372,8 @@ export async function createAdminLesson(data: LessonFormData): Promise<string> {
       course_id:        data.courseId,
       title:            data.title,
       order:            data.order,
+      week_number:      data.weekNumber ?? null,
+      day_number:       data.dayNumber  ?? null,
       duration_minutes: data.durationMinutes ?? null,
       description:      '',
       duration:         '',
@@ -381,6 +393,8 @@ export async function updateAdminLesson(
   if (data.courseId        !== undefined) update.course_id         = data.courseId
   if (data.title           !== undefined) update.title             = data.title
   if (data.order           !== undefined) update.order             = data.order
+  if (data.weekNumber      !== undefined) update.week_number       = data.weekNumber
+  if (data.dayNumber       !== undefined) update.day_number        = data.dayNumber
   if (data.durationMinutes !== undefined) update.duration_minutes  = data.durationMinutes
   if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
   if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl

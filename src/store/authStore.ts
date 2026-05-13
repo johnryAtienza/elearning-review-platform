@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@/features/auth/types'
 import type { ActiveSubscription, SubscriptionTier } from '@/features/subscription/types'
+import type { UserDevice } from '@/features/devices/types'
 import {
   login,
   register,
@@ -11,6 +12,7 @@ import {
   onAuthChange,
 } from '@/features/auth/services/authService'
 import { supabase } from '@/services/supabaseClient'
+import { registerCurrentDevice, DeviceLimitError } from '@/services/devicesApi'
 import { useSavedCoursesStore } from './savedCoursesStore'
 
 interface AuthState {
@@ -33,10 +35,27 @@ interface AuthState {
    */
   confirmationPending: boolean
 
+  /**
+   * Phase G — when device registration is blocked by the hard cap
+   * (1 mobile + 1 desktop), this carries the user's current active
+   * devices so the UI can render DeviceLimitModal. Cleared on:
+   *   - successful revoke + retry
+   *   - explicit dismissal
+   */
+  pendingDeviceLimit: UserDevice[] | null
+
   /** Call once at app startup to restore any persisted session. */
   initialize: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  register: (firstName: string, lastName: string, email: string, password: string, mobileNumber: string) => Promise<void>
+  register: (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    mobileNumber: string,
+    school: string,
+    schoolId: string,
+  ) => Promise<void>
   logout: () => Promise<void>
   /** Patch the in-memory user after a profile update without a full re-fetch. */
   setUser: (updates: Partial<User>) => void
@@ -46,6 +65,8 @@ interface AuthState {
    */
   syncSubscription: () => Promise<void>
   refreshToken: () => Promise<void>
+  /** Dismiss the device-limit modal without revoking anything. */
+  clearPendingDeviceLimit: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -58,6 +79,7 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
       isInitializing: true,
       confirmationPending: false,
+      pendingDeviceLimit: null,
 
       syncSubscription: async () => {
         const { user } = get()
@@ -112,6 +134,27 @@ export const useAuthStore = create<AuthState>()(
           set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
           await get().syncSubscription()
           void useSavedCoursesStore.getState().fetch()
+          // Phase G — register/touch this device. On limit_reached, sign
+          // the user out locally and surface the modal so they can revoke
+          // an existing device before retrying.
+          try {
+            await registerCurrentDevice()
+          } catch (err) {
+            if (err instanceof DeviceLimitError) {
+              await logout()
+              set({
+                user: null,
+                isAuthenticated: false,
+                isAdmin: false,
+                isSubscribed: false,
+                subscription: null,
+                pendingDeviceLimit: err.devices,
+              })
+              useSavedCoursesStore.getState().reset()
+            } else {
+              console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
+            }
+          }
         }
         set({ isInitializing: false })
 
@@ -132,17 +175,59 @@ export const useAuthStore = create<AuthState>()(
         set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
         await get().syncSubscription()
         void useSavedCoursesStore.getState().fetch()
+        // Phase G — register device. If limit hit, sign out and re-throw
+        // so LoginPage can mount DeviceLimitModal.
+        try {
+          await registerCurrentDevice()
+        } catch (err) {
+          if (err instanceof DeviceLimitError) {
+            await logout()
+            set({
+              user: null,
+              isAuthenticated: false,
+              isAdmin: false,
+              isSubscribed: false,
+              subscription: null,
+              pendingDeviceLimit: err.devices,
+            })
+            useSavedCoursesStore.getState().reset()
+            throw err
+          }
+          // Non-fatal otherwise — user remains logged in.
+          console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
+        }
       },
 
-      register: async (firstName, lastName, email, password, mobileNumber) => {
-        const result = await register({ firstName, lastName, email, password, mobileNumber })
+      register: async (firstName, lastName, email, password, mobileNumber, school, schoolId) => {
+        const result = await register({ firstName, lastName, email, password, mobileNumber, school, schoolId })
         if (result.awaitingConfirmation) {
           set({ confirmationPending: true })
         } else {
           set({ user: result.user, isAuthenticated: true, isAdmin: result.user.role === 'admin', confirmationPending: false })
           await get().syncSubscription()
+          // Phase G — same flow as login.
+          try {
+            await registerCurrentDevice()
+          } catch (err) {
+            if (err instanceof DeviceLimitError) {
+              await logout()
+              set({
+                user: null,
+                isAuthenticated: false,
+                isAdmin: false,
+                isSubscribed: false,
+                subscription: null,
+                pendingDeviceLimit: err.devices,
+              })
+              useSavedCoursesStore.getState().reset()
+              throw err
+            }
+            console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
+          }
         }
       },
+
+      clearPendingDeviceLimit: () => set({ pendingDeviceLimit: null }),
 
       logout: async () => {
         await logout()

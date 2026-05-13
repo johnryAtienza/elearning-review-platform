@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { useAuthStore } from '@/store/authStore'
 import { ApiError } from '@/services/ApiError'
+import { DeviceLimitError } from '@/services/devicesApi'
+import { DeviceLimitModal } from '@/features/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
+import type { UserDevice } from '@/features/devices/types'
 
 export function LoginPage() {
-  const login = useAuthStore((s) => s.login)
+  const login                   = useAuthStore((s) => s.login)
+  const pendingDeviceLimit      = useAuthStore((s) => s.pendingDeviceLimit)
+  const clearPendingDeviceLimit = useAuthStore((s) => s.clearPendingDeviceLimit)
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: Location })?.from?.pathname ?? ROUTES.HOME
@@ -19,6 +24,7 @@ export function LoginPage() {
   const [error,     setError]     = useState('')
   const [loading,   setLoading]   = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [limitDevices, setLimitDevices] = useState<UserDevice[] | null>(null)
 
   const fieldErrors = submitted
     ? { email: !email.trim(), password: !password }
@@ -44,7 +50,10 @@ export function LoginPage() {
       await login(email, password)
       navigate(from, { replace: true })
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof DeviceLimitError) {
+        // Phase G — hard cap hit. Show modal; user must revoke before retrying.
+        setLimitDevices(err.devices)
+      } else if (err instanceof ApiError) {
         // Show the real Supabase error (e.g. "Email not confirmed", "Invalid login credentials")
         setError(err.message)
       } else {
@@ -55,8 +64,41 @@ export function LoginPage() {
     }
   }
 
+  // Phase G — if initialize() detected a device-limit, surface the modal too.
+  const modalDevices = limitDevices ?? pendingDeviceLimit
+  function dismissLimitModal() {
+    setLimitDevices(null)
+    clearPendingDeviceLimit()
+  }
+  async function retryAfterRevoke() {
+    dismissLimitModal()
+    // Re-submit the form silently if we have credentials still in state.
+    if (email && password) {
+      setLoading(true)
+      try {
+        await login(email, password)
+        navigate(from, { replace: true })
+      } catch (err) {
+        if (err instanceof DeviceLimitError) setLimitDevices(err.devices)
+        else if (err instanceof ApiError) setError(err.message)
+        else setError('Login failed. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
   return (
     <section className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      {/* Phase G device-limit modal (login + initialize sources) */}
+      {modalDevices && (
+        <DeviceLimitModal
+          devices={modalDevices}
+          onRevoked={retryAfterRevoke}
+          onCancel={dismissLimitModal}
+        />
+      )}
+
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
         <div className="space-y-1.5 text-center">

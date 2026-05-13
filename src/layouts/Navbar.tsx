@@ -289,6 +289,8 @@ export function Navbar() {
                 {c.title}
               </NavLink>
             ))}
+            <NavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</NavLink>
+            <NavLink to={ROUTES.CONTACT} className={tabClass}>Contact</NavLink>
           </div>
         </nav>
 
@@ -303,6 +305,8 @@ export function Navbar() {
                 {c.title}
               </MobileNavLink>
             ))}
+            <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
+            <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
 
             {isAuthenticated && (
               <>

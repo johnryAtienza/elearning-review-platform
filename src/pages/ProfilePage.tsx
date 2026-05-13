@@ -1,11 +1,13 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Check, Loader2, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Check, Loader2, X, MonitorSmartphone, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { useAuthStore } from '@/store/authStore'
 import { getProfile, updateProfile, updatePassword } from '@/features/auth/services/profileService'
 import { toast } from '@/lib/toast'
+import { ROUTES } from '@/constants/routes'
 
 // ── Password rule indicator (same pattern as ResetPasswordPage) ───────────────
 
@@ -27,6 +29,8 @@ export function ProfilePage() {
   const [firstName,    setFirstName]    = useState('')
   const [lastName,     setLastName]     = useState('')
   const [mobileNumber, setMobileNumber] = useState('')
+  const [school,       setSchool]       = useState('')
+  const [schoolId,     setSchoolId]     = useState('')
   const [memberSince,  setMemberSince]  = useState<string | null>(null)
   const [infoLoading,  setInfoLoading]  = useState(false)
   const [infoError,    setInfoError]    = useState('')
@@ -55,6 +59,8 @@ export function ProfilePage() {
         setFirstName(profile.first_name ?? user.firstName)
         setLastName(profile.last_name ?? user.lastName)
         setMobileNumber(profile.mobile_number ?? user.mobileNumber)
+        setSchool(profile.school ?? user.school)
+        setSchoolId(profile.school_id ?? user.schoolId)
         setMemberSince(profile.created_at)
       })
       .catch(() => {
@@ -62,6 +68,8 @@ export function ProfilePage() {
         setFirstName(user.firstName)
         setLastName(user.lastName)
         setMobileNumber(user.mobileNumber)
+        setSchool(user.school)
+        setSchoolId(user.schoolId)
       })
   }, [user])
 
@@ -82,10 +90,19 @@ export function ProfilePage() {
         firstName:    firstName.trim(),
         lastName:     lastName.trim(),
         mobileNumber: mobileNumber.trim(),
+        school:       school.trim(),
+        schoolId:     schoolId.trim(),
       })
 
       const name = `${firstName.trim()} ${lastName.trim()}`.trim()
-      setUser({ name, firstName: firstName.trim(), lastName: lastName.trim(), mobileNumber: mobileNumber.trim() })
+      setUser({
+        name,
+        firstName:    firstName.trim(),
+        lastName:     lastName.trim(),
+        mobileNumber: mobileNumber.trim(),
+        school:       school.trim(),
+        schoolId:     schoolId.trim(),
+      })
       toast.success('Profile updated successfully!')
     } catch (err) {
       setInfoError(err instanceof Error ? err.message : 'Failed to update profile.')
@@ -223,6 +240,31 @@ export function ProfilePage() {
             />
           </div>
 
+          {/* School + School ID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="school" className="text-sm font-medium">School</label>
+              <Input
+                id="school"
+                type="text"
+                placeholder="e.g. University of the Philippines"
+                autoComplete="organization"
+                value={school}
+                onChange={(e) => setSchool(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="schoolId" className="text-sm font-medium">School ID</label>
+              <Input
+                id="schoolId"
+                type="text"
+                placeholder="Your student ID"
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+              />
+            </div>
+          </div>
+
           <Button type="submit" disabled={infoLoading}>
             {infoLoading ? (
               <>
@@ -235,6 +277,23 @@ export function ProfilePage() {
           </Button>
         </form>
       </div>
+
+      {/* ── Manage devices link ─────────────────────────────────────────────── */}
+      <Link
+        to={ROUTES.DEVICES}
+        className="rounded-xl border bg-card p-5 shadow-sm flex items-center gap-4 transition-colors hover:border-primary/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <div className="rounded-lg bg-primary/15 p-2 shrink-0">
+          <MonitorSmartphone className="size-5 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold">Manage devices</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Review and sign out devices on your account. 1 mobile + 1 laptop/desktop allowed.
+          </p>
+        </div>
+        <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+      </Link>
 
       {/* ── Section B: Account Security ────────────────────────────────────── */}
       <div className="rounded-xl border bg-card p-6 shadow-sm space-y-5">

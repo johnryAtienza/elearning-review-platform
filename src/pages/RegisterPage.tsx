@@ -6,7 +6,10 @@ import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { useAuthStore } from '@/store/authStore'
 import { ApiError } from '@/services/ApiError'
+import { DeviceLimitError } from '@/services/devicesApi'
+import { DeviceLimitModal } from '@/features/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
+import type { UserDevice } from '@/features/devices/types'
 
 function RequiredMark() {
   return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
@@ -23,10 +26,13 @@ export function RegisterPage() {
   const [password,        setPassword]        = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [mobileNumber,    setMobileNumber]    = useState('')
+  const [school,          setSchool]          = useState('')
+  const [schoolId,        setSchoolId]        = useState('')
   const [error,           setError]           = useState('')
   const [loading,         setLoading]         = useState(false)
   const [submitted,       setSubmitted]       = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
+  const [limitDevices,    setLimitDevices]    = useState<UserDevice[] | null>(null)
 
   const pwRules = {
     length:    password.length >= 8,
@@ -70,12 +76,16 @@ export function RegisterPage() {
 
     setLoading(true)
     try {
-      await register(firstName, lastName, email, password, mobileNumber)
+      await register(firstName, lastName, email, password, mobileNumber, school, schoolId)
       if (!useAuthStore.getState().confirmationPending) {
         navigate(ROUTES.HOME, { replace: true })
       }
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof DeviceLimitError) {
+        // Phase G — should be rare on register (this is a brand-new account),
+        // but possible if someone is mid-flow on another browser. Same modal.
+        setLimitDevices(err.devices)
+      } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
         setError('Registration failed. Please try again.')
@@ -111,6 +121,15 @@ export function RegisterPage() {
   // ── Registration form ─────────────────────────────────────────────────────────
   return (
     <section className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      {/* Phase G device-limit modal (rare on register but possible) */}
+      {limitDevices && (
+        <DeviceLimitModal
+          devices={limitDevices}
+          onRevoked={() => setLimitDevices(null)}
+          onCancel={() => setLimitDevices(null)}
+        />
+      )}
+
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-1.5 text-center">
           <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
@@ -185,6 +204,37 @@ export function RegisterPage() {
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
               />
+            </div>
+
+            {/* School + School ID — optional but encouraged */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="school" className="text-sm font-medium">
+                  School{' '}
+                  <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id="school"
+                  type="text"
+                  placeholder="e.g. University of the Philippines"
+                  autoComplete="organization"
+                  value={school}
+                  onChange={(e) => setSchool(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="schoolId" className="text-sm font-medium">
+                  School ID{' '}
+                  <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  id="schoolId"
+                  type="text"
+                  placeholder="Your student ID"
+                  value={schoolId}
+                  onChange={(e) => setSchoolId(e.target.value)}
+                />
+              </div>
             </div>
 
             {/* Password */}

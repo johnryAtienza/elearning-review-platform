@@ -17,8 +17,11 @@ export const ROUTES = {
   LESSON:  (id: string) => `/lesson/${id}`,
 
   PROFILE:          '/profile',
+  DEVICES:          '/profile/devices',
   PAYMENT_SUCCESS:  '/payment-success',
   PAYMENT_CANCEL:   '/payment-cancel',
+  CONTACT:          '/contact',
+  FAQ:              '/faq',
 
   // Books (Phase C)
   BOOKS:           '/books',

@@ -8,13 +8,15 @@ export interface ProfileUpdateData {
   firstName: string
   lastName: string
   mobileNumber: string
+  school: string
+  schoolId: string
 }
 
 /** Fetch the current user's profile row. */
 export async function getProfile(userId: string) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('first_name, last_name, mobile_number, email, created_at')
+    .select('first_name, last_name, mobile_number, school, school_id, email, created_at')
     .eq('id', userId)
     .single()
 
@@ -23,13 +25,15 @@ export async function getProfile(userId: string) {
     first_name:    string | null
     last_name:     string | null
     mobile_number: string | null
+    school:        string | null
+    school_id:     string | null
     email:         string | null
     created_at:    string
   }
 }
 
 /**
- * Update first name, last name, and mobile number.
+ * Update first name, last name, mobile number, school, school_id.
  * Writes to both the `profiles` table and auth user_metadata so the
  * two stay in sync and the navbar reflects the new name immediately.
  */
@@ -43,6 +47,8 @@ export async function updateProfile(userId: string, data: ProfileUpdateData): Pr
       first_name:    data.firstName,
       last_name:     data.lastName,
       mobile_number: data.mobileNumber,
+      school:        data.school,
+      school_id:     data.schoolId,
     })
     .eq('id', userId)
 
@@ -55,6 +61,8 @@ export async function updateProfile(userId: string, data: ProfileUpdateData): Pr
       first_name:    data.firstName,
       last_name:     data.lastName,
       mobile_number: data.mobileNumber,
+      school:        data.school,
+      school_id:     data.schoolId,
     },
   })
 

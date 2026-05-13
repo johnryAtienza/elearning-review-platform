@@ -16,6 +16,8 @@ export interface RegisterData {
   email: string
   password: string
   mobileNumber: string
+  school: string
+  schoolId: string
 }
 
 export interface AuthResponse {
@@ -60,15 +62,15 @@ function noopUnsubscribe() { return () => {} }
 const mockProvider: IAuthProvider = {
   async login({ email }: LoginCredentials): Promise<AuthResponse> {
     return {
-      user: { id: crypto.randomUUID(), name: email.split('@')[0], email, firstName: '', lastName: '', mobileNumber: '', role: 'user' },
+      user: { id: crypto.randomUUID(), name: email.split('@')[0], email, firstName: '', lastName: '', mobileNumber: '', school: '', schoolId: '', role: 'user' },
       token: 'mock-token',
     }
   },
 
-  async register({ firstName, lastName, email }: RegisterData): Promise<AuthResponse> {
+  async register({ firstName, lastName, email, school, schoolId }: RegisterData): Promise<AuthResponse> {
     const name = `${firstName} ${lastName}`.trim() || email.split('@')[0]
     return {
-      user: { id: crypto.randomUUID(), name, firstName, lastName, email, mobileNumber: '', role: 'user' },
+      user: { id: crypto.randomUUID(), name, firstName, lastName, email, mobileNumber: '', school, schoolId, role: 'user' },
       token: 'mock-token',
     }
   },
@@ -176,6 +178,8 @@ function toUser(sbUser: SupabaseUser): User {
     firstName,
     lastName,
     mobileNumber: (sbUser.user_metadata?.mobile_number as string | undefined) ?? '',
+    school:       (sbUser.user_metadata?.school        as string | undefined) ?? '',
+    schoolId:     (sbUser.user_metadata?.school_id     as string | undefined) ?? '',
     role,
   }
 }
@@ -191,13 +195,20 @@ const supabaseProvider: IAuthProvider = {
     }
   },
 
-  async register({ firstName, lastName, email, password, mobileNumber }: RegisterData): Promise<AuthResponse> {
+  async register({ firstName, lastName, email, password, mobileNumber, school, schoolId }: RegisterData): Promise<AuthResponse> {
     const name = `${firstName} ${lastName}`.trim()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, first_name: firstName, last_name: lastName, mobile_number: mobileNumber },
+        data: {
+          name,
+          first_name:    firstName,
+          last_name:     lastName,
+          mobile_number: mobileNumber,
+          school,
+          school_id:     schoolId,
+        },
       },
     })
     if (error) throw new ApiError(400, 'REGISTER_FAILED', error.message)

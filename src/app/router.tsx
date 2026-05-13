@@ -21,6 +21,9 @@ import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
 import { BooksPage } from '@/pages/BooksPage'
 import { BookDetailPage } from '@/pages/BookDetailPage'
 import { BookCheckoutPage } from '@/pages/BookCheckoutPage'
+import { ContactPage } from '@/pages/ContactPage'
+import { FAQPage } from '@/pages/FAQPage'
+import { DevicesPage } from '@/pages/DevicesPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
 import { AdminLessonsPage } from '@/pages/admin/AdminLessonsPage'
@@ -40,6 +43,8 @@ export const router = createBrowserRouter([
 
       // Public
       { path: 'about',            element: <AboutPage /> },
+      { path: 'contact',          element: <ContactPage /> },
+      { path: 'faq',              element: <FAQPage /> },
       { path: 'course/:courseId', element: <CourseDetailPage /> },
       { path: 'books',            element: <BooksPage /> },
       { path: 'book/:bookId',     element: <BookDetailPage /> },
@@ -70,6 +75,7 @@ export const router = createBrowserRouter([
           { path: 'courses',                  element: <CoursesPage />      },
           { path: 'lesson/:lessonId',         element: <LessonPage />       },
           { path: 'profile',                  element: <ProfilePage />      },
+          { path: 'profile/devices',          element: <DevicesPage />      },
           { path: 'book/:bookId/checkout',    element: <BookCheckoutPage /> },
         ],
       },

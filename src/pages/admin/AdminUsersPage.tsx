@@ -42,6 +42,8 @@ interface EditUser {
   firstName: string
   lastName: string
   mobileNumber: string
+  school: string
+  schoolId: string
 }
 
 export function AdminUsersPage() {
@@ -102,6 +104,8 @@ export function AdminUsersPage() {
         firstName:    editUser.firstName.trim(),
         lastName:     editUser.lastName.trim(),
         mobileNumber: editUser.mobileNumber.trim(),
+        school:       editUser.school.trim(),
+        schoolId:     editUser.schoolId.trim(),
       })
       setUsers((prev) =>
         prev.map((u) =>
@@ -111,6 +115,8 @@ export function AdminUsersPage() {
                 firstName:    editUser.firstName.trim(),
                 lastName:     editUser.lastName.trim(),
                 mobileNumber: editUser.mobileNumber.trim(),
+                school:       editUser.school.trim(),
+                schoolId:     editUser.schoolId.trim(),
                 name:         `${editUser.firstName} ${editUser.lastName}`.trim(),
               }
             : u,
@@ -240,7 +246,7 @@ export function AdminUsersPage() {
                 onRoleConfirm={() => handleRoleChange(user.id, roleConfirm!.newRole)}
                 onRoleCancel={() => setRoleConfirm(null)}
                 editState={editUser?.userId === user.id ? editUser : null}
-                onEditClick={() => { setEditSaveAttempted(false); setEditUser({ userId: user.id, firstName: user.firstName, lastName: user.lastName, mobileNumber: user.mobileNumber }) }}
+                onEditClick={() => { setEditSaveAttempted(false); setEditUser({ userId: user.id, firstName: user.firstName, lastName: user.lastName, mobileNumber: user.mobileNumber, school: user.school, schoolId: user.schoolId }) }}
                 onEditChange={(field, value) => setEditUser((prev) => prev ? { ...prev, [field]: value } : prev)}
                 onEditSave={handleEditSave}
                 onEditCancel={() => { setEditUser(null); setEditSaveAttempted(false) }}
@@ -393,6 +399,28 @@ function UserRow({
                 value={editState.mobileNumber}
                 onChange={(e) => onEditChange('mobileNumber', e.target.value)}
                 placeholder="+63 9XX XXX XXXX"
+                className="h-8 text-sm"
+                disabled={isSavingEdit}
+                onKeyDown={(e) => { if (e.key === 'Escape') onEditCancel() }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">School</label>
+              <Input
+                value={editState.school}
+                onChange={(e) => onEditChange('school', e.target.value)}
+                placeholder="University / school"
+                className="h-8 text-sm"
+                disabled={isSavingEdit}
+                onKeyDown={(e) => { if (e.key === 'Escape') onEditCancel() }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">School ID</label>
+              <Input
+                value={editState.schoolId}
+                onChange={(e) => onEditChange('schoolId', e.target.value)}
+                placeholder="Student ID"
                 className="h-8 text-sm"
                 disabled={isSavingEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') onEditSave(); if (e.key === 'Escape') onEditCancel() }}

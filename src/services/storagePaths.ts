@@ -33,4 +33,8 @@ export const storagePaths = {
   /** e.g. quizzes/questions/abc123/answer.webp */
   quizAnswerImage: (questionId: string, ext = 'webp') =>
     `quizzes/questions/${questionId}/answer.${ext}`,
+
+  /** e.g. covers/book-abc123.webp */
+  bookCover: (bookId: string, ext = 'webp') =>
+    `covers/book-${bookId}.${ext}`,
 }

@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Library,
+  Package,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
@@ -26,6 +28,8 @@ const NAV_ITEMS = [
   { to: ROUTES.ADMIN_CATEGORIES,    label: 'Categories',    icon: Tag,             end: false },
   { to: ROUTES.ADMIN_LESSONS,       label: 'Lessons',       icon: BookMarked,      end: false },
   { to: ROUTES.ADMIN_QUIZZES,       label: 'Quizzes',       icon: ClipboardList,   end: false },
+  { to: ROUTES.ADMIN_BOOKS,         label: 'Books',         icon: Library,         end: false },
+  { to: ROUTES.ADMIN_ORDERS,        label: 'Orders',        icon: Package,         end: false },
   { to: ROUTES.ADMIN_USERS,         label: 'Users',         icon: Users,           end: false },
   { to: ROUTES.ADMIN_SUBSCRIPTIONS, label: 'Subscriptions', icon: CreditCard,      end: false },
 ] as const
@@ -38,6 +42,8 @@ const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN_CATEGORIES]:    'Categories',
   [ROUTES.ADMIN_LESSONS]:       'Lessons',
   [ROUTES.ADMIN_QUIZZES]:       'Quizzes',
+  [ROUTES.ADMIN_BOOKS]:         'Books',
+  [ROUTES.ADMIN_ORDERS]:        'Orders',
   [ROUTES.ADMIN_USERS]:         'Users',
   [ROUTES.ADMIN_SUBSCRIPTIONS]: 'Subscriptions',
 }

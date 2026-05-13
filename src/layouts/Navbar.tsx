@@ -283,6 +283,7 @@ export function Navbar() {
           <div className="container mx-auto flex items-end gap-1 px-4 overflow-x-auto">
             <NavLink to={ROUTES.HOME} end className={tabClass}>Home</NavLink>
             <NavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</NavLink>
+            <NavLink to={ROUTES.BOOKS} className={tabClass}>Books</NavLink>
             {courses.map((c) => (
               <NavLink key={c.id} to={ROUTES.COURSE(c.id)} className={tabClass}>
                 {c.title}
@@ -296,6 +297,7 @@ export function Navbar() {
           <div className="md:hidden border-t bg-background px-4 py-4 space-y-1">
             <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
             <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
+            <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
             {courses.map((c) => (
               <MobileNavLink key={c.id} to={ROUTES.COURSE(c.id)} onClick={() => setMobileOpen(false)}>
                 {c.title}

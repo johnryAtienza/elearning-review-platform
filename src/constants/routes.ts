@@ -20,6 +20,11 @@ export const ROUTES = {
   PAYMENT_SUCCESS:  '/payment-success',
   PAYMENT_CANCEL:   '/payment-cancel',
 
+  // Books (Phase C)
+  BOOKS:           '/books',
+  BOOK:            (id: string) => `/book/${id}`,
+  BOOK_CHECKOUT:   (id: string) => `/book/${id}/checkout`,
+
   // Admin panel
   ADMIN:                '/admin',
   ADMIN_COURSES:        '/admin/courses',
@@ -28,4 +33,6 @@ export const ROUTES = {
   ADMIN_USERS:          '/admin/users',
   ADMIN_SUBSCRIPTIONS:  '/admin/subscriptions',
   ADMIN_CATEGORIES:     '/admin/categories',
+  ADMIN_BOOKS:          '/admin/books',
+  ADMIN_ORDERS:         '/admin/orders',
 } as const

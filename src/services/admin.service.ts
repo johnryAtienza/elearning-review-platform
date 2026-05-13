@@ -10,6 +10,7 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import type { BookOrder, OrderStatus, ShippingAddress } from '@/features/books/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -687,4 +688,241 @@ export async function setUserSubscriptionStatus(userId: string, isActive: boolea
       .eq('user_id', userId)
     if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
   }
+}
+
+// ── Books (Phase C) ───────────────────────────────────────────────────────────
+
+export interface AdminBook {
+  id: string
+  title: string
+  author: string
+  isbn: string | null
+  description: string
+  coverUrl: string | null
+  priceCentavos: number
+  stock: number
+  isPublished: boolean
+  createdAt: string
+}
+
+export interface BookFormData {
+  title: string
+  author?: string
+  isbn?: string | null
+  description?: string
+  coverUrl?: string | null
+  priceCentavos: number
+  stock: number
+  isPublished?: boolean
+}
+
+interface AdminBookRow {
+  id:              string
+  title:           string
+  author:          string
+  isbn:            string | null
+  description:     string
+  cover_url:       string | null
+  price_centavos:  number
+  stock:           number
+  is_published:    boolean
+  created_at:      string
+}
+
+function toAdminBook(row: AdminBookRow): AdminBook {
+  return {
+    id:             row.id,
+    title:          row.title,
+    author:         row.author,
+    isbn:           row.isbn,
+    description:    row.description,
+    coverUrl:       row.cover_url,
+    priceCentavos:  row.price_centavos,
+    stock:          row.stock,
+    isPublished:    row.is_published,
+    createdAt:      row.created_at,
+  }
+}
+
+export async function getAdminBooks(): Promise<AdminBook[]> {
+  const { data, error } = await supabase
+    .from('books')
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_BOOKS_FAILED', error.message)
+  return (data as AdminBookRow[]).map(toAdminBook)
+}
+
+export async function getAdminBookById(bookId: string): Promise<AdminBook | undefined> {
+  const { data, error } = await supabase
+    .from('books')
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
+    .eq('id', bookId)
+    .maybeSingle()
+
+  if (error) throw new ApiError(500, 'ADMIN_BOOK_FETCH_FAILED', error.message)
+  return data ? toAdminBook(data as AdminBookRow) : undefined
+}
+
+export async function createAdminBook(data: BookFormData): Promise<string> {
+  const { data: row, error } = await supabase
+    .from('books')
+    .insert({
+      title:           data.title,
+      author:          data.author ?? '',
+      isbn:            data.isbn ?? null,
+      description:     data.description ?? '',
+      cover_url:       data.coverUrl ?? null,
+      price_centavos:  data.priceCentavos,
+      stock:           data.stock,
+      is_published:    data.isPublished ?? false,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_BOOK_CREATE_FAILED', error.message)
+  return (row as { id: string }).id
+}
+
+export async function updateAdminBook(
+  bookId: string,
+  data: Partial<BookFormData>,
+): Promise<void> {
+  const update: Record<string, unknown> = {}
+  if (data.title         !== undefined) update.title          = data.title
+  if (data.author        !== undefined) update.author         = data.author
+  if (data.isbn          !== undefined) update.isbn           = data.isbn
+  if (data.description   !== undefined) update.description    = data.description
+  if (data.coverUrl      !== undefined) update.cover_url      = data.coverUrl
+  if (data.priceCentavos !== undefined) update.price_centavos = data.priceCentavos
+  if (data.stock         !== undefined) update.stock          = data.stock
+  if (data.isPublished   !== undefined) update.is_published   = data.isPublished
+
+  const { error } = await supabase
+    .from('books')
+    .update(update)
+    .eq('id', bookId)
+
+  if (error) throw new ApiError(500, 'ADMIN_BOOK_UPDATE_FAILED', error.message)
+}
+
+export async function setBookPublished(bookId: string, isPublished: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('books')
+    .update({ is_published: isPublished })
+    .eq('id', bookId)
+  if (error) throw new ApiError(500, 'ADMIN_BOOK_UPDATE_FAILED', error.message)
+}
+
+export async function deleteAdminBook(bookId: string): Promise<void> {
+  const { error } = await supabase
+    .from('books')
+    .delete()
+    .eq('id', bookId)
+  if (error) throw new ApiError(500, 'ADMIN_BOOK_DELETE_FAILED', error.message)
+}
+
+// ── Book orders (Phase C) ─────────────────────────────────────────────────────
+
+interface AdminOrderRow {
+  id:                  string
+  user_id:             string
+  book_id:             string
+  qty:                 number
+  unit_price_centavos: number
+  total_centavos:      number
+  shipping_address:    ShippingAddress
+  status:              OrderStatus
+  paymongo_session_id: string | null
+  tracking_no:         string | null
+  ordered_at:          string
+  paid_at:             string | null
+  shipped_at:          string | null
+  delivered_at:        string | null
+  cancelled_at:        string | null
+  books?:              { title: string; author: string } | null
+  user_email?:         string | null
+}
+
+function toBookOrder(row: AdminOrderRow): BookOrder {
+  return {
+    id:                row.id,
+    userId:            row.user_id,
+    bookId:            row.book_id,
+    bookTitle:         row.books?.title,
+    bookAuthor:        row.books?.author,
+    qty:               row.qty,
+    unitPriceCentavos: row.unit_price_centavos,
+    totalCentavos:     row.total_centavos,
+    shippingAddress:   row.shipping_address,
+    status:            row.status,
+    paymongoSessionId: row.paymongo_session_id,
+    trackingNo:        row.tracking_no,
+    orderedAt:         row.ordered_at,
+    paidAt:            row.paid_at,
+    shippedAt:         row.shipped_at,
+    deliveredAt:       row.delivered_at,
+    cancelledAt:       row.cancelled_at,
+  }
+}
+
+export async function getAdminOrders(): Promise<BookOrder[]> {
+  const { data, error } = await supabase
+    .from('book_orders')
+    .select(`
+      id, user_id, book_id, qty, unit_price_centavos, total_centavos,
+      shipping_address, status, paymongo_session_id, tracking_no,
+      ordered_at, paid_at, shipped_at, delivered_at, cancelled_at,
+      books(title, author)
+    `)
+    .order('ordered_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_ORDERS_FAILED', error.message)
+  return (data as unknown as AdminOrderRow[]).map(toBookOrder)
+}
+
+/**
+ * Admin status transitions:
+ *  - pending     → paid       (usually webhook does this; admin override possible)
+ *  - paid        → shipped    (admin sets tracking_no when shipping)
+ *  - shipped     → delivered  (admin marks on confirmation)
+ *  - any         → cancelled  (admin cancels; calls restock_book RPC to return stock)
+ *
+ * The corresponding *_at timestamp is set automatically by this function.
+ */
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+  opts: { trackingNo?: string } = {},
+): Promise<void> {
+  const now = new Date().toISOString()
+  const update: Record<string, unknown> = { status }
+
+  if (status === 'paid')      update.paid_at      = now
+  if (status === 'shipped')   update.shipped_at   = now
+  if (status === 'delivered') update.delivered_at = now
+  if (status === 'cancelled') update.cancelled_at = now
+  if (opts.trackingNo !== undefined) update.tracking_no = opts.trackingNo
+
+  const { error } = await supabase
+    .from('book_orders')
+    .update(update)
+    .eq('id', orderId)
+
+  if (error) throw new ApiError(500, 'ADMIN_ORDER_UPDATE_FAILED', error.message)
+}
+
+/**
+ * Cancel an order and restore the book's stock.
+ * Uses the restock_book RPC (SECURITY DEFINER) so it works regardless of
+ * the admin's row-level access to the books table.
+ */
+export async function cancelOrderAndRestock(order: BookOrder): Promise<void> {
+  await updateOrderStatus(order.id, 'cancelled')
+  const { error } = await supabase.rpc('restock_book', {
+    p_book_id: order.bookId,
+    p_qty:     order.qty,
+  })
+  if (error) throw new ApiError(500, 'ADMIN_ORDER_RESTOCK_FAILED', error.message)
 }

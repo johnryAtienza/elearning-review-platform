@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
 import { SavedCourseCard } from '@/features/courses/components/SavedCourseCard'
+import { MyBooksCard } from '@/features/books/components/MyBooksCard'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedCoursesStore } from '@/store/savedCoursesStore'
 import { useCourses } from '@/features/courses/hooks/useCourses'
@@ -154,6 +155,9 @@ export function DashboardPage() {
           </div>
         )}
       </section>
+
+      {/* ── My books (only renders if user has any orders) ── */}
+      <MyBooksCard />
 
       {/* ── Quick links ── */}
       <section className="space-y-2">

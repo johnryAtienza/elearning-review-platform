@@ -18,6 +18,9 @@ import { CourseDetailPage } from '@/pages/CourseDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
 import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
 import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
+import { BooksPage } from '@/pages/BooksPage'
+import { BookDetailPage } from '@/pages/BookDetailPage'
+import { BookCheckoutPage } from '@/pages/BookCheckoutPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
 import { AdminLessonsPage } from '@/pages/admin/AdminLessonsPage'
@@ -25,6 +28,8 @@ import { AdminQuizzesPage } from '@/pages/admin/AdminQuizzesPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminSubscriptionsPage } from '@/pages/admin/AdminSubscriptionsPage'
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
+import { AdminBooksPage } from '@/pages/admin/AdminBooksPage'
+import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage'
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +41,8 @@ export const router = createBrowserRouter([
       // Public
       { path: 'about',            element: <AboutPage /> },
       { path: 'course/:courseId', element: <CourseDetailPage /> },
+      { path: 'books',            element: <BooksPage /> },
+      { path: 'book/:bookId',     element: <BookDetailPage /> },
 
       // Password reset — fully public (user arrives from email without a session)
       { path: 'reset-password',   element: <ResetPasswordPage />   },
@@ -58,11 +65,12 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'dashboard',        element: <DashboardPage />    },
-          { path: 'subscription',     element: <SubscriptionPage /> },
-          { path: 'courses',          element: <CoursesPage />      },
-          { path: 'lesson/:lessonId', element: <LessonPage />       },
-          { path: 'profile',          element: <ProfilePage />      },
+          { path: 'dashboard',                element: <DashboardPage />    },
+          { path: 'subscription',             element: <SubscriptionPage /> },
+          { path: 'courses',                  element: <CoursesPage />      },
+          { path: 'lesson/:lessonId',         element: <LessonPage />       },
+          { path: 'profile',                  element: <ProfilePage />      },
+          { path: 'book/:bookId/checkout',    element: <BookCheckoutPage /> },
         ],
       },
 
@@ -80,7 +88,9 @@ export const router = createBrowserRouter([
               { path: 'quizzes',       element: <AdminQuizzesPage />      },
               { path: 'users',         element: <AdminUsersPage />        },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
-              { path: 'categories',   element: <AdminCategoriesPage />   },
+              { path: 'categories',    element: <AdminCategoriesPage />   },
+              { path: 'books',         element: <AdminBooksPage />        },
+              { path: 'orders',        element: <AdminOrdersPage />       },
             ],
           },
         ],

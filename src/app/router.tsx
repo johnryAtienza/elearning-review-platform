@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute'
 import { ProtectedAdminRoute } from '@/features/auth/components/ProtectedAdminRoute'
 import { GuestRoute } from '@/features/auth/components/GuestRoute'
 import { HomePage } from '@/pages/HomePage'
+import { AboutPage } from '@/pages/AboutPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
 
       // Public
+      { path: 'about',            element: <AboutPage /> },
       { path: 'course/:courseId', element: <CourseDetailPage /> },
 
       // Password reset — fully public (user arrives from email without a session)

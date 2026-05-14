@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Menu, User, X, ShieldCheck, LogOut, LayoutDashboard } from 'lucide-react'
+import { Link, NavLink, useMatch, useNavigate } from 'react-router-dom'
+import { Menu, User, X, ShieldCheck, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogoutModal } from '@/components/LogoutModal'
@@ -41,7 +41,7 @@ function fetchPublishedCourses(): Promise<Course[]> {
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-t-md transition-colors whitespace-nowrap',
+    'inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-t-md transition-all duration-150 whitespace-nowrap',
     isActive
       ? 'bg-card text-foreground border-b-2 border-primary'
       : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-b-2 border-transparent',
@@ -52,6 +52,30 @@ const utilityLinkClass = ({ isActive }: { isActive: boolean }) =>
     'text-sm font-medium transition-colors',
     isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
   )
+
+// ── Dismissable behavior (outside click + Escape) ────────────────────────────
+
+function useDismissable<T extends HTMLElement>(
+  open: boolean,
+  close: () => void,
+  ref: React.RefObject<T | null>,
+) {
+  useEffect(() => {
+    if (!open) return
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) close()
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, close, ref])
+}
 
 // ── User avatar ──────────────────────────────────────────────────────────────
 
@@ -82,27 +106,7 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [open])
+  useDismissable(open, () => setOpen(false), containerRef)
 
   function handleViewProfile() {
     setOpen(false)
@@ -157,6 +161,104 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
               Log out
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Subjects dropdown (desktop tab) ──────────────────────────────────────────
+
+function SubjectsDropdown({ courses }: { courses: Course[] }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const onCourseRoute = useMatch('/course/:courseId')
+
+  useDismissable(open, () => setOpen(false), ref)
+
+  if (courses.length === 0) return null
+
+  const isActive = open || onCourseRoute !== null
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={cn(
+          'inline-flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-t-md whitespace-nowrap',
+          'transition-all duration-150 border-b-2',
+          isActive
+            ? 'bg-card text-foreground border-primary'
+            : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-transparent',
+        )}
+      >
+        Subjects
+        <ChevronDown
+          className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full mt-1 min-w-56 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          {courses.map((c) => (
+            <Link
+              key={c.id}
+              to={ROUTES.COURSE(c.id)}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              {c.title}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Subjects section (mobile, collapsible) ───────────────────────────────────
+
+function MobileSubjectsSection({
+  courses,
+  onNavigate,
+}: {
+  courses: Course[]
+  onNavigate: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  if (courses.length === 0) return null
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+      >
+        <span>Subjects</span>
+        <ChevronDown
+          className={cn('size-4 transition-transform duration-150', open && 'rotate-180')}
+        />
+      </button>
+      {open && (
+        <div className="mt-1 ml-3 pl-3 border-l border-border space-y-0.5">
+          {courses.map((c) => (
+            <Link
+              key={c.id}
+              to={ROUTES.COURSE(c.id)}
+              onClick={onNavigate}
+              className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              {c.title}
+            </Link>
+          ))}
         </div>
       )}
     </div>
@@ -280,15 +382,11 @@ export function Navbar() {
 
         {/* ── Bottom row: tab nav (Home / About / course tabs) — desktop only ── */}
         <nav className="hidden md:block border-t bg-background/60">
-          <div className="container mx-auto flex items-end gap-1 px-4 overflow-x-auto">
+          <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
             <NavLink to={ROUTES.HOME} end className={tabClass}>Home</NavLink>
             <NavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</NavLink>
             <NavLink to={ROUTES.BOOKS} className={tabClass}>Books</NavLink>
-            {courses.map((c) => (
-              <NavLink key={c.id} to={ROUTES.COURSE(c.id)} className={tabClass}>
-                {c.title}
-              </NavLink>
-            ))}
+            <SubjectsDropdown courses={courses} />
             <NavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</NavLink>
             <NavLink to={ROUTES.CONTACT} className={tabClass}>Contact</NavLink>
           </div>
@@ -300,11 +398,10 @@ export function Navbar() {
             <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
             <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
             <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
-            {courses.map((c) => (
-              <MobileNavLink key={c.id} to={ROUTES.COURSE(c.id)} onClick={() => setMobileOpen(false)}>
-                {c.title}
-              </MobileNavLink>
-            ))}
+            <MobileSubjectsSection
+              courses={courses}
+              onNavigate={() => setMobileOpen(false)}
+            />
             <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
             <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
 

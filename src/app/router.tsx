@@ -1,9 +1,11 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
 import { AdminLayout } from '@/features/admin/components/AdminLayout'
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute'
 import { ProtectedAdminRoute } from '@/features/auth/components/ProtectedAdminRoute'
 import { GuestRoute } from '@/features/auth/components/GuestRoute'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { HomePage } from '@/pages/HomePage'
 import { AboutPage } from '@/pages/AboutPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -24,15 +26,16 @@ import { BookCheckoutPage } from '@/pages/BookCheckoutPage'
 import { ContactPage } from '@/pages/ContactPage'
 import { FAQPage } from '@/pages/FAQPage'
 import { DevicesPage } from '@/pages/DevicesPage'
-import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
-import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
-import { AdminLessonsPage } from '@/pages/admin/AdminLessonsPage'
-import { AdminQuizzesPage } from '@/pages/admin/AdminQuizzesPage'
-import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
-import { AdminSubscriptionsPage } from '@/pages/admin/AdminSubscriptionsPage'
-import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
-import { AdminBooksPage } from '@/pages/admin/AdminBooksPage'
-import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage'
+
+const AdminDashboardPage     = lazy(() => import('@/pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
+const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
+const AdminLessonsPage       = lazy(() => import('@/pages/admin/AdminLessonsPage').then(m => ({ default: m.AdminLessonsPage })))
+const AdminQuizzesPage       = lazy(() => import('@/pages/admin/AdminQuizzesPage').then(m => ({ default: m.AdminQuizzesPage })))
+const AdminUsersPage         = lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
+const AdminSubscriptionsPage = lazy(() => import('@/pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
+const AdminCategoriesPage    = lazy(() => import('@/pages/admin/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })))
+const AdminBooksPage         = lazy(() => import('@/pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
+const AdminOrdersPage        = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
 
 export const router = createBrowserRouter([
   {
@@ -86,7 +89,11 @@ export const router = createBrowserRouter([
         children: [
           {
             path: 'admin',
-            element: <AdminLayout />,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AdminLayout />
+              </Suspense>
+            ),
             children: [
               { index: true,           element: <AdminDashboardPage />    },
               { path: 'courses',       element: <AdminCoursesPage />      },

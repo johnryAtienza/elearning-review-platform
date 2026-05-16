@@ -17,7 +17,12 @@ export function LoginPage() {
   const clearPendingDeviceLimit = useAuthStore((s) => s.clearPendingDeviceLimit)
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: Location })?.from?.pathname ?? ROUTES.HOME
+  const explicitFrom = (location.state as { from?: Location })?.from?.pathname
+
+  function postLoginTarget() {
+    if (explicitFrom) return explicitFrom
+    return useAuthStore.getState().isAdmin ? ROUTES.ADMIN : ROUTES.DASHBOARD
+  }
 
   const [email,     setEmail]     = useState('')
   const [password,  setPassword]  = useState('')
@@ -48,7 +53,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate(from, { replace: true })
+      navigate(postLoginTarget(), { replace: true })
     } catch (err) {
       if (err instanceof DeviceLimitError) {
         // Phase G — hard cap hit. Show modal; user must revoke before retrying.
@@ -77,7 +82,7 @@ export function LoginPage() {
       setLoading(true)
       try {
         await login(email, password)
-        navigate(from, { replace: true })
+        navigate(postLoginTarget(), { replace: true })
       } catch (err) {
         if (err instanceof DeviceLimitError) setLimitDevices(err.devices)
         else if (err instanceof ApiError) setError(err.message)
@@ -167,7 +172,7 @@ export function LoginPage() {
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
           <Link to={ROUTES.REGISTER} className="font-medium text-primary hover:underline underline-offset-4">
-            Sign up free
+            Enroll Now
           </Link>
         </p>
       </div>

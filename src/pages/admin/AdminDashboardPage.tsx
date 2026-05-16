@@ -4,6 +4,7 @@ import { BookOpen, BookMarked, Users, CreditCard, ArrowRight, TrendingUp } from 
 import { StatCard } from '@/features/admin/components/StatCard'
 import { getAdminStats, type AdminStats } from '@/services/admin.service'
 import { ROUTES } from '@/constants/routes'
+import { AdminDashboardSkeleton } from './AdminDashboardSkeleton'
 
 export function AdminDashboardPage() {
   const [stats,   setStats]   = useState<AdminStats | null>(null)
@@ -22,6 +23,8 @@ export function AdminDashboardPage() {
       })
     return () => { cancelled = true }
   }, [])
+
+  if (loading && !error) return <AdminDashboardSkeleton />
 
   return (
     <div className="space-y-8">

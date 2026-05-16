@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 export function SubscribedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -8,7 +9,7 @@ export function SubscribedRoute() {
   const isInitializing  = useAuthStore((s) => s.isInitializing)
   const location        = useLocation()
 
-  if (isInitializing) return null
+  if (isInitializing) return <PageLoader />
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />

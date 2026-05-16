@@ -8,6 +8,7 @@ import { CourseList } from '@/features/courses/components/CourseList'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { useCourses } from '@/features/courses/hooks/useCourses'
 import { cn } from '@/utils/cn'
+import { CoursesPageSkeleton } from '@/pages/CoursesPageSkeleton'
 import type { SortOption, DurationFilter } from '@/features/courses/types'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -64,6 +65,8 @@ export function CoursesPage() {
   const showEmpty   = !loading && !isSearching && (hasQuery || activeFilterCount > 0) && !hasResults
   const showResults = !loading && !showEmpty
   const showRecommended = !hasQuery && activeFilterCount === 0 && !loading && courses.length > 0
+
+  if (loading && courses.length === 0 && !error) return <CoursesPageSkeleton />
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-8 max-w-6xl">

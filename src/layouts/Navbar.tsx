@@ -3,6 +3,7 @@ import { Link, NavLink, useMatch, useNavigate } from 'react-router-dom'
 import { Menu, User, X, ShieldCheck, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
@@ -169,14 +170,14 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
 
 // ── Subjects dropdown (desktop tab) ──────────────────────────────────────────
 
-function SubjectsDropdown({ courses }: { courses: Course[] }) {
+function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const onCourseRoute = useMatch('/course/:courseId')
 
   useDismissable(open, () => setOpen(false), ref)
 
-  if (courses.length === 0) return null
+  if (!loading && courses.length === 0) return null
 
   const isActive = open || onCourseRoute !== null
 
@@ -205,17 +206,25 @@ function SubjectsDropdown({ courses }: { courses: Course[] }) {
           role="menu"
           className="absolute left-0 top-full mt-1 min-w-56 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
         >
-          {courses.map((c) => (
-            <Link
-              key={c.id}
-              to={ROUTES.COURSE(c.id)}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              {c.title}
-            </Link>
-          ))}
+          {loading ? (
+            <div aria-busy="true" aria-live="polite" className="space-y-1.5 p-2">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-6 w-36" />
+            </div>
+          ) : (
+            courses.map((c) => (
+              <Link
+                key={c.id}
+                to={ROUTES.COURSE(c.id)}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                {c.title}
+              </Link>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -226,14 +235,16 @@ function SubjectsDropdown({ courses }: { courses: Course[] }) {
 
 function MobileSubjectsSection({
   courses,
+  loading,
   onNavigate,
 }: {
   courses: Course[]
+  loading: boolean
   onNavigate: () => void
 }) {
   const [open, setOpen] = useState(false)
 
-  if (courses.length === 0) return null
+  if (!loading && courses.length === 0) return null
 
   return (
     <div>
@@ -249,16 +260,24 @@ function MobileSubjectsSection({
       </button>
       {open && (
         <div className="mt-1 ml-3 pl-3 border-l border-border space-y-0.5">
-          {courses.map((c) => (
-            <Link
-              key={c.id}
-              to={ROUTES.COURSE(c.id)}
-              onClick={onNavigate}
-              className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              {c.title}
-            </Link>
-          ))}
+          {loading ? (
+            <div aria-busy="true" aria-live="polite" className="space-y-1.5 py-1.5">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-5 w-28" />
+            </div>
+          ) : (
+            courses.map((c) => (
+              <Link
+                key={c.id}
+                to={ROUTES.COURSE(c.id)}
+                onClick={onNavigate}
+                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                {c.title}
+              </Link>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -272,13 +291,22 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [courses, setCourses] = useState<Course[]>(() => coursesCache ?? [])
+  const [loading, setLoading] = useState<boolean>(() => coursesCache === null)
 
   // Fetch the published course list once for the dynamic tabs.
   useEffect(() => {
+    if (coursesCache) return
     let cancelled = false
     fetchPublishedCourses()
-      .then((list) => { if (!cancelled) setCourses(list) })
-      .catch(() => { /* fail silently — tabs just won't include dynamic ones */ })
+      .then((list) => {
+        if (!cancelled) {
+          setCourses(list)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => { cancelled = true }
   }, [])
 
@@ -364,7 +392,7 @@ export function Navbar() {
                   <Link to={ROUTES.LOGIN}>Log in</Link>
                 </Button>
                 <Button asChild size="sm">
-                  <Link to={ROUTES.REGISTER}>Sign up free</Link>
+                  <Link to={ROUTES.REGISTER}>Enroll Now</Link>
                 </Button>
               </>
             )}
@@ -386,7 +414,7 @@ export function Navbar() {
             <NavLink to={ROUTES.HOME} end className={tabClass}>Home</NavLink>
             <NavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</NavLink>
             <NavLink to={ROUTES.BOOKS} className={tabClass}>Books</NavLink>
-            <SubjectsDropdown courses={courses} />
+            <SubjectsDropdown courses={courses} loading={loading} />
             <NavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</NavLink>
             <NavLink to={ROUTES.CONTACT} className={tabClass}>Contact</NavLink>
           </div>
@@ -400,6 +428,7 @@ export function Navbar() {
             <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
             <MobileSubjectsSection
               courses={courses}
+              loading={loading}
               onNavigate={() => setMobileOpen(false)}
             />
             <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
@@ -452,7 +481,7 @@ export function Navbar() {
               ) : (
                 <>
                   <Button asChild className="w-full" size="sm">
-                    <Link to={ROUTES.REGISTER} onClick={() => setMobileOpen(false)}>Sign up free</Link>
+                    <Link to={ROUTES.REGISTER} onClick={() => setMobileOpen(false)}>Enroll Now</Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full" size="sm">
                     <Link to={ROUTES.LOGIN} onClick={() => setMobileOpen(false)}>Log in</Link>

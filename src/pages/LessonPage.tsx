@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
+import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
 import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
@@ -140,16 +141,7 @@ export function LessonPage() {
   if (error) return <ErrorMessage message={error} />
 
   if (loading || !data) {
-    return (
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
-        <div className="flex-1 min-w-0 px-4 py-8 max-w-3xl mx-auto space-y-6">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-56 w-full rounded-xl" />
-          <Skeleton className="h-40 w-full rounded-xl" />
-        </div>
-      </div>
-    )
+    return <LessonPageSkeleton />
   }
 
   const { lesson, course, siblings, prev, next, progress } = data

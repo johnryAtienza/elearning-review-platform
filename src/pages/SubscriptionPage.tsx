@@ -218,7 +218,7 @@ export function SubscriptionPage() {
                 </Button>
               ) : (
                 <Button onClick={() => navigate(ROUTES.REGISTER)} className="w-full">
-                  Sign up to Subscribe
+                  Enroll Now to Subscribe
                 </Button>
               )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, List } from 'lucide-react'
+import { ChevronLeft, ChevronRight, List, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
@@ -148,10 +148,11 @@ export function LessonPage() {
 
   // Effective permissions take Day 1 free-access into account.
   // When the lesson is Day 1, every authenticated user gets standard-tier
-  // limits regardless of their subscription.
-  const permissions      = getEffectivePermissions(tier, lesson)
-  const effectiveTier    = getEffectiveTier(tier, lesson)
-  const dayOneBypass     = isDayOneFree(lesson)
+  // limits regardless of their subscription. Guests get fully locked
+  // permissions — the content area renders a sign-up CTA instead.
+  const permissions      = getEffectivePermissions(tier, lesson, isAuthenticated)
+  const effectiveTier    = getEffectiveTier(tier, lesson, isAuthenticated)
+  const dayOneBypass     = isDayOneFree(lesson, isAuthenticated)
   // For navigation / progress / banner copy we still want to know if the
   // *user* is technically subscribed vs. just getting Day 1 for free.
   const hasFullAccess    = isSubscribed || dayOneBypass
@@ -252,6 +253,11 @@ export function LessonPage() {
             <p className="text-muted-foreground text-sm leading-relaxed">{lesson.description}</p>
           </div>
 
+          {/* ── Guest CTA — replaces the entire interactive content block ── */}
+          {!isAuthenticated ? (
+            <GuestEnrollCTA lessonId={lesson.id} isDayOne={lesson.dayNumber === 1} />
+          ) : (
+          <>
           {/* Content error (non-blocking) */}
           {contentError && !contentError.isSubscriptionRequired && (
             <FormAlert>Could not load secure content: {contentError.message}</FormAlert>
@@ -357,6 +363,8 @@ export function LessonPage() {
               </Button>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -407,6 +415,38 @@ function getCompletionHint({
     return null
   }
   return !previewEnded ? `Watch the ${previewSeconds}s preview to continue.` : null
+}
+
+// ── Guest CTA (replaces video/reviewer/quiz for unauthenticated visitors) ────
+
+function GuestEnrollCTA({ lessonId, isDayOne }: { lessonId: string; isDayOne: boolean }) {
+  // Preserve the lesson URL so the user lands back here after login/register
+  const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
+  return (
+    <div className="rounded-2xl border bg-card px-6 py-10 flex flex-col items-center text-center gap-4">
+      <div className="rounded-full bg-primary/10 p-4">
+        <Lock className="size-7 text-primary" />
+      </div>
+      <div className="space-y-1.5 max-w-md">
+        <h2 className="text-lg font-semibold">
+          {isDayOne ? 'Enroll to start your free Day 1' : 'Enroll to unlock this lesson'}
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {isDayOne
+            ? 'Sign up for a free account to watch the Day 1 video, read the reviewer, and take the quiz.'
+            : 'Day 2 and beyond are part of the Standard plan. Create an account to get started — Day 1 is free.'}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+        <Button asChild>
+          <Link to={ROUTES.REGISTER} {...returnState}>Enroll Now</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link to={ROUTES.LOGIN} {...returnState}>I already have an account</Link>
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 // ── Free tier informational banner ────────────────────────────────────────────

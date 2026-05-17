@@ -353,7 +353,8 @@ function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
   const isExam   = /\bexam\b/i.test(lesson.title)
   const day      = effectiveDay(lesson)
   const isDayOne = day === 1
-  const unlocked = isSubscribed || isDayOne
+  // Day 1 is free only for authenticated users — guests must register first.
+  const unlocked = isSubscribed || (isDayOne && isAuthenticated)
 
   const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
@@ -365,11 +366,13 @@ function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
       </span>
       {isExam
         ? <Badge variant="warning">Exam</Badge>
-        : isDayOne
+        : isDayOne && isAuthenticated
           ? <Badge variant="success">Free</Badge>
-          : !unlocked
-            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
-            : null
+          : isDayOne
+            ? <Badge variant="warning">Enroll</Badge>
+            : !unlocked
+              ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
+              : null
       }
     </div>
   )

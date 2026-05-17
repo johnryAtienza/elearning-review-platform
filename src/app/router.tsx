@@ -48,7 +48,9 @@ export const router = createBrowserRouter([
       { path: 'about',            element: <AboutPage /> },
       { path: 'contact',          element: <ContactPage /> },
       { path: 'faq',              element: <FAQPage /> },
+      { path: 'courses',          element: <CoursesPage /> },
       { path: 'course/:courseId', element: <CourseDetailPage /> },
+      { path: 'lesson/:lessonId', element: <LessonPage /> },
       { path: 'books',            element: <BooksPage /> },
       { path: 'book/:bookId',     element: <BookDetailPage /> },
 
@@ -75,8 +77,6 @@ export const router = createBrowserRouter([
         children: [
           { path: 'dashboard',                element: <DashboardPage />    },
           { path: 'subscription',             element: <SubscriptionPage /> },
-          { path: 'courses',                  element: <CoursesPage />      },
-          { path: 'lesson/:lessonId',         element: <LessonPage />       },
           { path: 'profile',                  element: <ProfilePage />      },
           { path: 'profile/devices',          element: <DevicesPage />      },
           { path: 'book/:bookId/checkout',    element: <BookCheckoutPage /> },

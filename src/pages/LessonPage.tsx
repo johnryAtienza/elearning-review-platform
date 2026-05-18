@@ -183,6 +183,13 @@ export function LessonPage() {
 
   const { lesson, course, siblings, prev, next, progress } = data
 
+  // Hard gate: free non-admin users cannot view Day 2+ lessons.
+  // Day 1 is free for any authenticated user; everything else requires a sub.
+  // Guests fall through to the GuestEnrollCTA below — they're not redirected.
+  if (isAuthenticated && !isSubscribed && !isAdmin && !isDayOneFree(lesson, isAuthenticated)) {
+    return <Navigate to={ROUTES.SUBSCRIPTION} replace />
+  }
+
   // Effective permissions take Day 1 free-access into account.
   // When the lesson is Day 1, every authenticated user gets standard-tier
   // limits regardless of their subscription. Guests get fully locked
@@ -276,7 +283,7 @@ export function LessonPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-3 pb-2">
               {course?.title}
             </p>
-            <LessonList lessons={siblings} isSubscribed activeLessonId={lesson.id} />
+            <LessonList lessons={siblings} isSubscribed={isSubscribed} isAdmin={isAdmin} activeLessonId={lesson.id} />
           </div>
         )}
 
@@ -392,32 +399,47 @@ export function LessonPage() {
           )}
 
           {/* ── Navigation ── */}
-          <div className={cn(
-            'flex items-center justify-between gap-4 pt-4 border-t transition-all duration-500',
-            navReady ? 'opacity-100' : 'opacity-40 pointer-events-none',
-          )}>
-            {prev ? (
-              <Button asChild variant="outline" size="sm" className="max-w-[45%]">
-                <Link to={ROUTES.LESSON(prev.id)} className="flex items-center gap-1.5">
-                  <ChevronLeft className="size-4 shrink-0" />
-                  <span className="truncate">{prev.title}</span>
-                </Link>
-              </Button>
-            ) : <div />}
+          {(() => {
+            // Free non-admin users hop to /subscription instead of a locked Day 2+ neighbor.
+            const isNeighborUnlocked = (n: { dayNumber?: number | null }) =>
+              isSubscribed || isAdmin || n.dayNumber === 1
+            const prevLocked = prev ? !isNeighborUnlocked(prev) : false
+            const nextLocked = next ? !isNeighborUnlocked(next) : false
+            const prevTo = prev ? (prevLocked ? ROUTES.SUBSCRIPTION : ROUTES.LESSON(prev.id)) : null
+            const nextTo = next ? (nextLocked ? ROUTES.SUBSCRIPTION : ROUTES.LESSON(next.id)) : null
 
-            {next ? (
-              <Button asChild size="sm" className="max-w-[45%] ml-auto">
-                <Link to={ROUTES.LESSON(next.id)} className="flex items-center gap-1.5">
-                  <span className="truncate">{next.title}</span>
-                  <ChevronRight className="size-4 shrink-0" />
-                </Link>
-              </Button>
-            ) : (
-              <Button asChild variant="outline" size="sm" className="ml-auto">
-                <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Course</Link>
-              </Button>
-            )}
-          </div>
+            return (
+              <div className={cn(
+                'flex items-center justify-between gap-4 pt-4 border-t transition-all duration-500',
+                navReady ? 'opacity-100' : 'opacity-40 pointer-events-none',
+              )}>
+                {prev && prevTo ? (
+                  <Button asChild variant="outline" size="sm" className="max-w-[45%]">
+                    <Link to={prevTo} className="flex items-center gap-1.5">
+                      <ChevronLeft className="size-4 shrink-0" />
+                      <span className="truncate">{prev.title}</span>
+                      {prevLocked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
+                    </Link>
+                  </Button>
+                ) : <div />}
+
+                {next && nextTo ? (
+                  <Button asChild size="sm" className="max-w-[45%] ml-auto">
+                    <Link to={nextTo} className="flex items-center gap-1.5">
+                      <span className="truncate">{next.title}</span>
+                      {nextLocked
+                        ? <Lock className="size-3.5 shrink-0" />
+                        : <ChevronRight className="size-4 shrink-0" />}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" size="sm" className="ml-auto">
+                    <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Course</Link>
+                  </Button>
+                )}
+              </div>
+            )
+          })()}
           </>
           )}
         </div>
@@ -439,7 +461,7 @@ export function LessonPage() {
             </div>
           </div>
           <div className="overflow-y-auto flex-1 p-3">
-            <LessonList lessons={siblings} isSubscribed activeLessonId={lesson.id} />
+            <LessonList lessons={siblings} isSubscribed={isSubscribed} isAdmin={isAdmin} activeLessonId={lesson.id} />
           </div>
         </div>
       </aside>

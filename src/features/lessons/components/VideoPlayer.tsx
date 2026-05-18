@@ -22,6 +22,15 @@ interface VideoPlayerProps {
    * so 95 means the user has watched 95% of the allowed preview window.
    */
   onProgress?: (percent: number) => void
+  /**
+   * When true, the user cannot seek past the furthest point reached by natural
+   * playback. Rewinding to already-watched portions remains allowed.
+   */
+  lockSeekAhead?: boolean
+  /** Initial playback offset in seconds (used to resume a previous session). */
+  startAt?: number
+  /** Throttled (~5s) playback-position reporter; used by the page to persist resume state. */
+  onTimeChange?: (seconds: number) => void
 }
 
 function formatTime(seconds: number): string {
@@ -32,7 +41,8 @@ function formatTime(seconds: number): string {
 
 export function VideoPlayer({
   title, thumbnail, durationSeconds = 30, src, onEnded,
-  previewDuration, onPreviewEnded, onProgress,
+  previewDuration, onPreviewEnded, onProgress, lockSeekAhead,
+  startAt, onTimeChange,
 }: VideoPlayerProps) {
   const isPreviewMode = typeof previewDuration === 'number'
 
@@ -45,6 +55,9 @@ export function VideoPlayer({
         previewDuration={isPreviewMode ? previewDuration : undefined}
         onPreviewEnded={onPreviewEnded}
         onProgress={onProgress}
+        lockSeekAhead={lockSeekAhead}
+        startAt={startAt}
+        onTimeChange={onTimeChange}
       />
     )
   }
@@ -58,6 +71,9 @@ export function VideoPlayer({
       previewDuration={isPreviewMode ? previewDuration : undefined}
       onPreviewEnded={onPreviewEnded}
       onProgress={onProgress}
+      lockSeekAhead={lockSeekAhead}
+      startAt={startAt}
+      onTimeChange={onTimeChange}
     />
   )
 }
@@ -71,23 +87,72 @@ interface RealVideoPlayerProps {
   previewDuration?: number
   onPreviewEnded?: () => void
   onProgress?: (percent: number) => void
+  lockSeekAhead?: boolean
+  startAt?: number
+  onTimeChange?: (seconds: number) => void
 }
 
-function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded, onProgress }: RealVideoPlayerProps) {
+const SEEK_TOLERANCE = 0.5
+const TIME_CHANGE_THROTTLE_MS = 5000
+
+function RealVideoPlayer({
+  title, src, onEnded, previewDuration, onPreviewEnded, onProgress,
+  lockSeekAhead, startAt, onTimeChange,
+}: RealVideoPlayerProps) {
   const videoRef       = useRef<HTMLVideoElement>(null)
   const [error, setError]             = useState(false)
   const [previewEnded, setPreviewEnded] = useState(false)
   const previewFiredRef = useRef(false)
+  const maxReachedRef   = useRef(0)
+  const lastTimeSentRef = useRef(0)
 
   useEffect(() => {
     setError(false)
     setPreviewEnded(false)
     previewFiredRef.current = false
+    maxReachedRef.current = 0
+    lastTimeSentRef.current = 0
   }, [src])
+
+  function applyStartAt() {
+    const video = videoRef.current
+    if (!video || !startAt || startAt <= 0) return
+    if (Number.isNaN(video.duration)) return // metadata not loaded yet
+    // Seed both currentTime AND maxReachedRef so the seek-lock doesn't
+    // immediately snap a resumed user back to 0.
+    video.currentTime = startAt
+    maxReachedRef.current = startAt
+    void video.play().catch(() => { /* autoplay may be blocked */ })
+  }
+
+  function handleLoadedMetadata() {
+    applyStartAt()
+  }
+
+  // When the user clicks "Continue" after metadata has already loaded,
+  // onLoadedMetadata won't re-fire. Watch startAt explicitly so the seek
+  // still happens (and auto-plays since the click is a user gesture).
+  useEffect(() => {
+    applyStartAt()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAt])
+
+  function reportTime(force: boolean) {
+    const video = videoRef.current
+    if (!video || !onTimeChange) return
+    const now = Date.now()
+    if (!force && now - lastTimeSentRef.current < TIME_CHANGE_THROTTLE_MS) return
+    lastTimeSentRef.current = now
+    onTimeChange(video.currentTime)
+  }
 
   function handleTimeUpdate() {
     const video = videoRef.current
     if (!video) return
+
+    if (video.currentTime > maxReachedRef.current) {
+      maxReachedRef.current = video.currentTime
+    }
 
     // Emit progress relative to effective playable duration
     if (video.duration) {
@@ -96,6 +161,8 @@ function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded,
       onProgress?.(pct)
     }
 
+    reportTime(false)
+
     // Preview boundary check
     if (!previewDuration || previewFiredRef.current) return
     if (video.currentTime >= previewDuration) {
@@ -103,6 +170,15 @@ function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded,
       video.pause()
       setPreviewEnded(true)
       onPreviewEnded?.()
+    }
+  }
+
+  function enforceSeekCap() {
+    if (!lockSeekAhead) return
+    const video = videoRef.current
+    if (!video) return
+    if (video.currentTime > maxReachedRef.current + SEEK_TOLERANCE) {
+      video.currentTime = maxReachedRef.current
     }
   }
 
@@ -135,9 +211,13 @@ function RealVideoPlayer({ title, src, onEnded, previewDuration, onPreviewEnded,
           controls={!previewEnded}
           controlsList="nodownload"
           className="w-full aspect-video bg-black"
-          onEnded={onEnded}
+          onEnded={() => { reportTime(true); onEnded() }}
+          onPause={() => reportTime(true)}
           onError={() => setError(true)}
+          onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
+          onSeeking={enforceSeekCap}
+          onSeeked={enforceSeekCap}
           onContextMenu={(e) => e.preventDefault()}
         />
 
@@ -164,17 +244,35 @@ interface MockVideoPlayerProps {
   previewDuration?: number
   onPreviewEnded?: () => void
   onProgress?: (percent: number) => void
+  lockSeekAhead?: boolean
+  startAt?: number
+  onTimeChange?: (seconds: number) => void
 }
 
 function MockVideoPlayer({
   title, thumbnail, durationSeconds, onEnded,
-  previewDuration, onPreviewEnded, onProgress,
+  previewDuration, onPreviewEnded, onProgress, lockSeekAhead,
+  startAt, onTimeChange,
 }: MockVideoPlayerProps) {
+  const initialTime = Math.min(startAt ?? 0, durationSeconds)
   const [status, setStatus] = useState<'idle' | 'playing' | 'paused' | 'ended' | 'preview_ended'>('idle')
-  const [currentTime, setCurrentTime] = useState(0)
+  const [currentTime, setCurrentTime] = useState(initialTime)
   const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null)
   const hasEndedRef     = useRef(false)
   const hasPreviewedRef = useRef(false)
+  const maxReachedRef   = useRef(initialTime)
+  const lastTimeSentRef = useRef(0)
+
+  // If startAt arrives after mount (e.g. user clicked "Continue" in the
+  // resume banner), jump to it and start playing.
+  useEffect(() => {
+    if (!startAt || startAt <= 0) return
+    const target = Math.min(startAt, durationSeconds)
+    setCurrentTime(target)
+    if (target > maxReachedRef.current) maxReachedRef.current = target
+    setStatus('playing')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAt])
 
   // Effective stop time: preview limit takes priority over full duration
   const stopAt      = previewDuration ?? durationSeconds
@@ -199,14 +297,19 @@ function MockVideoPlayer({
     setStatus('playing')
   }
 
-  function pause() { setStatus('paused') }
+  function pause() {
+    setStatus('paused')
+    onTimeChange?.(currentTime)
+    lastTimeSentRef.current = Date.now()
+  }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
     // Free-tier: prevent seeking past the preview boundary
     const rect  = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientX - rect.left) / rect.width
     const time  = Math.max(0, Math.min(ratio * durationSeconds, durationSeconds))
-    const capped = previewDuration ? Math.min(time, previewDuration) : time
+    let capped  = previewDuration ? Math.min(time, previewDuration) : time
+    if (lockSeekAhead) capped = Math.min(capped, maxReachedRef.current)
     setCurrentTime(capped)
     if (capped >= durationSeconds) handleEnd()
   }
@@ -239,13 +342,27 @@ function MockVideoPlayer({
         // Preview boundary
         if (previewDuration && next >= previewDuration) {
           handlePreviewEnd()
+          if (previewDuration > maxReachedRef.current) maxReachedRef.current = previewDuration
+          onTimeChange?.(previewDuration)
+          lastTimeSentRef.current = Date.now()
           return previewDuration
         }
 
         // Full end
         if (next >= durationSeconds) {
           handleEnd()
+          if (durationSeconds > maxReachedRef.current) maxReachedRef.current = durationSeconds
+          onTimeChange?.(durationSeconds)
+          lastTimeSentRef.current = Date.now()
           return durationSeconds
+        }
+
+        if (next > maxReachedRef.current) maxReachedRef.current = next
+
+        const now = Date.now()
+        if (onTimeChange && now - lastTimeSentRef.current >= TIME_CHANGE_THROTTLE_MS) {
+          lastTimeSentRef.current = now
+          onTimeChange(next)
         }
 
         return next

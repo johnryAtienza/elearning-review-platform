@@ -22,6 +22,7 @@ import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
 import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isDayOneFree } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
+import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
 import type { ReviewerContent } from '@/features/lessons/types'
 import type { Quiz } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
@@ -40,6 +41,12 @@ export function LessonPage() {
   // Watched state — loaded from backend, persisted on user action
   const [isWatched,      setIsWatched]      = useState(false)
   const [markingWatched, setMarkingWatched] = useState(false)
+
+  // Resume state — saved playback time loaded from localStorage, gated behind
+  // a Continue/Start-over choice so users can recover from a dropped session.
+  const [resumeAt,      setResumeAt]      = useState<number | null>(null)
+  const [resumeChoice,  setResumeChoice]  = useState<'pending' | 'resolved'>('resolved')
+  const [playerStartAt, setPlayerStartAt] = useState<number | undefined>(undefined)
 
   // Tab state — only one of reviewer/quiz is visible at a time
   const [activeTab, setActiveTab] = useState<'reviewer' | 'quiz' | null>(null)
@@ -95,6 +102,9 @@ export function LessonPage() {
     setReviewerContent(undefined)
     setQuiz(undefined)
     setActiveTab(null)
+    setResumeAt(null)
+    setResumeChoice('resolved')
+    setPlayerStartAt(undefined)
 
     const lessonId = data.lesson.id
 
@@ -111,6 +121,13 @@ export function LessonPage() {
       if (watched) {
         const defaultTab = (rc || signedPdfUrl) ? 'reviewer' : qz ? 'quiz' : null
         setActiveTab(defaultTab)
+      } else {
+        // Only offer resume when lesson isn't already fully watched.
+        const saved = loadResume(lessonId)
+        if (saved !== null) {
+          setResumeAt(saved)
+          setResumeChoice('pending')
+        }
       }
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,17 +141,37 @@ export function LessonPage() {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
+      clearResume(data.lesson.id)
       // Auto-open reviewer (or quiz as fallback) after marking watched
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
+      clearResume(data.lesson.id)
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } finally {
       setMarkingWatched(false)
     }
+  }
+
+  function handleContinue() {
+    if (resumeAt === null) return
+    setPlayerStartAt(resumeAt)
+    setResumeChoice('resolved')
+  }
+
+  function handleStartOver() {
+    if (data?.lesson) clearResume(data.lesson.id)
+    setPlayerStartAt(undefined)
+    setResumeChoice('resolved')
+  }
+
+  function formatResumeTime(seconds: number): string {
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
   }
 
   if (notFound) return <Navigate to="/" replace />
@@ -271,6 +308,21 @@ export function LessonPage() {
               className="relative"
               onContextMenu={(e) => protectionActive && e.preventDefault()}
             >
+              {resumeChoice === 'pending' && resumeAt !== null && (
+                <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+                  <p className="text-sm">
+                    You left off at <span className="font-semibold">{formatResumeTime(resumeAt)}</span>. Continue where you stopped?
+                  </p>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" onClick={handleContinue}>
+                      Continue from {formatResumeTime(resumeAt)}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={handleStartOver}>
+                      Start over
+                    </Button>
+                  </div>
+                </div>
+              )}
               <VideoPlayer
                 key={lesson.id}
                 title={lesson.title}
@@ -281,6 +333,9 @@ export function LessonPage() {
                 previewDuration={videoPreviewSec}
                 onPreviewEnded={() => setPreviewEnded(true)}
                 onProgress={setVideoProgress}
+                lockSeekAhead={!isWatched}
+                startAt={playerStartAt}
+                onTimeChange={(s) => saveResume(lesson.id, s)}
               />
               <ContentWatermark
                 label={user?.email ?? user?.id ?? ''}

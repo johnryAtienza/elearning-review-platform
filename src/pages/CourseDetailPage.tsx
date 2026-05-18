@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { CourseThumbnail } from '@/components/CourseThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedCoursesStore } from '@/store/savedCoursesStore'
 import { getCourseById } from '@/features/courses/services/courseService'
@@ -155,8 +156,8 @@ export function CourseDetailPage() {
         </div>
       )}
 
-      {/* ── Course intro video ── */}
-      <CourseIntroVideo course={course} />
+      {/* ── Course banner ── */}
+      <CourseBanner course={course} />
 
       {/* ── Title + meta + actions ── */}
       <header className="space-y-4">
@@ -264,36 +265,18 @@ export function CourseDetailPage() {
   )
 }
 
-// ── Course intro video ───────────────────────────────────────────────────────
-// 16:9 block at the top of the page. Reads the course thumbnail by default;
-// a dedicated intro-video URL would be wired in here when admins can upload
-// a per-course intro reel (out of Phase A scope).
+// ── Course banner ────────────────────────────────────────────────────────────
+// 16:9 hero image at the top of the page. Uses the shared CourseThumbnail
+// component (same one CourseCard uses) so banner + card look consistent.
 
-function CourseIntroVideo({ course }: { course: Course }) {
+function CourseBanner({ course }: { course: Course }) {
   return (
-    <div className="rounded-2xl border bg-card overflow-hidden">
-      <div className="aspect-video relative">
-        {course.thumbnailUrl ? (
-          <img
-            src={course.thumbnailUrl}
-            alt={course.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className={cn(
-            'w-full h-full flex items-center justify-center bg-linear-to-br',
-            course.thumbnail || 'from-primary/30 to-card',
-          )}>
-            <PlayCircle className="size-16 text-foreground/40" />
-          </div>
-        )}
-        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-background/80 to-transparent p-4">
-          <p className="text-xs text-muted-foreground italic">
-            {course.title} intro — looping reel placeholder
-          </p>
-        </div>
-      </div>
-    </div>
+    <CourseThumbnail
+      src={course.thumbnailUrl}
+      alt={course.title}
+      gradient={course.thumbnail}
+      className="aspect-video w-full rounded-2xl border"
+    />
   )
 }
 

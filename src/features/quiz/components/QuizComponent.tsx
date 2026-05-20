@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import type { QuizQuestion } from '@/features/quiz/types'
 import { useQuizStore } from '@/store/quizStore'
+import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { useQuizHistoryStore } from '@/store/quizHistoryStore'
+import { saveQuizResult } from '@/services/quizResultsApi'
 import { answerLabel } from '@/features/quiz/utils'
 import { ResultSummary } from './ResultSummary'
 import { ROUTES } from '@/constants/routes'
@@ -12,6 +15,7 @@ import { MathText } from '@/components/MathText'
 
 interface QuizComponentProps {
   questions: QuizQuestion[]
+  lessonId: string
   visible: boolean
   description?: string | null
   randomize?: boolean
@@ -22,7 +26,7 @@ interface QuizComponentProps {
   locked?: boolean
 }
 
-export function QuizComponent({ questions, visible, description, randomize = false, locked = false }: QuizComponentProps) {
+export function QuizComponent({ questions, lessonId, visible, description, randomize = false, locked = false }: QuizComponentProps) {
   const { answers, submitted, result, setAnswer, submitQuiz, resetQuiz } = useQuizStore()
 
   // Shuffle questions once on mount only if randomize is enabled
@@ -45,8 +49,28 @@ export function QuizComponent({ questions, visible, description, randomize = fal
   function handleNext() {
     if (isLast) {
       submitQuiz(shuffled)
+      if (!locked) {
+        const score = shuffled.reduce(
+          (acc, q) => acc + (answers[q.id] === q.correctAnswer ? 1 : 0),
+          0,
+        )
+        void persistAttempt(score)
+      }
     } else {
       setCurrentIndex((i) => i + 1)
+    }
+  }
+
+  async function persistAttempt(score: number) {
+    const ok = await saveQuizResult({
+      lessonId,
+      score,
+      total: shuffled.length,
+      answers,
+    })
+    if (ok) {
+      void useSavedCoursesStore.getState().fetch()
+      void useQuizHistoryStore.getState().fetch()
     }
   }
 

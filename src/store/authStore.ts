@@ -14,6 +14,7 @@ import {
 import { supabase } from '@/services/supabaseClient'
 import { registerCurrentDevice, DeviceLimitError } from '@/services/devicesApi'
 import { useSavedCoursesStore } from './savedCoursesStore'
+import { useQuizHistoryStore } from './quizHistoryStore'
 
 interface AuthState {
   user: User | null
@@ -134,6 +135,7 @@ export const useAuthStore = create<AuthState>()(
           set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
           await get().syncSubscription()
           void useSavedCoursesStore.getState().fetch()
+          void useQuizHistoryStore.getState().fetch()
           // Phase G — register/touch this device. On limit_reached, sign
           // the user out locally and surface the modal so they can revoke
           // an existing device before retrying.
@@ -151,6 +153,7 @@ export const useAuthStore = create<AuthState>()(
                 pendingDeviceLimit: err.devices,
               })
               useSavedCoursesStore.getState().reset()
+              useQuizHistoryStore.getState().reset()
             } else {
               console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
             }
@@ -163,9 +166,11 @@ export const useAuthStore = create<AuthState>()(
             set({ user, isAuthenticated: true, isAdmin: user.role === 'admin' })
             await get().syncSubscription()
             void useSavedCoursesStore.getState().fetch()
+            void useQuizHistoryStore.getState().fetch()
           } else {
             set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
             useSavedCoursesStore.getState().reset()
+            useQuizHistoryStore.getState().reset()
           }
         })
       },
@@ -175,6 +180,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
         await get().syncSubscription()
         void useSavedCoursesStore.getState().fetch()
+        void useQuizHistoryStore.getState().fetch()
         // Phase G — register device. If limit hit, sign out and re-throw
         // so LoginPage can mount DeviceLimitModal.
         try {
@@ -191,6 +197,7 @@ export const useAuthStore = create<AuthState>()(
               pendingDeviceLimit: err.devices,
             })
             useSavedCoursesStore.getState().reset()
+            useQuizHistoryStore.getState().reset()
             throw err
           }
           // Non-fatal otherwise — user remains logged in.
@@ -220,6 +227,7 @@ export const useAuthStore = create<AuthState>()(
                 pendingDeviceLimit: err.devices,
               })
               useSavedCoursesStore.getState().reset()
+              useQuizHistoryStore.getState().reset()
               throw err
             }
             console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
@@ -233,6 +241,7 @@ export const useAuthStore = create<AuthState>()(
         await logout()
         set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
         useSavedCoursesStore.getState().reset()
+        useQuizHistoryStore.getState().reset()
       },
 
       refreshToken: async () => {

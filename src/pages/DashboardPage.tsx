@@ -9,19 +9,29 @@ import { SavedCourseCard } from '@/features/courses/components/SavedCourseCard'
 import { MyBooksCard } from '@/features/books/components/MyBooksCard'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { useQuizHistoryStore } from '@/store/quizHistoryStore'
 import { useCourses } from '@/features/courses/hooks/useCourses'
+import { AttemptRow } from '@/pages/QuizHistoryPage'
+import { ROUTES } from '@/constants/routes'
 
 export function DashboardPage() {
   const { user, isSubscribed, logout } = useAuthStore()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   const { savedIds, progressMap, stats, loading, fetch } = useSavedCoursesStore()
+  const {
+    attempts:      quizAttempts,
+    loading:       quizLoading,
+    initialized:   quizInitialized,
+    fetch:         fetchQuizHistory,
+  } = useQuizHistoryStore()
   const { courses } = useCourses()
 
-  // Load saved courses + stats on mount
+  // Load saved courses + stats + quiz history on mount
   useEffect(() => {
     fetch()
-  }, [fetch])
+    fetchQuizHistory()
+  }, [fetch, fetchQuizHistory])
 
   const initials = user?.name
     .split(' ')
@@ -108,6 +118,12 @@ export function DashboardPage() {
           </Button>
         </div>
       )}
+
+      {/* ── Recent Quizzes ── */}
+      <RecentQuizzesSection
+        attempts={quizAttempts}
+        loading={quizLoading && !quizInitialized}
+      />
 
       {/* ── My Courses ── */}
       <section className="space-y-4">
@@ -224,6 +240,63 @@ function StatCard({
         <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
       </div>
     </div>
+  )
+}
+
+// ── Recent quizzes section ────────────────────────────────────────────────────
+
+function RecentQuizzesSection({
+  attempts,
+  loading,
+}: {
+  attempts: ReturnType<typeof useQuizHistoryStore.getState>['attempts']
+  loading:  boolean
+}) {
+  const preview = attempts.slice(0, 3)
+  const hasMore = attempts.length > preview.length
+
+  if (!loading && attempts.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Recent Quizzes
+          </h2>
+          {attempts.length > 0 && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+              {attempts.length}
+            </span>
+          )}
+          <div className="h-px flex-1 bg-border w-12" />
+        </div>
+        {hasMore && (
+          <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs">
+            <Link to={ROUTES.QUIZ_HISTORY}>
+              See all
+              <ChevronRight className="size-3.5" />
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {preview.map((a) => (
+            <AttemptRow key={a.id} attempt={a} />
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

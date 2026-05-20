@@ -158,7 +158,7 @@ function TabButton({
       className={cn(
         'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150',
         active
-          ? 'bg-background shadow-sm text-foreground'
+          ? 'bg-primary text-primary-foreground shadow-sm'
           : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
       )}
     >

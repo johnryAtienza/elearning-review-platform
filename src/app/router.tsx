@@ -13,6 +13,7 @@ import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { QuizHistoryPage } from '@/pages/QuizHistoryPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { CoursesPage } from '@/pages/CoursesPage'
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute />,
         children: [
           { path: 'dashboard',                element: <DashboardPage />    },
+          { path: 'quizzes',                  element: <QuizHistoryPage />  },
           { path: 'subscription',             element: <SubscriptionPage /> },
           { path: 'profile',                  element: <ProfilePage />      },
           { path: 'profile/devices',          element: <DevicesPage />      },

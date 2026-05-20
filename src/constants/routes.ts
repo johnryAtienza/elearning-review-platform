@@ -11,6 +11,7 @@ export const ROUTES = {
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD:  '/reset-password',
   DASHBOARD:       '/dashboard',
+  QUIZ_HISTORY:    '/quizzes',
   COURSES:         '/courses',
   SUBSCRIPTION:    '/subscription',
   COURSE:  (id: string) => `/course/${id}`,

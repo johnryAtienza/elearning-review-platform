@@ -384,6 +384,7 @@ export function LessonPage() {
               {activeTab === 'quiz' && quiz && (
                 <QuizComponent
                   questions={quiz.questions}
+                  lessonId={lesson.id}
                   description={quiz.description}
                   randomize={quiz.randomize}
                   visible={contentUnlocked}

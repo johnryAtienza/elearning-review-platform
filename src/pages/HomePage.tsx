@@ -10,7 +10,7 @@ import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
 /**
- * Public Home page (CLASS S Review).
+ * Public Home page (S Class Review).
  *
  * Phase D layout (Enroll Now hero + testimonials added for conversion):
  *   ┌──────────────────────────────────────────────────┐
@@ -153,7 +153,7 @@ function WelcomeVideoBlock() {
         )}
       </div>
       <div className="p-4 space-y-1">
-        <h3 className="text-sm font-semibold">Why CLASS S?</h3>
+        <h3 className="text-sm font-semibold">Why S Class?</h3>
         <p className="text-xs text-muted-foreground leading-relaxed">
           Watch a short intro on how the program works and what's included
           with every package.

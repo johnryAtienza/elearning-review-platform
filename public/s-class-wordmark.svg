@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" role="img" aria-label="S CLASS — Elevate Your Learning">
+  <defs>
+    <style>
+      .dark { fill: #2b2e36; }
+      .accent { fill: #ed6b1c; }
+      .wordmark {
+        font-family: "Rajdhani", "Oswald", "Arial Narrow", sans-serif;
+        font-weight: 700;
+        font-size: 140px;
+        letter-spacing: 6px;
+      }
+      .tagline {
+        font-family: "Rajdhani", "Oswald", "Arial Narrow", sans-serif;
+        font-weight: 600;
+        font-size: 38px;
+        letter-spacing: 10px;
+      }
+    </style>
+  </defs>
+
+  <!-- Wordmark: leading S in orange, "CLASS" in dark -->
+  <g transform="skewX(-8)">
+    <text x="170" y="160" class="wordmark accent">S</text>
+    <text x="270" y="160" class="wordmark dark">CLASS</text>
+  </g>
+
+  <!-- Tagline row: orange dash, text, orange dash -->
+  <rect class="accent" x="120" y="225" width="60" height="6" rx="1" />
+  <text x="450" y="240" class="tagline dark" text-anchor="middle">ELEVATE YOUR LEARNING</text>
+  <rect class="accent" x="720" y="225" width="60" height="6" rx="1" />
+</svg>

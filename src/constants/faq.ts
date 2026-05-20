@@ -22,7 +22,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     heading: 'Enrollment',
     items: [
       {
-        question: 'How do I enrol in a CLASS S review?',
+        question: 'How do I enrol in a S Class review?',
         answer:
           'Pick a package on the Home page, click Enroll Now, and complete payment via GCash, Maya, or card. ' +
           "Your online access is activated immediately; printed books ship within 5 business days.",

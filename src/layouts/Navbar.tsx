@@ -42,10 +42,10 @@ function fetchPublishedCourses(): Promise<Course[]> {
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-t-md transition-all duration-150 whitespace-nowrap',
+    'inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-t-lg transition-all duration-150 whitespace-nowrap',
     isActive
-      ? 'bg-card text-foreground border-b-2 border-primary'
-      : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-b-2 border-transparent',
+      ? 'bg-card text-primary border-b-2 border-primary'
+      : 'text-muted-foreground hover:text-foreground hover:bg-primary/15 border-b-2 border-transparent',
   )
 
 const utilityLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -188,11 +188,11 @@ function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: bo
         aria-haspopup="true"
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-t-md whitespace-nowrap',
+          'inline-flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-t-lg whitespace-nowrap',
           'transition-all duration-150 border-b-2',
           isActive
-            ? 'bg-card text-foreground border-primary'
-            : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-transparent',
+            ? 'bg-card text-primary border-primary'
+            : 'text-muted-foreground hover:text-foreground hover:bg-primary/15 border-transparent',
         )}
       >
         Subjects
@@ -219,7 +219,7 @@ function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: bo
                 to={ROUTES.COURSE(c.id)}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
                 {c.title}
               </Link>
@@ -251,7 +251,7 @@ function MobileSubjectsSection({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
       >
         <span>Subjects</span>
         <ChevronDown
@@ -272,7 +272,7 @@ function MobileSubjectsSection({
                 key={c.id}
                 to={ROUTES.COURSE(c.id)}
                 onClick={onNavigate}
-                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
                 {c.title}
               </Link>
@@ -340,9 +340,9 @@ export function Navbar() {
             className="flex items-center gap-3 font-bold shrink-0"
             onClick={() => setMobileOpen(false)}
           >
-            <img src="/elearning-logo.png" alt="CLASS S Review" className="h-10 w-auto" />
+            <img src="/elearning-logo.png" alt="S Class Review" className="h-10 w-auto" />
             <span className="hidden sm:flex flex-col leading-tight">
-              <span className="text-lg font-bold tracking-tight">CLASS S</span>
+              <span className="text-lg font-bold tracking-tight">S Class</span>
               <span className="text-[11px] font-medium text-muted-foreground -mt-0.5">Review</span>
             </span>
           </Link>
@@ -515,7 +515,7 @@ function MobileNavLink({
       className={({ isActive }) =>
         cn(
           'flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors',
-          isActive ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          isActive ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:bg-primary/15 hover:text-foreground'
         )
       }
     >

@@ -38,7 +38,7 @@ export const TESTIMONIALS: Testimonial[] = [
     role:   'Mechanical Engineering Licensee, April 2025',
     school: 'Mapua University',
     quote:
-      "I struggled with Engineering Math for years. CLASS S's video explainers finally made the " +
+      "I struggled with Engineering Math for years. S Class's video explainers finally made the " +
       'concepts click — and the printed reviewer is dog-eared from how often I used it.',
     rating: 5,
   },

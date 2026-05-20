@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * CLASS S — Elevate Your Learning
+ * S Class — Elevate Your Learning
  * Dark-first identity. Single brand accent: #d45100.
  * Surfaces are cool charcoal (slight navy bias) to harmonise with the
  * graduation-cap / "CLASS" wordmark tones in the logo.
@@ -156,7 +156,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* New utilities exposed for the CLASS S identity */
+  /* New utilities exposed for the S Class identity */
   --color-brand: var(--brand);
   --color-brand-bright: var(--brand-bright);
   --color-brand-hover: var(--brand-hover);

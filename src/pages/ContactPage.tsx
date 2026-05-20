@@ -22,7 +22,7 @@ export function ContactPage() {
           Contact us
         </p>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          Talk to a CLASS S reviewer
+          Talk to a S Class reviewer
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto sm:mx-0">
           {CONTACT_INTRO}

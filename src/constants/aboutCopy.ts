@@ -18,7 +18,7 @@ export const ABOUT_SECTIONS: AboutSection[] = [
   {
     heading: 'Who are we',
     body:
-      'CLASS S Review is a focused board exam review program for Filipino ' +
+      'S Class Review is a focused board exam review program for Filipino ' +
       'mechanical engineering candidates. We pair printed reviewer books with ' +
       'an always-on online platform — daily problem solutions, weekly drills, ' +
       'and topnotcher-led catch-up sessions — so reviewers can keep momentum ' +

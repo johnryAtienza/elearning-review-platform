@@ -288,6 +288,7 @@ function MobileSubjectsSection({
 
 export function Navbar() {
   const { isAuthenticated, isSubscribed, isAdmin, user, logout } = useAuthStore()
+  const onAdminRoute = useMatch('/admin/*') !== null
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [courses, setCourses] = useState<Course[]>(() => coursesCache ?? [])
@@ -409,7 +410,8 @@ export function Navbar() {
         </div>
 
         {/* ── Bottom row: tab nav (Home / About / course tabs) — desktop only ── */}
-        <nav className="hidden md:block border-t bg-background/60">
+        {/* Hidden on admin routes so the admin panel isn't cluttered with public-site nav. */}
+        <nav className={cn('hidden border-t bg-background/60', !onAdminRoute && 'md:block')}>
           <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
             <NavLink to={ROUTES.HOME} end className={tabClass}>Home</NavLink>
             <NavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</NavLink>

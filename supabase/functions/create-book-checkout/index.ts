@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
   // ── Fetch book ──────────────────────────────────────────────────────────────
   const { data: book, error: bookErr } = await adminClient
     .from('books')
-    .select('id, title, author, price_centavos, stock, is_published')
+    .select('id, title, author, price_centavos, stock, status')
     .eq('id', bookId)
     .maybeSingle()
 
@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Failed to load book' }, 500)
   }
   if (!book) return json({ error: 'Book not found' }, 404)
-  if (!book.is_published) return json({ error: 'Book not available for purchase' }, 400)
+  if (book.status !== 'published') return json({ error: 'Book not available for purchase' }, 400)
   if (book.stock < qty)   return json({ error: 'Insufficient stock' }, 400)
 
   const unitPrice = book.price_centavos as number

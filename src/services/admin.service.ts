@@ -729,6 +729,8 @@ export async function setUserSubscriptionStatus(userId: string, isActive: boolea
 
 // ── Books (Phase C) ───────────────────────────────────────────────────────────
 
+export type BookStatus = 'draft' | 'published' | 'archived'
+
 export interface AdminBook {
   id: string
   title: string
@@ -738,7 +740,7 @@ export interface AdminBook {
   coverUrl: string | null
   priceCentavos: number
   stock: number
-  isPublished: boolean
+  status: BookStatus
   createdAt: string
 }
 
@@ -750,7 +752,7 @@ export interface BookFormData {
   coverUrl?: string | null
   priceCentavos: number
   stock: number
-  isPublished?: boolean
+  status?: BookStatus
 }
 
 interface AdminBookRow {
@@ -762,7 +764,7 @@ interface AdminBookRow {
   cover_url:       string | null
   price_centavos:  number
   stock:           number
-  is_published:    boolean
+  status:          BookStatus
   created_at:      string
 }
 
@@ -776,7 +778,7 @@ function toAdminBook(row: AdminBookRow): AdminBook {
     coverUrl:       row.cover_url,
     priceCentavos:  row.price_centavos,
     stock:          row.stock,
-    isPublished:    row.is_published,
+    status:         row.status,
     createdAt:      row.created_at,
   }
 }
@@ -784,7 +786,7 @@ function toAdminBook(row: AdminBookRow): AdminBook {
 export async function getAdminBooks(): Promise<AdminBook[]> {
   const { data, error } = await supabase
     .from('books')
-    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, status, created_at')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_BOOKS_FAILED', error.message)
@@ -794,7 +796,7 @@ export async function getAdminBooks(): Promise<AdminBook[]> {
 export async function getAdminBookById(bookId: string): Promise<AdminBook | undefined> {
   const { data, error } = await supabase
     .from('books')
-    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, status, created_at')
     .eq('id', bookId)
     .maybeSingle()
 
@@ -813,7 +815,7 @@ export async function createAdminBook(data: BookFormData): Promise<string> {
       cover_url:       data.coverUrl ?? null,
       price_centavos:  data.priceCentavos,
       stock:           data.stock,
-      is_published:    data.isPublished ?? false,
+      status:          data.status ?? 'draft',
     })
     .select('id')
     .single()
@@ -834,7 +836,7 @@ export async function updateAdminBook(
   if (data.coverUrl      !== undefined) update.cover_url      = data.coverUrl
   if (data.priceCentavos !== undefined) update.price_centavos = data.priceCentavos
   if (data.stock         !== undefined) update.stock          = data.stock
-  if (data.isPublished   !== undefined) update.is_published   = data.isPublished
+  if (data.status        !== undefined) update.status         = data.status
 
   const { error } = await supabase
     .from('books')
@@ -844,10 +846,10 @@ export async function updateAdminBook(
   if (error) throw new ApiError(500, 'ADMIN_BOOK_UPDATE_FAILED', error.message)
 }
 
-export async function setBookPublished(bookId: string, isPublished: boolean): Promise<void> {
+export async function setBookStatus(bookId: string, status: BookStatus): Promise<void> {
   const { error } = await supabase
     .from('books')
-    .update({ is_published: isPublished })
+    .update({ status })
     .eq('id', bookId)
   if (error) throw new ApiError(500, 'ADMIN_BOOK_UPDATE_FAILED', error.message)
 }

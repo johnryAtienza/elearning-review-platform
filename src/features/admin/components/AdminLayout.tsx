@@ -283,8 +283,8 @@ function SidebarContent({
           to={ROUTES.HOME}
           title={collapsed ? 'Back to site' : undefined}
           className={cn(
-            'flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-1 py-1',
-            collapsed ? 'justify-center' : '',
+            'flex w-full items-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-orange-600',
+            collapsed ? 'justify-center px-2' : 'justify-center',
           )}
         >
           <ChevronLeft className="size-3.5 shrink-0" />

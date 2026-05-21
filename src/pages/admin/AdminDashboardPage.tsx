@@ -96,7 +96,7 @@ export function AdminDashboardPage() {
           tooltip="Users with a currently active paid subscription. Conversion rate = active subs ÷ total users."
         />
         <StatCard
-          label="Students Who Finished a Lesson"
+          label="Lesson Finishers"
           value={stats?.studentsCompletedLesson}
           icon={GraduationCap}
           sub={

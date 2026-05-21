@@ -19,7 +19,7 @@ export interface Book {
   priceCentavos: number
   /** Available units. May be 0. */
   stock: number
-  isPublished: boolean
+  status: 'draft' | 'published' | 'archived'
   createdAt?: string
 }
 

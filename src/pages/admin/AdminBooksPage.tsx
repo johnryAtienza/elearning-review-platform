@@ -13,7 +13,7 @@ import {
 } from '@/features/admin/components/AdminTable'
 import {
   getAdminBooks,
-  setBookPublished,
+  setBookStatus,
   deleteAdminBook,
   type AdminBook,
 } from '@/services/admin.service'
@@ -59,13 +59,13 @@ export function AdminBooksPage() {
 
   async function handleTogglePublished(book: AdminBook) {
     setToggling((prev) => new Set(prev).add(book.id))
-    const next = !book.isPublished
+    const next = book.status === 'published' ? 'draft' : 'published'
     try {
-      await setBookPublished(book.id, next)
+      await setBookStatus(book.id, next)
       setBooks((prev) =>
-        prev.map((b) => b.id === book.id ? { ...b, isPublished: next } : b),
+        prev.map((b) => b.id === book.id ? { ...b, status: next } : b),
       )
-      toast.success(next ? `"${book.title}" published` : `"${book.title}" moved to draft`)
+      toast.success(next === 'published' ? `"${book.title}" published` : `"${book.title}" moved to draft`)
     } catch (err) {
       toast.error(err, 'Failed to update book.')
     } finally {
@@ -98,7 +98,7 @@ export function AdminBooksPage() {
     toast.success(isEdit ? `"${saved.title}" updated` : `"${saved.title}" created`)
   }
 
-  const publishedCount = books.filter((b) => b.isPublished).length
+  const publishedCount = books.filter((b) => b.status === 'published').length
 
   return (
     <div className="space-y-6">
@@ -241,8 +241,10 @@ function BookRow({
 
         {/* Status badge */}
         <span className="flex justify-center">
-          {book.isPublished ? (
+          {book.status === 'published' ? (
             <Badge variant="success">Published</Badge>
+          ) : book.status === 'archived' ? (
+            <Badge variant="outline">Archived</Badge>
           ) : (
             <Badge variant="secondary">Draft</Badge>
           )}
@@ -250,7 +252,7 @@ function BookRow({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-1">
-          <Tip label={book.isPublished ? 'Unpublish' : 'Publish'}>
+          <Tip label={book.status === 'published' ? 'Unpublish' : 'Publish'}>
             <Button
               variant="ghost" size="icon" className="size-8"
               disabled={isToggling || isDeleting}
@@ -258,7 +260,7 @@ function BookRow({
             >
               {isToggling
                 ? <Loader2 className="size-4 animate-spin" />
-                : book.isPublished
+                : book.status === 'published'
                   ? <EyeOff className="size-4" />
                   : <Eye className="size-4" />}
             </Button>

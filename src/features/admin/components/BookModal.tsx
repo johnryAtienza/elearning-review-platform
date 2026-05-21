@@ -31,7 +31,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
     book ? (book.priceCentavos / 100).toFixed(2) : ''
   )
   const [stock,         setStock]         = useState<number>(book?.stock ?? 0)
-  const [isPublished,   setIsPublished]   = useState<boolean>(book?.isPublished ?? false)
+  const [status,        setStatus]        = useState<'draft' | 'published' | 'archived'>(book?.status ?? 'draft')
   const [coverFile,     setCoverFile]     = useState<File | null>(null)
   const [coverPreview,  setCoverPreview]  = useState<string | null>(book?.coverUrl ?? null)
   const [saving,        setSaving]        = useState(false)
@@ -85,7 +85,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
           description:   description.trim(),
           priceCentavos,
           stock,
-          isPublished,
+          status,
         })
       } else {
         bookId = await createAdminBook({
@@ -95,7 +95,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
           description:   description.trim(),
           priceCentavos,
           stock,
-          isPublished,
+          status,
         })
       }
 
@@ -121,7 +121,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
         coverUrl,
         priceCentavos,
         stock,
-        isPublished,
+        status,
         createdAt:     book?.createdAt ?? new Date().toISOString(),
       })
     } catch (err) {
@@ -293,17 +293,21 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
               </div>
             </div>
 
-            {/* Published toggle */}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={isPublished}
-                onChange={(e) => setIsPublished(e.target.checked)}
+            {/* Status */}
+            <div className="space-y-1.5">
+              <label htmlFor="book-status" className="text-sm font-medium">Status</label>
+              <select
+                id="book-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as typeof status)}
                 disabled={saving}
-                className="size-4 rounded border-input"
-              />
-              Published — visible to customers
-            </label>
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="draft">Draft — not visible to customers</option>
+                <option value="published">Published — visible to customers</option>
+                <option value="archived">Archived — hidden, retained for orders</option>
+              </select>
+            </div>
 
             {/* Upload progress bar */}
             {saving && uploadProgress > 0 && uploadProgress < 100 && (

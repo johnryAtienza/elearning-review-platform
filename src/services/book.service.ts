@@ -4,7 +4,7 @@
  * Supabase queries for the books catalog and the user's own orders.
  *
  * RLS guarantees:
- * - getPublishedBooks  → only is_published rows are returned (RLS).
+ * - getPublishedBooks  → only status='published' rows are returned (RLS).
  * - getBookById (any)  → admins see drafts; anyone authenticated sees published.
  * - getMyOrders        → only auth.uid() = user_id rows (RLS).
  *
@@ -28,7 +28,7 @@ interface BookRow {
   cover_url:       string | null
   price_centavos:  number
   stock:           number
-  is_published:    boolean
+  status:          'draft' | 'published' | 'archived'
   created_at:      string
 }
 
@@ -64,7 +64,7 @@ function toBook(row: BookRow): Book {
     coverUrl:       row.cover_url,
     priceCentavos:  row.price_centavos,
     stock:          row.stock,
-    isPublished:    row.is_published,
+    status:         row.status,
     createdAt:      row.created_at,
   }
 }
@@ -97,8 +97,8 @@ function toOrder(row: OrderRow): BookOrder {
 export async function getPublishedBooks(): Promise<Book[]> {
   const { data, error } = await supabase
     .from('books')
-    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
-    .eq('is_published', true)
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, status, created_at')
+    .eq('status', 'published')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'BOOKS_FETCH_FAILED', error.message)
@@ -109,7 +109,7 @@ export async function getPublishedBooks(): Promise<Book[]> {
 export async function getBookById(bookId: string): Promise<Book | undefined> {
   const { data, error } = await supabase
     .from('books')
-    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, is_published, created_at')
+    .select('id, title, author, isbn, description, cover_url, price_centavos, stock, status, created_at')
     .eq('id', bookId)
     .maybeSingle()
 

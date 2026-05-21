@@ -11,8 +11,8 @@ export function AdminDashboardSkeleton() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-24" />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, BookMarked, Users, CreditCard, ArrowRight, TrendingUp } from 'lucide-react'
+import { BookOpen, BookMarked, Users, CreditCard, ArrowRight, TrendingUp, GraduationCap, CheckCircle2 } from 'lucide-react'
 import { StatCard } from '@/features/admin/components/StatCard'
 import { getAdminStats, type AdminStats } from '@/services/admin.service'
 import { ROUTES } from '@/constants/routes'
@@ -43,7 +43,7 @@ export function AdminDashboardPage() {
       )}
 
       {/* ── Stats grid ── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Total Users"
           value={stats?.totalUsers}
@@ -90,6 +90,32 @@ export function AdminDashboardPage() {
           loading={loading}
           iconColor="text-primary"
           iconBg="bg-primary/15"
+        />
+        <StatCard
+          label="Students Who Finished a Lesson"
+          value={stats?.studentsCompletedLesson}
+          icon={GraduationCap}
+          sub={
+            stats
+              ? `${Math.round((stats.studentsCompletedLesson / Math.max(stats.totalUsers, 1)) * 100)}% of users`
+              : undefined
+          }
+          loading={loading}
+          iconColor="text-muted-foreground"
+          iconBg="bg-muted"
+        />
+        <StatCard
+          label="Lessons Completed"
+          value={stats?.totalLessonsCompleted}
+          icon={CheckCircle2}
+          sub={
+            stats && stats.studentsCompletedLesson > 0
+              ? `${(stats.totalLessonsCompleted / stats.studentsCompletedLesson).toFixed(1)} avg per student`
+              : undefined
+          }
+          loading={loading}
+          iconColor="text-muted-foreground"
+          iconBg="bg-muted"
         />
       </div>
 

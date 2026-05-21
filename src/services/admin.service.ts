@@ -20,6 +20,10 @@ export interface AdminStats {
   totalLessons: number
   totalUsers: number
   activeSubscriptions: number
+  /** Distinct students who have marked at least one lesson as watched. */
+  studentsCompletedLesson: number
+  /** Total number of lesson completions across all users. */
+  totalLessonsCompleted: number
 }
 
 export interface AdminCourse {
@@ -218,7 +222,7 @@ interface SubscriptionRow {
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 export async function getAdminStats(): Promise<AdminStats> {
-  const [coursesRes, lessonsRes, usersRes, subsRes] = await Promise.all([
+  const [coursesRes, lessonsRes, usersRes, subsRes, completionsRes, completionsCountRes] = await Promise.all([
     supabase.from('courses').select('is_published', { count: 'exact', head: false }),
     supabase.from('lessons').select('id', { count: 'exact', head: true }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
@@ -226,20 +230,35 @@ export async function getAdminStats(): Promise<AdminStats> {
       .from('subscriptions')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true),
+    supabase
+      .from('lesson_progress')
+      .select('user_id')
+      .eq('is_watched', true),
+    supabase
+      .from('lesson_progress')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_watched', true),
   ])
 
-  if (coursesRes.error) throw new ApiError(500, 'ADMIN_STATS_FAILED', coursesRes.error.message)
-  if (lessonsRes.error) throw new ApiError(500, 'ADMIN_STATS_FAILED', lessonsRes.error.message)
-  if (usersRes.error)   throw new ApiError(500, 'ADMIN_STATS_FAILED', usersRes.error.message)
-  if (subsRes.error)    throw new ApiError(500, 'ADMIN_STATS_FAILED', subsRes.error.message)
+  if (coursesRes.error)          throw new ApiError(500, 'ADMIN_STATS_FAILED', coursesRes.error.message)
+  if (lessonsRes.error)          throw new ApiError(500, 'ADMIN_STATS_FAILED', lessonsRes.error.message)
+  if (usersRes.error)            throw new ApiError(500, 'ADMIN_STATS_FAILED', usersRes.error.message)
+  if (subsRes.error)             throw new ApiError(500, 'ADMIN_STATS_FAILED', subsRes.error.message)
+  if (completionsRes.error)      throw new ApiError(500, 'ADMIN_STATS_FAILED', completionsRes.error.message)
+  if (completionsCountRes.error) throw new ApiError(500, 'ADMIN_STATS_FAILED', completionsCountRes.error.message)
 
   const courses = coursesRes.data as { is_published: boolean }[]
+  const completionRows = (completionsRes.data ?? []) as { user_id: string }[]
+  const distinctStudents = new Set(completionRows.map((r) => r.user_id)).size
+
   return {
-    totalCourses:        courses.length,
-    publishedCourses:    courses.filter((c) => c.is_published).length,
-    totalLessons:        lessonsRes.count ?? 0,
-    totalUsers:          usersRes.count   ?? 0,
-    activeSubscriptions: subsRes.count    ?? 0,
+    totalCourses:            courses.length,
+    publishedCourses:        courses.filter((c) => c.is_published).length,
+    totalLessons:            lessonsRes.count ?? 0,
+    totalUsers:              usersRes.count   ?? 0,
+    activeSubscriptions:     subsRes.count    ?? 0,
+    studentsCompletedLesson: distinctStudents,
+    totalLessonsCompleted:   completionsCountRes.count ?? 0,
   }
 }
 

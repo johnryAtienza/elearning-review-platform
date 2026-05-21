@@ -965,3 +965,277 @@ export async function cancelOrderAndRestock(order: BookOrder): Promise<void> {
   })
   if (error) throw new ApiError(500, 'ADMIN_ORDER_RESTOCK_FAILED', error.message)
 }
+
+// ── Homepage CMS: announcements ───────────────────────────────────────────────
+
+export interface AdminAnnouncement {
+  id: string
+  title: string
+  body: string
+  publishedAt: string
+  enabled: boolean
+  ctaLabel: string | null
+  ctaHref: string | null
+  icon: string | null
+  category: string | null
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AnnouncementFormData {
+  title: string
+  body: string
+  publishedAt: string
+  enabled: boolean
+  ctaLabel: string | null
+  ctaHref: string | null
+  icon: string | null
+  category: string | null
+  displayOrder: number
+}
+
+interface AnnouncementRow {
+  id:            string
+  title:         string
+  body:          string
+  published_at:  string
+  enabled:       boolean
+  cta_label:     string | null
+  cta_href:      string | null
+  icon:          string | null
+  category:      string | null
+  display_order: number
+  created_at:    string
+  updated_at:    string
+}
+
+function toAdminAnnouncement(row: AnnouncementRow): AdminAnnouncement {
+  return {
+    id:           row.id,
+    title:        row.title,
+    body:         row.body,
+    publishedAt:  row.published_at,
+    enabled:      row.enabled,
+    ctaLabel:     row.cta_label,
+    ctaHref:      row.cta_href,
+    icon:         row.icon,
+    category:     row.category,
+    displayOrder: row.display_order,
+    createdAt:    row.created_at,
+    updatedAt:    row.updated_at,
+  }
+}
+
+const ANNOUNCEMENT_COLS =
+  'id, title, body, published_at, enabled, cta_label, cta_href, icon, category, display_order, created_at, updated_at'
+
+export async function getAdminAnnouncements(): Promise<AdminAnnouncement[]> {
+  const { data, error } = await supabase
+    .from('announcements')
+    .select(ANNOUNCEMENT_COLS)
+    .order('display_order', { ascending: true })
+    .order('published_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_ANNOUNCEMENTS_FAILED', error.message)
+  return (data as AnnouncementRow[]).map(toAdminAnnouncement)
+}
+
+export async function createAdminAnnouncement(data: AnnouncementFormData): Promise<AdminAnnouncement> {
+  const { data: row, error } = await supabase
+    .from('announcements')
+    .insert({
+      title:         data.title,
+      body:          data.body,
+      published_at:  data.publishedAt,
+      enabled:       data.enabled,
+      cta_label:     data.ctaLabel,
+      cta_href:      data.ctaHref,
+      icon:          data.icon,
+      category:      data.category,
+      display_order: data.displayOrder,
+    })
+    .select(ANNOUNCEMENT_COLS)
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_ANNOUNCEMENT_CREATE_FAILED', error.message)
+  return toAdminAnnouncement(row as AnnouncementRow)
+}
+
+export async function updateAdminAnnouncement(
+  id: string,
+  data: Partial<AnnouncementFormData>,
+): Promise<AdminAnnouncement> {
+  const update: Record<string, unknown> = {}
+  if (data.title         !== undefined) update.title         = data.title
+  if (data.body          !== undefined) update.body          = data.body
+  if (data.publishedAt   !== undefined) update.published_at  = data.publishedAt
+  if (data.enabled       !== undefined) update.enabled       = data.enabled
+  if ('ctaLabel'  in data)              update.cta_label     = data.ctaLabel  ?? null
+  if ('ctaHref'   in data)              update.cta_href      = data.ctaHref   ?? null
+  if ('icon'      in data)              update.icon          = data.icon      ?? null
+  if ('category'  in data)              update.category      = data.category  ?? null
+  if (data.displayOrder  !== undefined) update.display_order = data.displayOrder
+
+  const { data: row, error } = await supabase
+    .from('announcements')
+    .update(update)
+    .eq('id', id)
+    .select(ANNOUNCEMENT_COLS)
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_ANNOUNCEMENT_UPDATE_FAILED', error.message)
+  return toAdminAnnouncement(row as AnnouncementRow)
+}
+
+export async function setAnnouncementEnabled(id: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('announcements')
+    .update({ enabled })
+    .eq('id', id)
+
+  if (error) throw new ApiError(500, 'ADMIN_ANNOUNCEMENT_UPDATE_FAILED', error.message)
+}
+
+export async function deleteAdminAnnouncement(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('announcements')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw new ApiError(500, 'ADMIN_ANNOUNCEMENT_DELETE_FAILED', error.message)
+}
+
+// ── Homepage CMS: welcome videos ──────────────────────────────────────────────
+
+export interface AdminWelcomeVideo {
+  id: string
+  title: string
+  description: string
+  videoUrl: string
+  thumbnailUrl: string | null
+  ctaLabel: string | null
+  ctaHref: string | null
+  enabled: boolean
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WelcomeVideoFormData {
+  title: string
+  description: string
+  videoUrl: string
+  thumbnailUrl: string | null
+  ctaLabel: string | null
+  ctaHref: string | null
+  enabled: boolean
+  displayOrder: number
+}
+
+interface WelcomeVideoRow {
+  id:            string
+  title:         string
+  description:   string
+  video_url:     string
+  thumbnail_url: string | null
+  cta_label:     string | null
+  cta_href:      string | null
+  enabled:       boolean
+  display_order: number
+  created_at:    string
+  updated_at:    string
+}
+
+function toAdminWelcomeVideo(row: WelcomeVideoRow): AdminWelcomeVideo {
+  return {
+    id:           row.id,
+    title:        row.title,
+    description:  row.description,
+    videoUrl:     row.video_url,
+    thumbnailUrl: row.thumbnail_url,
+    ctaLabel:     row.cta_label,
+    ctaHref:      row.cta_href,
+    enabled:      row.enabled,
+    displayOrder: row.display_order,
+    createdAt:    row.created_at,
+    updatedAt:    row.updated_at,
+  }
+}
+
+const WELCOME_VIDEO_COLS =
+  'id, title, description, video_url, thumbnail_url, cta_label, cta_href, enabled, display_order, created_at, updated_at'
+
+export async function getAdminWelcomeVideos(): Promise<AdminWelcomeVideo[]> {
+  const { data, error } = await supabase
+    .from('welcome_videos')
+    .select(WELCOME_VIDEO_COLS)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_WELCOME_VIDEOS_FAILED', error.message)
+  return (data as WelcomeVideoRow[]).map(toAdminWelcomeVideo)
+}
+
+export async function createAdminWelcomeVideo(data: WelcomeVideoFormData): Promise<AdminWelcomeVideo> {
+  const { data: row, error } = await supabase
+    .from('welcome_videos')
+    .insert({
+      title:         data.title,
+      description:   data.description,
+      video_url:     data.videoUrl,
+      thumbnail_url: data.thumbnailUrl,
+      cta_label:     data.ctaLabel,
+      cta_href:      data.ctaHref,
+      enabled:       data.enabled,
+      display_order: data.displayOrder,
+    })
+    .select(WELCOME_VIDEO_COLS)
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_WELCOME_VIDEO_CREATE_FAILED', error.message)
+  return toAdminWelcomeVideo(row as WelcomeVideoRow)
+}
+
+export async function updateAdminWelcomeVideo(
+  id: string,
+  data: Partial<WelcomeVideoFormData>,
+): Promise<AdminWelcomeVideo> {
+  const update: Record<string, unknown> = {}
+  if (data.title         !== undefined) update.title         = data.title
+  if (data.description   !== undefined) update.description   = data.description
+  if (data.videoUrl      !== undefined) update.video_url     = data.videoUrl
+  if ('thumbnailUrl' in data)           update.thumbnail_url = data.thumbnailUrl ?? null
+  if ('ctaLabel'     in data)           update.cta_label     = data.ctaLabel     ?? null
+  if ('ctaHref'      in data)           update.cta_href      = data.ctaHref      ?? null
+  if (data.enabled       !== undefined) update.enabled       = data.enabled
+  if (data.displayOrder  !== undefined) update.display_order = data.displayOrder
+
+  const { data: row, error } = await supabase
+    .from('welcome_videos')
+    .update(update)
+    .eq('id', id)
+    .select(WELCOME_VIDEO_COLS)
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_WELCOME_VIDEO_UPDATE_FAILED', error.message)
+  return toAdminWelcomeVideo(row as WelcomeVideoRow)
+}
+
+export async function setWelcomeVideoEnabled(id: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('welcome_videos')
+    .update({ enabled })
+    .eq('id', id)
+
+  if (error) throw new ApiError(500, 'ADMIN_WELCOME_VIDEO_UPDATE_FAILED', error.message)
+}
+
+export async function deleteAdminWelcomeVideo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('welcome_videos')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw new ApiError(500, 'ADMIN_WELCOME_VIDEO_DELETE_FAILED', error.message)
+}

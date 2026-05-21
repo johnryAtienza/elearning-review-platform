@@ -39,4 +39,6 @@ export const ROUTES = {
   ADMIN_CATEGORIES:     '/admin/categories',
   ADMIN_BOOKS:          '/admin/books',
   ADMIN_ORDERS:         '/admin/orders',
+  ADMIN_ANNOUNCEMENTS:  '/admin/announcements',
+  ADMIN_WELCOME_VIDEOS: '/admin/welcome-videos',
 } as const

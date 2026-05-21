@@ -16,10 +16,6 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
 
-  // ── Public Home page ─────────────────────────────────────────────────────
-  /** Optional URL for the welcome video on the public Home page. */
-  readonly VITE_HOME_WELCOME_VIDEO_URL?: string
-
   // ── Firebase (only required when VITE_AUTH_PROVIDER=firebase) ────────────
   readonly VITE_FIREBASE_API_KEY: string
   readonly VITE_FIREBASE_AUTH_DOMAIN: string

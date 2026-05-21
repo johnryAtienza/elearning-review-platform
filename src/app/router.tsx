@@ -36,7 +36,9 @@ const AdminUsersPage         = lazy(() => import('@/pages/admin/AdminUsersPage')
 const AdminSubscriptionsPage = lazy(() => import('@/pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
 const AdminCategoriesPage    = lazy(() => import('@/pages/admin/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })))
 const AdminBooksPage         = lazy(() => import('@/pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
-const AdminOrdersPage        = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
+const AdminOrdersPage           = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
+const AdminAnnouncementsPage    = lazy(() => import('@/pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
+const AdminWelcomeVideosPage    = lazy(() => import('@/pages/admin/AdminWelcomeVideosPage').then(m => ({ default: m.AdminWelcomeVideosPage })))
 
 export const router = createBrowserRouter([
   {
@@ -104,8 +106,10 @@ export const router = createBrowserRouter([
               { path: 'users',         element: <AdminUsersPage />        },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
               { path: 'categories',    element: <AdminCategoriesPage />   },
-              { path: 'books',         element: <AdminBooksPage />        },
-              { path: 'orders',        element: <AdminOrdersPage />       },
+              { path: 'books',           element: <AdminBooksPage />        },
+              { path: 'orders',          element: <AdminOrdersPage />       },
+              { path: 'announcements',   element: <AdminAnnouncementsPage /> },
+              { path: 'welcome-videos',  element: <AdminWelcomeVideosPage /> },
             ],
           },
         ],

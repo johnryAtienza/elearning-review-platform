@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, Check, Mail, PlayCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { HeroBlock } from '@/features/home/components/HeroBlock'
 import { TestimonialsSection } from '@/features/home/components/TestimonialsSection'
-import { ANNOUNCEMENTS, type Announcement } from '@/constants/announcements'
+import { homeContentApi } from '@/services/homeContentApi'
+import type { Announcement, WelcomeVideo } from '@/features/home/types'
 import { OFFERINGS, CONTACT_BLURB, type Offering } from '@/constants/offerings'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
@@ -12,7 +15,7 @@ import { cn } from '@/utils/cn'
 /**
  * Public Home page (S Class Review).
  *
- * Phase D layout (Enroll Now hero + testimonials added for conversion):
+ * Layout:
  *   ┌──────────────────────────────────────────────────┐
  *   │ HERO — Enroll Now + Log in                       │
  *   ├──────────────────────────┬──────────────────────┤
@@ -26,10 +29,10 @@ import { cn } from '@/utils/cn'
  *   └──────────────────────────────────────────────────┘
  *
  * Content sources:
- *   - Announcements: src/constants/announcements.ts
- *   - Offerings:     src/constants/offerings.ts (incl. CONTACT_BLURB)
- *   - Testimonials:  src/constants/testimonials.ts
- *   - Welcome video: VITE_HOME_WELCOME_VIDEO_URL (optional)
+ *   - Announcements / Welcome video: DB-backed via homeContentApi
+ *     (admin-editable under /admin/announcements + /admin/welcome-videos).
+ *   - Offerings:    src/constants/offerings.ts (incl. CONTACT_BLURB)
+ *   - Testimonials: src/constants/testimonials.ts
  */
 export function HomePage() {
   return (
@@ -39,10 +42,7 @@ export function HomePage() {
       <HeroBlock />
 
       {/* ── Top row: Announcements + Welcome video ── */}
-      <section className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-start">
-        <AnnouncementsBlock items={ANNOUNCEMENTS} />
-        <WelcomeVideoBlock />
-      </section>
+      <HomeContentRow />
 
       {/* ── Review classes offered ── */}
       <section className="space-y-5">
@@ -84,9 +84,46 @@ export function HomePage() {
   )
 }
 
+// ── Announcements + welcome video row ────────────────────────────────────────
+
+function HomeContentRow() {
+  const [announcements, setAnnouncements] = useState<Announcement[] | null>(null)
+  const [welcomeVideo,  setWelcomeVideo]  = useState<WelcomeVideo | null | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    homeContentApi.getAnnouncements()
+      .then((data) => { if (!cancelled) setAnnouncements(data) })
+      .catch(() => { if (!cancelled) setAnnouncements([]) })
+    homeContentApi.getWelcomeVideo()
+      .then((data) => { if (!cancelled) setWelcomeVideo(data) })
+      .catch(() => { if (!cancelled) setWelcomeVideo(null) })
+    return () => { cancelled = true }
+  }, [])
+
+  const isLoading      = announcements === null || welcomeVideo === undefined
+  const showAnnouncements = isLoading || (announcements?.length ?? 0) > 0
+  const showVideo         = isLoading || welcomeVideo !== null
+
+  // Both sections empty + finished loading → render nothing.
+  if (!isLoading && !showAnnouncements && !showVideo) return null
+
+  return (
+    <section
+      className={cn(
+        'grid gap-6 items-start',
+        showAnnouncements && showVideo ? 'lg:grid-cols-[1fr_auto]' : '',
+      )}
+    >
+      {showAnnouncements && <AnnouncementsBlock items={announcements} />}
+      {showVideo         && <WelcomeVideoBlock video={welcomeVideo === undefined ? null : welcomeVideo} loading={welcomeVideo === undefined} />}
+    </section>
+  )
+}
+
 // ── Announcements ────────────────────────────────────────────────────────────
 
-function AnnouncementsBlock({ items }: { items: Announcement[] }) {
+function AnnouncementsBlock({ items }: { items: Announcement[] | null }) {
   return (
     <div className="rounded-xl border bg-card p-5 sm:p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -96,23 +133,25 @@ function AnnouncementsBlock({ items }: { items: Announcement[] }) {
         </h2>
       </div>
 
-      {items.length === 0 ? (
+      {items === null ? (
+        <AnnouncementsSkeleton />
+      ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">No announcements yet.</p>
       ) : (
         <ol className="space-y-4">
           {items.map((a) => (
-            <li key={a.date + a.title} className="flex flex-col gap-1.5 border-l-2 border-primary/40 pl-4">
+            <li key={a.id} className="flex flex-col gap-1.5 border-l-2 border-primary/40 pl-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-                <time dateTime={a.date}>{formatDate(a.date)}</time>
+                <time dateTime={a.publishedAt}>{formatDate(a.publishedAt)}</time>
               </div>
               <h3 className="text-sm font-semibold leading-snug">{a.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{a.body}</p>
-              {a.cta && (
+              {a.ctaLabel && a.ctaHref && (
                 <Link
-                  to={a.cta.href}
+                  to={a.ctaHref}
                   className="text-xs font-medium text-primary hover:underline w-fit mt-1"
                 >
-                  {a.cta.label} →
+                  {a.ctaLabel} →
                 </Link>
               )}
             </li>
@@ -123,44 +162,133 @@ function AnnouncementsBlock({ items }: { items: Announcement[] }) {
   )
 }
 
-// ── Welcome video placeholder ────────────────────────────────────────────────
-// Renders a 16:9 placeholder until a real video URL is wired up.
-// Reads from import.meta.env.VITE_HOME_WELCOME_VIDEO_URL when present.
+function AnnouncementsSkeleton() {
+  return (
+    <ol className="space-y-4">
+      {[0, 1, 2].map((i) => (
+        <li key={i} className="flex flex-col gap-1.5 border-l-2 border-muted pl-4">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+        </li>
+      ))}
+    </ol>
+  )
+}
 
-function WelcomeVideoBlock() {
-  const url = import.meta.env.VITE_HOME_WELCOME_VIDEO_URL as string | undefined
+// ── Welcome video ────────────────────────────────────────────────────────────
 
+function WelcomeVideoBlock({ video, loading }: { video: WelcomeVideo | null; loading: boolean }) {
   return (
     <div className="rounded-xl border bg-card overflow-hidden lg:w-[360px] lg:shrink-0">
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
-        {url ? (
-          <video
-            src={url}
-            autoPlay
-            loop
-            muted
-            playsInline
-            controls
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <>
-            <PlayCircle className="size-12 text-muted-foreground/40" />
-            <span className="absolute bottom-2 left-2 text-[10px] text-muted-foreground/60 uppercase tracking-wide">
-              Welcome video
-            </span>
-          </>
-        )}
-      </div>
+      <VideoFrame video={video} loading={loading} />
       <div className="p-4 space-y-1">
-        <h3 className="text-sm font-semibold">Why S Class?</h3>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Watch a short intro on how the program works and what's included
-          with every package.
-        </p>
+        {loading ? (
+          <>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-full mt-2" />
+            <Skeleton className="h-3 w-5/6" />
+          </>
+        ) : video ? (
+          <>
+            <h3 className="text-sm font-semibold">{video.title}</h3>
+            {video.description && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {video.description}
+              </p>
+            )}
+            {video.ctaLabel && video.ctaHref && (
+              <Link
+                to={video.ctaHref}
+                className="text-xs font-medium text-primary hover:underline w-fit inline-block mt-1"
+              >
+                {video.ctaLabel} →
+              </Link>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   )
+}
+
+function VideoFrame({ video, loading }: { video: WelcomeVideo | null; loading: boolean }) {
+  if (loading) {
+    return <Skeleton className="aspect-video w-full" />
+  }
+  if (!video) {
+    return (
+      <div className="aspect-video bg-muted relative flex items-center justify-center">
+        <PlayCircle className="size-12 text-muted-foreground/40" />
+      </div>
+    )
+  }
+
+  const embed = toEmbedUrl(video.videoUrl)
+  if (embed) {
+    return (
+      <div className="aspect-video bg-black">
+        <iframe
+          src={embed}
+          title={video.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="aspect-video bg-muted">
+      <video
+        src={video.videoUrl}
+        poster={video.thumbnailUrl ?? undefined}
+        autoPlay
+        loop
+        muted
+        playsInline
+        controls
+        className="w-full h-full object-cover"
+      />
+    </div>
+  )
+}
+
+/**
+ * Returns a YouTube/Vimeo embed URL for the given watch URL, or null if it
+ * looks like a direct media file (the <video> tag handles those).
+ */
+function toEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, '')
+
+    // youtube.com/watch?v=ID  or  youtu.be/ID
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      const id = u.searchParams.get('v')
+      if (id) return `https://www.youtube.com/embed/${id}`
+      // /shorts/<id> or /embed/<id>
+      const parts = u.pathname.split('/').filter(Boolean)
+      if (parts[0] === 'shorts' && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`
+      if (parts[0] === 'embed'  && parts[1]) return url
+    }
+    if (host === 'youtu.be') {
+      const id = u.pathname.replace(/^\//, '')
+      if (id) return `https://www.youtube.com/embed/${id}`
+    }
+
+    // vimeo.com/<id>  →  player.vimeo.com/video/<id>
+    if (host === 'vimeo.com') {
+      const id = u.pathname.replace(/^\//, '').split('/')[0]
+      if (/^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`
+    }
+    if (host === 'player.vimeo.com') return url
+  } catch {
+    // not a URL — fall through
+  }
+  return null
 }
 
 // ── Offering card ────────────────────────────────────────────────────────────

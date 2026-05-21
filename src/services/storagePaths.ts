@@ -37,4 +37,8 @@ export const storagePaths = {
   /** e.g. covers/book-abc123.webp */
   bookCover: (bookId: string, ext = 'webp') =>
     `covers/book-${bookId}.${ext}`,
+
+  /** e.g. cms/welcome-video-abc123.webp */
+  welcomeVideoThumbnail: (videoId: string, ext = 'webp') =>
+    `cms/welcome-video-${videoId}.${ext}`,
 }

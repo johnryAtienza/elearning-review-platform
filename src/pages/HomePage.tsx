@@ -112,7 +112,7 @@ function HomeContentRow() {
     <section
       className={cn(
         'grid gap-6 items-start',
-        showAnnouncements && showVideo ? 'lg:grid-cols-[3fr_2fr]' : '',
+        showAnnouncements && showVideo ? 'lg:grid-cols-[2fr_3fr]' : '',
       )}
     >
       {showAnnouncements && <AnnouncementsBlock items={announcements} />}

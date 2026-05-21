@@ -112,7 +112,7 @@ function HomeContentRow() {
     <section
       className={cn(
         'grid gap-6 items-start',
-        showAnnouncements && showVideo ? 'lg:grid-cols-[1fr_auto]' : '',
+        showAnnouncements && showVideo ? 'lg:grid-cols-[3fr_2fr]' : '',
       )}
     >
       {showAnnouncements && <AnnouncementsBlock items={announcements} />}
@@ -181,7 +181,7 @@ function AnnouncementsSkeleton() {
 
 function WelcomeVideoBlock({ video, loading }: { video: WelcomeVideo | null; loading: boolean }) {
   return (
-    <div className="rounded-xl border bg-card overflow-hidden lg:w-[360px] lg:shrink-0">
+    <div className="rounded-xl border bg-card overflow-hidden">
       <VideoFrame video={video} loading={loading} />
       <div className="p-4 space-y-1">
         {loading ? (
@@ -221,6 +221,23 @@ function VideoFrame({ video, loading }: { video: WelcomeVideo | null; loading: b
     return (
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         <PlayCircle className="size-12 text-muted-foreground/40" />
+      </div>
+    )
+  }
+
+  // No video URL yet → static card with the thumbnail (e.g. site logo).
+  if (!video.videoUrl) {
+    return (
+      <div className="aspect-video bg-muted relative flex items-center justify-center">
+        {video.thumbnailUrl ? (
+          <img
+            src={video.thumbnailUrl}
+            alt={video.title}
+            className="max-h-[70%] max-w-[70%] object-contain"
+          />
+        ) : (
+          <PlayCircle className="size-12 text-muted-foreground/40" />
+        )}
       </div>
     )
   }

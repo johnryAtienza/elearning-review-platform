@@ -22,7 +22,8 @@ export interface WelcomeVideo {
   id: string
   title: string
   description: string
-  videoUrl: string
+  /** Null means: don't render a player — show the thumbnail as a static card. */
+  videoUrl: string | null
   thumbnailUrl: string | null
   ctaLabel: string | null
   ctaHref: string | null

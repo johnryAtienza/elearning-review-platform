@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS public.welcome_videos (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   title           text        NOT NULL,
   description     text        NOT NULL DEFAULT '',
-  video_url       text        NOT NULL,                    -- YouTube / Vimeo / R2 mp4 URL
-  thumbnail_url   text,                                    -- public CDN URL (matches books.cover_url convention)
+  video_url       text,                                    -- YouTube / Vimeo / R2 mp4 URL; NULL = show thumbnail only
+  thumbnail_url   text,                                    -- public CDN URL or /public path (e.g. /elearning-logo-transparent.png)
   cta_label       text,
   cta_href        text,
   enabled         boolean     NOT NULL DEFAULT true,
@@ -176,5 +176,18 @@ VALUES
     'Hard-copy books shipping nationwide',
     'Engineering Mathematics, Machine Design, and Power & Industrial Plant Engineering reviewers are printed and ready. We ship to all PH provinces within 5 business days.',
     '2026-04-08T00:00:00Z',
+    0
+  );
+
+
+-- ── 7. Seed: default welcome video card ────────────────────────
+-- No video URL yet; the homepage falls back to the logo thumbnail.
+INSERT INTO public.welcome_videos (title, description, video_url, thumbnail_url, display_order)
+VALUES
+  (
+    'Why S Class?',
+    'Watch a short intro on how the program works and what''s included with every package.',
+    NULL,
+    '/elearning-logo-transparent.png',
     0
   );

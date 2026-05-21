@@ -31,7 +31,7 @@ interface WelcomeVideoRow {
   id:            string
   title:         string
   description:   string
-  video_url:     string
+  video_url:     string | null
   thumbnail_url: string | null
   cta_label:     string | null
   cta_href:      string | null

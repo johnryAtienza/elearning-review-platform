@@ -1112,7 +1112,7 @@ export interface AdminWelcomeVideo {
   id: string
   title: string
   description: string
-  videoUrl: string
+  videoUrl: string | null
   thumbnailUrl: string | null
   ctaLabel: string | null
   ctaHref: string | null
@@ -1125,7 +1125,7 @@ export interface AdminWelcomeVideo {
 export interface WelcomeVideoFormData {
   title: string
   description: string
-  videoUrl: string
+  videoUrl: string | null
   thumbnailUrl: string | null
   ctaLabel: string | null
   ctaHref: string | null
@@ -1137,7 +1137,7 @@ interface WelcomeVideoRow {
   id:            string
   title:         string
   description:   string
-  video_url:     string
+  video_url:     string | null
   thumbnail_url: string | null
   cta_label:     string | null
   cta_href:      string | null

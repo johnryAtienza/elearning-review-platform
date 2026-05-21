@@ -42,4 +42,13 @@ export const MOCK_ANNOUNCEMENTS: Announcement[] = [
   },
 ]
 
-export const MOCK_WELCOME_VIDEO: WelcomeVideo | null = null
+export const MOCK_WELCOME_VIDEO: WelcomeVideo | null = {
+  id:           'mock-welcome',
+  title:        'Why S Class?',
+  description:  "Watch a short intro on how the program works and what's included with every package.",
+  videoUrl:     null,
+  thumbnailUrl: '/elearning-logo-transparent.png',
+  ctaLabel:     null,
+  ctaHref:      null,
+  displayOrder: 0,
+}

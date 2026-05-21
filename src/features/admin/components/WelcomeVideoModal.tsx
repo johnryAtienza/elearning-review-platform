@@ -23,7 +23,7 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
 
   const [title,         setTitle]         = useState(video?.title       ?? '')
   const [description,   setDescription]   = useState(video?.description ?? '')
-  const [videoUrl,      setVideoUrl]      = useState(video?.videoUrl    ?? '')
+  const [videoUrl,      setVideoUrl]      = useState(video?.videoUrl ?? '')
   const [thumbFile,     setThumbFile]     = useState<File | null>(null)
   const [thumbPreview,  setThumbPreview]  = useState<string | null>(video?.thumbnailUrl ?? null)
   const [ctaLabel,      setCtaLabel]      = useState(video?.ctaLabel ?? '')
@@ -55,7 +55,6 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
     const t = title.trim()
     if (!t) { setError('Title is required.'); return }
     const url = videoUrl.trim()
-    if (!url) { setError('Video URL is required.'); return }
 
     const tLabel = ctaLabel.trim()
     const tHref  = ctaHref.trim()
@@ -74,7 +73,7 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
         saved = await updateAdminWelcomeVideo(video.id, {
           title:        t,
           description:  description.trim(),
-          videoUrl:     url,
+          videoUrl:     url || null,
           ctaLabel:     tLabel || null,
           ctaHref:      tHref  || null,
           enabled,
@@ -84,7 +83,7 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
         saved = await createAdminWelcomeVideo({
           title:        t,
           description:  description.trim(),
-          videoUrl:     url,
+          videoUrl:     url || null,
           thumbnailUrl: null,
           ctaLabel:     tLabel || null,
           ctaHref:      tHref  || null,
@@ -207,9 +206,7 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
 
             {/* Video URL */}
             <div className="space-y-1.5">
-              <label htmlFor="wv-url" className="text-sm font-medium">
-                Video URL <span className="text-destructive">*</span>
-              </label>
+              <label htmlFor="wv-url" className="text-sm font-medium">Video URL</label>
               <Input
                 id="wv-url"
                 value={videoUrl}
@@ -217,7 +214,9 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
                 placeholder="https://youtube.com/watch?v=… or https://… .mp4"
                 disabled={saving}
               />
-              <p className="text-[11px] text-muted-foreground">YouTube, Vimeo, or a direct MP4 URL.</p>
+              <p className="text-[11px] text-muted-foreground">
+                YouTube, Vimeo, or a direct MP4 URL. Leave blank to show the thumbnail only.
+              </p>
             </div>
 
             {/* CTA + order */}

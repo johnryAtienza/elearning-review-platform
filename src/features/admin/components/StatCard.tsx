@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/utils/cn'
 
@@ -12,6 +13,8 @@ export interface StatCardProps {
   iconColor: string
   /** Tailwind bg class for the icon container, e.g. "bg-primary/15" or "bg-muted" */
   iconBg: string
+  /** Optional explanation shown on hover of a small info icon next to the label. */
+  tooltip?: string
 }
 
 export function StatCard({
@@ -22,11 +25,33 @@ export function StatCard({
   loading,
   iconColor,
   iconBg,
+  tooltip,
 }: StatCardProps) {
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-muted-foreground leading-tight">{label}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-sm font-medium text-muted-foreground leading-tight">{label}</p>
+          {tooltip && (
+            <span className="relative group/info inline-flex shrink-0">
+              <Info
+                aria-label={tooltip}
+                className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help transition-colors"
+              />
+              <span
+                role="tooltip"
+                className={cn(
+                  'pointer-events-none absolute top-full left-0 mt-1.5 z-50',
+                  'w-64 rounded-md border bg-popover text-popover-foreground shadow-md',
+                  'px-3 py-2 text-xs leading-relaxed',
+                  'opacity-0 group-hover/info:opacity-100 transition-opacity',
+                )}
+              >
+                {tooltip}
+              </span>
+            </span>
+          )}
+        </div>
         <span
           className={cn(
             'flex size-9 shrink-0 items-center justify-center rounded-lg',

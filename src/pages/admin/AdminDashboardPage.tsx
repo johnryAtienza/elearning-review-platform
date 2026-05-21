@@ -54,8 +54,9 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-muted-foreground"
-          iconBg="bg-muted"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
+          tooltip="All registered accounts, including admins. Split into Standard (paid) and Free below."
         />
         <StatCard
           label="Total Courses"
@@ -67,16 +68,18 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-muted-foreground"
-          iconBg="bg-muted"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
+          tooltip="All courses in the catalog. Published courses are visible to students; drafts are admin-only."
         />
         <StatCard
           label="Total Lessons"
           value={stats?.totalLessons}
           icon={BookMarked}
           loading={loading}
-          iconColor="text-muted-foreground"
-          iconBg="bg-muted"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
+          tooltip="Total number of lessons across every course, published or draft."
         />
         <StatCard
           label="Active Subscriptions"
@@ -90,6 +93,7 @@ export function AdminDashboardPage() {
           loading={loading}
           iconColor="text-primary"
           iconBg="bg-primary/15"
+          tooltip="Users with a currently active paid subscription. Conversion rate = active subs ÷ total users."
         />
         <StatCard
           label="Students Who Finished a Lesson"
@@ -101,8 +105,9 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-muted-foreground"
-          iconBg="bg-muted"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
+          tooltip="Unique students (counted once each) who have marked at least one lesson as watched."
         />
         <StatCard
           label="Lessons Completed"
@@ -114,8 +119,9 @@ export function AdminDashboardPage() {
               : undefined
           }
           loading={loading}
-          iconColor="text-muted-foreground"
-          iconBg="bg-muted"
+          iconColor="text-primary"
+          iconBg="bg-primary/15"
+          tooltip="Total lesson-completion events across all users. If one student finishes 3 lessons, that counts as 3 here."
         />
       </div>
 

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useMatch, useNavigate } from 'react-router-dom'
+import {
+  Link,
+  NavLink,
+  useMatch,
+  useNavigate,
+  type NavLinkProps,
+} from 'react-router-dom'
 import { Menu, User, X, ShieldCheck, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +17,11 @@ import { TAGLINE } from '@/constants/aboutCopy'
 import { courseApi } from '@/services/courseApi'
 import type { Course } from '@/features/courses/types'
 import { cn } from '@/utils/cn'
+import {
+  getAbsoluteUrl,
+  getCurrentSubdomain,
+  getRouteOwner,
+} from '@s-class/constants/urls'
 
 // ── Module-level cache for the published course list ─────────────────────────
 // Cached so we only fetch once per full page load even if the Navbar re-mounts.
@@ -33,6 +44,80 @@ function fetchPublishedCourses(): Promise<Course[]> {
       throw err
     })
   return coursesPromise
+}
+
+// ── Smart link components ────────────────────────────────────────────────────
+//
+// On the route's owning subdomain → react-router <Link>/<NavLink> (no reload).
+// On any other subdomain → full-page <a href> to the absolute cross-origin URL.
+// The current subdomain is detected once at module load via the hostname.
+
+const CURRENT_SUBDOMAIN = getCurrentSubdomain()
+
+function isSameOrigin(to: string): boolean {
+  return getRouteOwner(to) === CURRENT_SUBDOMAIN
+}
+
+type SmartLinkProps = {
+  to: string
+  className?: string
+  onClick?: () => void
+  children: React.ReactNode
+}
+
+function SmartLink({ to, className, onClick, children }: SmartLinkProps) {
+  if (isSameOrigin(to)) {
+    return (
+      <Link to={to} className={className} onClick={onClick}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <a href={getAbsoluteUrl(to)} className={className} onClick={onClick}>
+      {children}
+    </a>
+  )
+}
+
+type SmartNavLinkProps = {
+  to: string
+  end?: boolean
+  onClick?: () => void
+  className: NavLinkProps['className']
+  children: React.ReactNode
+}
+
+function SmartNavLink({ to, end, onClick, className, children }: SmartNavLinkProps) {
+  if (isSameOrigin(to)) {
+    return (
+      <NavLink to={to} end={end} onClick={onClick} className={className}>
+        {children}
+      </NavLink>
+    )
+  }
+  // Cross-origin: no isActive concept. Resolve className with isActive=false.
+  const resolved =
+    typeof className === 'function'
+      ? className({ isActive: false, isPending: false, isTransitioning: false })
+      : className
+  return (
+    <a href={getAbsoluteUrl(to)} className={resolved ?? undefined} onClick={onClick}>
+      {children}
+    </a>
+  )
+}
+
+/** Smart programmatic navigate. Uses react-router on same-origin; full-page on cross-origin. */
+function useSmartNavigate(): (to: string) => void {
+  const navigate = useNavigate()
+  return (to: string) => {
+    if (isSameOrigin(to)) {
+      navigate(to)
+    } else {
+      window.location.href = getAbsoluteUrl(to)
+    }
+  }
 }
 
 // ── Tab styles ───────────────────────────────────────────────────────────────
@@ -105,13 +190,13 @@ interface ProfileDropdownProps {
 function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
+  const smartNavigate = useSmartNavigate()
 
   useDismissable(open, () => setOpen(false), containerRef)
 
   function handleViewProfile() {
     setOpen(false)
-    navigate(ROUTES.PROFILE)
+    smartNavigate(ROUTES.PROFILE)
   }
 
   function handleLogout() {
@@ -214,15 +299,14 @@ function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: bo
             </div>
           ) : (
             courses.map((c) => (
-              <Link
+              <SmartLink
                 key={c.id}
                 to={ROUTES.COURSE(c.id)}
-                role="menuitem"
                 onClick={() => setOpen(false)}
                 className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
                 {c.title}
-              </Link>
+              </SmartLink>
             ))
           )}
         </div>
@@ -268,14 +352,14 @@ function MobileSubjectsSection({
             </div>
           ) : (
             courses.map((c) => (
-              <Link
+              <SmartLink
                 key={c.id}
                 to={ROUTES.COURSE(c.id)}
                 onClick={onNavigate}
                 className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
                 {c.title}
-              </Link>
+              </SmartLink>
             ))
           )}
         </div>
@@ -336,7 +420,7 @@ export function Navbar() {
         <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
 
           {/* Brand */}
-          <Link
+          <SmartLink
             to={ROUTES.HOME}
             className="flex items-center gap-3 font-bold shrink-0"
             onClick={() => setMobileOpen(false)}
@@ -346,7 +430,7 @@ export function Navbar() {
               <span className="text-lg font-bold tracking-tight">S Class</span>
               <span className="text-[11px] font-medium text-muted-foreground -mt-0.5">Review</span>
             </span>
-          </Link>
+          </SmartLink>
 
           {/* Tagline (centred on desktop) */}
           <span className="hidden lg:block text-xs italic text-muted-foreground tracking-wide">
@@ -358,25 +442,25 @@ export function Navbar() {
             {isAuthenticated ? (
               <>
                 {!isAdmin && (
-                  <NavLink to={ROUTES.DASHBOARD} className={utilityLinkClass}>
+                  <SmartNavLink to={ROUTES.DASHBOARD} className={utilityLinkClass}>
                     <span className="inline-flex items-center gap-1.5">
                       <LayoutDashboard className="size-4" />
                       Dashboard
                     </span>
-                  </NavLink>
+                  </SmartNavLink>
                 )}
                 {isAdmin && (
-                  <NavLink to={ROUTES.ADMIN} className={utilityLinkClass}>
+                  <SmartNavLink to={ROUTES.ADMIN} className={utilityLinkClass}>
                     <span className="inline-flex items-center gap-1.5">
                       <ShieldCheck className="size-4" />
                       Admin
                     </span>
-                  </NavLink>
+                  </SmartNavLink>
                 )}
                 {isSubscribed && <Badge variant="pro">Standard</Badge>}
                 {!isSubscribed && !isAdmin && (
                   <Button asChild variant="outline" size="sm">
-                    <Link to={ROUTES.SUBSCRIPTION}>Upgrade</Link>
+                    <SmartLink to={ROUTES.SUBSCRIPTION}>Upgrade</SmartLink>
                   </Button>
                 )}
                 {user && (
@@ -390,10 +474,10 @@ export function Navbar() {
             ) : (
               <>
                 <Button variant="ghost" asChild size="sm">
-                  <Link to={ROUTES.LOGIN}>Log in</Link>
+                  <SmartLink to={ROUTES.LOGIN}>Log in</SmartLink>
                 </Button>
                 <Button asChild size="sm">
-                  <Link to={ROUTES.REGISTER}>Enroll Now</Link>
+                  <SmartLink to={ROUTES.REGISTER}>Enroll Now</SmartLink>
                 </Button>
               </>
             )}
@@ -413,12 +497,12 @@ export function Navbar() {
         {/* Hidden on admin routes so the admin panel isn't cluttered with public-site nav. */}
         <nav className={cn('hidden border-t bg-background/60', !onAdminRoute && 'md:block')}>
           <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
-            <NavLink to={ROUTES.HOME} end className={tabClass}>Home</NavLink>
-            <NavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</NavLink>
-            <NavLink to={ROUTES.BOOKS} className={tabClass}>Books</NavLink>
+            <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
+            <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
+            <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
             <SubjectsDropdown courses={courses} loading={loading} />
-            <NavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</NavLink>
-            <NavLink to={ROUTES.CONTACT} className={tabClass}>Contact</NavLink>
+            <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
+            <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
           </div>
         </nav>
 
@@ -467,14 +551,14 @@ export function Navbar() {
                   </div>
                   {!isSubscribed && !isAdmin && (
                     <Button asChild className="w-full" size="sm">
-                      <Link to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Standard</Link>
+                      <SmartLink to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Standard</SmartLink>
                     </Button>
                   )}
                   <Button asChild variant="outline" className="w-full" size="sm">
-                    <Link to={ROUTES.PROFILE} onClick={() => setMobileOpen(false)}>
+                    <SmartLink to={ROUTES.PROFILE} onClick={() => setMobileOpen(false)}>
                       <User className="size-4 mr-2" />
                       View Profile
-                    </Link>
+                    </SmartLink>
                   </Button>
                   <Button variant="outline" className="w-full" size="sm" onClick={handleLogoutClick}>
                     Log out
@@ -483,10 +567,10 @@ export function Navbar() {
               ) : (
                 <>
                   <Button asChild className="w-full" size="sm">
-                    <Link to={ROUTES.REGISTER} onClick={() => setMobileOpen(false)}>Enroll Now</Link>
+                    <SmartLink to={ROUTES.REGISTER} onClick={() => setMobileOpen(false)}>Enroll Now</SmartLink>
                   </Button>
                   <Button asChild variant="outline" className="w-full" size="sm">
-                    <Link to={ROUTES.LOGIN} onClick={() => setMobileOpen(false)}>Log in</Link>
+                    <SmartLink to={ROUTES.LOGIN} onClick={() => setMobileOpen(false)}>Log in</SmartLink>
                   </Button>
                 </>
               )}
@@ -510,7 +594,7 @@ function MobileNavLink({
   children: React.ReactNode
 }) {
   return (
-    <NavLink
+    <SmartNavLink
       to={to}
       end={end}
       onClick={onClick}
@@ -522,6 +606,6 @@ function MobileNavLink({
       }
     >
       {children}
-    </NavLink>
+    </SmartNavLink>
   )
 }

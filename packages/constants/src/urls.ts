@@ -10,11 +10,13 @@
  * the production layout.
  */
 
-const HOSTS = {
+export const HOSTS = {
   landing: import.meta.env.VITE_LANDING_URL ?? 'https://s-class.com.ph',
   portal:  import.meta.env.VITE_PORTAL_URL  ?? 'https://portal.s-class.com.ph',
   admin:   import.meta.env.VITE_ADMIN_URL   ?? 'https://admin.s-class.com.ph',
 } as const
+
+export type Subdomain = 'landing' | 'portal' | 'admin'
 
 export const EXTERNAL = {
   /** Origin of the marketing/landing app (apex). */
@@ -31,3 +33,66 @@ export const EXTERNAL = {
   /** Full URL of the landing /login page (for unauthenticated portal/admin visitors). */
   loginPage:     () => `${HOSTS.landing}/login`,
 } as const
+
+// ── Route ownership map ──────────────────────────────────────────────────────
+//
+// Determines which subdomain "owns" a given path. Used by smart link
+// components to decide between same-origin react-router <Link> and a
+// full-page cross-origin <a href>.
+
+const ADMIN_PREFIXES = [
+  '/admin',
+]
+
+const PORTAL_PREFIXES = [
+  '/dashboard',
+  '/courses',
+  '/course/',
+  '/lesson/',
+  '/books',
+  '/book/',
+  '/subscription',
+  '/profile',
+  '/quizzes',
+  '/payment-success',
+  '/payment-cancel',
+  // Auth routes — primary home is portal; landing redirects there.
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+]
+
+function matchesPrefix(path: string, prefixes: string[]): boolean {
+  return prefixes.some((p) =>
+    path === p || path.startsWith(p + '/') || path.startsWith(p + '?'),
+  )
+}
+
+/** Which subdomain a path belongs to. Defaults to landing for unknown paths. */
+export function getRouteOwner(path: string): Subdomain {
+  if (matchesPrefix(path, ADMIN_PREFIXES))  return 'admin'
+  if (matchesPrefix(path, PORTAL_PREFIXES)) return 'portal'
+  return 'landing'
+}
+
+/** Detect which subdomain the current page is on. SSR-safe (returns 'landing'). */
+export function getCurrentSubdomain(): Subdomain {
+  if (typeof window === 'undefined') return 'landing'
+  const host = window.location.hostname
+  try {
+    if (host === new URL(HOSTS.admin).hostname)  return 'admin'
+    if (host === new URL(HOSTS.portal).hostname) return 'portal'
+  } catch {
+    /* fall through */
+  }
+  return 'landing'
+}
+
+/** Absolute URL for a path, anchored at its owning subdomain. */
+export function getAbsoluteUrl(path: string): string {
+  const owner = getRouteOwner(path)
+  if (owner === 'admin')  return HOSTS.admin  + path
+  if (owner === 'portal') return HOSTS.portal + path
+  return HOSTS.landing + path
+}

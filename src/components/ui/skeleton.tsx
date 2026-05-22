@@ -1,12 +1,3 @@
-import { cn } from '@/utils/cn'
-
-function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('animate-pulse rounded-md bg-muted', className)}
-      {...props}
-    />
-  )
-}
-
-export { Skeleton }
+// Re-export shim — real implementation lives in @s-class/ui/skeleton.
+// Removed in Phase 5 when /src is decommissioned.
+export { Skeleton } from '@s-class/ui/skeleton'

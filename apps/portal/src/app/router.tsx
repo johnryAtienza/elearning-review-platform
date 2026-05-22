@@ -13,6 +13,9 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { DevicesPage } from '@/pages/DevicesPage'
 import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
 import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
+import { LoginPage } from '@/pages/LoginPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
 
 export const router = createBrowserRouter([
@@ -32,6 +35,15 @@ export const router = createBrowserRouter([
       // PayMongo redirects them back, even if the session expired mid-flow.
       { path: 'payment-success',  element: <PaymentSuccessPage /> },
       { path: 'payment-cancel',   element: <PaymentCancelPage />  },
+
+      // Same-origin auth flows — reuse legacy pages via @ alias.
+      // Separate sessions per subdomain means portal owns its own login.
+      // Legacy LoginPage already navigates to ROUTES.DASHBOARD on success
+      // (which exists on portal); admins land on /admin which catch-all
+      // bounces back to /dashboard — acceptable mild UX miss.
+      { path: 'login',            element: <LoginPage />          },
+      { path: 'forgot-password',  element: <ForgotPasswordPage /> },
+      { path: 'reset-password',   element: <ResetPasswordPage />  },
 
       // Authenticated portal area
       {

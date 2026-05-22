@@ -14,6 +14,7 @@ import { DevicesPage } from '@/pages/DevicesPage'
 import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
 import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
       // (which exists on portal); admins land on /admin which catch-all
       // bounces back to /dashboard — acceptable mild UX miss.
       { path: 'login',            element: <LoginPage />          },
+      { path: 'register',         element: <RegisterPage />       },
       { path: 'forgot-password',  element: <ForgotPasswordPage /> },
       { path: 'reset-password',   element: <ResetPasswordPage />  },
 

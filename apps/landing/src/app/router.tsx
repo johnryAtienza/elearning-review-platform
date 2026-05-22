@@ -4,12 +4,17 @@ import { HomePage } from '@/pages/HomePage'
 import { AboutPage } from '@/pages/AboutPage'
 import { ContactPage } from '@/pages/ContactPage'
 import { FAQPage } from '@/pages/FAQPage'
-import { LoginPage } from '@/pages/LoginPage'
-import { RegisterPage } from '@/pages/RegisterPage'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
-import { LandingGuestRoute } from '../components/LandingGuestRoute'
+import { RedirectToPortal } from '../components/RedirectToPortal'
 
+/**
+ * Landing is pure marketing. All auth flows (login, register, password
+ * recovery) live on portal.* — landing's /login, /register, etc. just
+ * cross-origin redirect there so the session lands on the right origin.
+ *
+ * This avoids the "double login" problem under separate-sessions-per-
+ * subdomain: a form on landing would create a session on landing.* that
+ * portal.* can't see, forcing the user to log in again.
+ */
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -22,18 +27,12 @@ export const router = createBrowserRouter([
       { path: 'contact', element: <ContactPage /> },
       { path: 'faq',     element: <FAQPage />     },
 
-      // Password reset — fully public (user arrives from email without a session)
-      { path: 'reset-password', element: <ResetPasswordPage /> },
-
-      // Auth pages — bounce already-logged-in users cross-domain to portal/admin
-      {
-        element: <LandingGuestRoute />,
-        children: [
-          { path: 'login',           element: <LoginPage />           },
-          { path: 'register',        element: <RegisterPage />        },
-          { path: 'forgot-password', element: <ForgotPasswordPage /> },
-        ],
-      },
+      // Auth flows — hand off to portal (same-origin auth happens there).
+      // Query strings + hash (e.g. password-reset tokens) are preserved.
+      { path: 'login',            element: <RedirectToPortal path="/login" />            },
+      { path: 'register',         element: <RedirectToPortal path="/register" />         },
+      { path: 'forgot-password',  element: <RedirectToPortal path="/forgot-password" />  },
+      { path: 'reset-password',   element: <RedirectToPortal path="/reset-password" />   },
 
       // Anything else on this subdomain — back to home.
       // (Browse/lesson/checkout routes live on portal.*.)

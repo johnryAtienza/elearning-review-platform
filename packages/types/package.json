@@ -6,6 +6,15 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts",
+    "./books": "./src/books.ts",
+    "./categories": "./src/categories.ts",
+    "./courses": "./src/courses.ts",
+    "./devices": "./src/devices.ts",
+    "./home": "./src/home.ts",
+    "./lessons": "./src/lessons.ts",
+    "./quiz": "./src/quiz.ts",
+    "./subscription": "./src/subscription.ts"
   }
 }

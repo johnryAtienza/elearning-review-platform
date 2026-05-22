@@ -1,15 +1,3 @@
-export interface Category {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  courseCount?: number
-  createdAt: string
-}
-
-/** Lightweight option used in dropdowns */
-export interface CategoryOption {
-  id: string
-  name: string
-  slug: string
-}
+// Re-export shim — real types now live in @s-class/types/categories.
+// Removed in Phase 5 when /src is decommissioned.
+export type * from '@s-class/types/categories'

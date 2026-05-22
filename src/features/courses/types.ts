@@ -1,23 +1,3 @@
-export interface Course {
-  id: string
-  title: string
-  description: string
-  thumbnail: string
-  thumbnailUrl?: string | null
-  category: string
-  /** UUID of the linked categories row — null for legacy/uncategorized courses */
-  categoryId?: string | null
-  lessons: number
-  duration: string
-  /** ISO timestamp from created_at — used for "Newest" sort */
-  createdAt?: string
-  /** Skill level — populated after running add_course_search_indexes migration */
-  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced'
-  /** Free-form keyword tags for search */
-  tags?: string[]
-  /** Whether the course is published and visible to students. Undefined for legacy data. */
-  isPublished?: boolean
-}
-
-export type SortOption = 'relevant' | 'newest' | 'az' | 'most-lessons'
-export type DurationFilter = 'all' | 'short' | 'medium' | 'long'
+// Re-export shim — real types now live in @s-class/types/courses.
+// Removed in Phase 5 when /src is decommissioned.
+export type * from '@s-class/types/courses'

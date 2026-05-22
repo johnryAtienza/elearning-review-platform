@@ -16,6 +16,7 @@ import {
   Package,
   Bell,
   PlayCircle,
+  LogOut,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
@@ -104,7 +105,16 @@ export function AdminLayout() {
   const [collapsed, setCollapsed]     = useState(false)
   const [mobileOpen, setMobileOpen]   = useState(false)
   const { user } = useAuthStore()
+  const logout = useAuthStore((s) => s.logout)
   const pageTitle = usePageTitle()
+
+  async function handleLogout() {
+    try {
+      await logout()
+    } catch (err) {
+      console.error('[AdminLayout] logout failed:', err)
+    }
+  }
 
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -133,6 +143,7 @@ export function AdminLayout() {
           collapsed={collapsed}
           initials={initials}
           userName={user?.name}
+          onLogout={handleLogout}
         />
       </aside>
 
@@ -170,7 +181,7 @@ export function AdminLayout() {
             />
           ))}
         </nav>
-        <div className="px-3 py-3 border-t">
+        <div className="px-3 py-3 border-t space-y-2">
           <Link
             to={ROUTES.HOME}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -179,6 +190,14 @@ export function AdminLayout() {
             <ChevronLeft className="size-3.5" />
             Back to site
           </Link>
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); void handleLogout() }}
+            className="flex items-center gap-2 text-xs text-destructive hover:text-destructive/80 transition-colors"
+          >
+            <LogOut className="size-3.5" />
+            Sign out
+          </button>
         </div>
       </aside>
 
@@ -239,10 +258,12 @@ function SidebarContent({
   collapsed,
   initials,
   userName,
+  onLogout,
 }: {
   collapsed: boolean
   initials: string
   userName?: string
+  onLogout: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -296,6 +317,18 @@ function SidebarContent({
           <ChevronLeft className="size-3.5 shrink-0" />
           {!collapsed && <span>Back to site</span>}
         </Link>
+        <button
+          type="button"
+          onClick={onLogout}
+          title={collapsed ? 'Sign out' : undefined}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10',
+            collapsed ? 'justify-center px-2' : 'justify-center',
+          )}
+        >
+          <LogOut className="size-3.5 shrink-0" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
       </div>
     </div>
   )

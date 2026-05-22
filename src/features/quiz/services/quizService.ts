@@ -1,6 +1,3 @@
-import { quizApi } from '@/services/quizApi'
-import type { Quiz } from '../types'
-
-export async function getQuizByLessonId(lessonId: string): Promise<Quiz | undefined> {
-  return quizApi.getByLesson(lessonId)
-}
+// Re-export shim — real implementation lives in @s-class/api/quizService.
+// Removed in Phase 5 when /src is decommissioned.
+export * from '@s-class/api/quizService'

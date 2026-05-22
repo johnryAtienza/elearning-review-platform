@@ -1,10 +1,3 @@
-import { courseApi } from '@/services/courseApi'
-import type { Course } from '../types'
-
-export async function getAllCourses(): Promise<Course[]> {
-  return courseApi.getAll()
-}
-
-export async function getCourseById(id: string): Promise<Course | undefined> {
-  return courseApi.getById(id)
-}
+// Re-export shim — real implementation lives in @s-class/api/courseService.
+// Removed in Phase 5 when /src is decommissioned.
+export * from '@s-class/api/courseService'

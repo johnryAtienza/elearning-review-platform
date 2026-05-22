@@ -1,6 +1,3 @@
-import { lessonApi } from '@/services/lessonApi'
-import type { ReviewerContent } from '../types'
-
-export async function getReviewerContent(lessonId: string): Promise<ReviewerContent | undefined> {
-  return lessonApi.getReviewerContent(lessonId)
-}
+// Re-export shim — real implementation lives in @s-class/api/reviewerService.
+// Removed in Phase 5 when /src is decommissioned.
+export * from '@s-class/api/reviewerService'

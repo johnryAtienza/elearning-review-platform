@@ -1,0 +1,10 @@
+{
+  "name": "@s-class/admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'apps/admin not yet implemented (Phase 3.3)' && exit 0",
+    "build": "echo 'apps/admin not yet implemented (Phase 3.3)' && exit 0"
+  }
+}

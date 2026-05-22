@@ -1,0 +1,10 @@
+{
+  "name": "@s-class/landing",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'apps/landing not yet implemented (Phase 3.1)' && exit 0",
+    "build": "echo 'apps/landing not yet implemented (Phase 3.1)' && exit 0"
+  }
+}

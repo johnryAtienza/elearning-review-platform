@@ -3,11 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:landing": "npm run dev --workspace=@s-class/landing",
+    "dev:portal": "npm run dev --workspace=@s-class/portal",
+    "dev:admin": "npm run dev --workspace=@s-class/admin",
+    "build:landing": "npm run build --workspace=@s-class/landing",
+    "build:portal": "npm run build --workspace=@s-class/portal",
+    "build:admin": "npm run build --workspace=@s-class/admin"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1020.0",

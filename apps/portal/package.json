@@ -1,0 +1,10 @@
+{
+  "name": "@s-class/portal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'apps/portal not yet implemented (Phase 3.2)' && exit 0",
+    "build": "echo 'apps/portal not yet implemented (Phase 3.2)' && exit 0"
+  }
+}

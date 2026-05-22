@@ -23,6 +23,14 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET: string
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string
   readonly VITE_FIREBASE_APP_ID: string
+
+  // ── Subdomain split (cross-app navigation targets) ────────────────────────
+  /** Origin of the landing/marketing app. Defaults to https://s-class.com.ph */
+  readonly VITE_LANDING_URL?: string
+  /** Origin of the authenticated student app. Defaults to https://portal.s-class.com.ph */
+  readonly VITE_PORTAL_URL?: string
+  /** Origin of the admin panel. Defaults to https://admin.s-class.com.ph */
+  readonly VITE_ADMIN_URL?: string
 }
 
 interface ImportMeta {

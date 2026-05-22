@@ -1,6 +1,20 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * Explicit source roots for Tailwind v4's JIT scanner.
+ *
+ * The default scan covers the project containing the vite.config.ts,
+ * which is fine for the legacy /src app but misses /packages/* and
+ * /src/* when this CSS is consumed from an apps/<name>/ entry whose
+ * project root is apps/<name>/.
+ *
+ * Paths are relative to this CSS file (/src/index.css), so both legacy
+ * and the per-app vite configs end up scanning the same set.
+ */
+@source "../src";
+@source "../packages";
+
 @custom-variant dark (&:is(.dark *));
 
 /*

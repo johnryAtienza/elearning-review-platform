@@ -4,7 +4,31 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'apps/landing not yet implemented (Phase 3.1)' && exit 0",
-    "build": "echo 'apps/landing not yet implemented (Phase 3.1)' && exit 0"
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview --port 4174",
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@s-class/api": "*",
+    "@s-class/auth": "*",
+    "@s-class/config": "*",
+    "@s-class/constants": "*",
+    "@s-class/types": "*",
+    "@s-class/ui": "*",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.2",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.2",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.1"
   }
 }

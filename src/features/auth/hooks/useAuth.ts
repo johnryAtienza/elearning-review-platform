@@ -1,5 +1,3 @@
-import { useAuthStore } from '@/store/authStore'
-
-export function useAuth() {
-  return useAuthStore()
-}
+// Re-export shim — real implementation lives in @s-class/auth/hooks/useAuth.
+// Removed in Phase 5 when /src is decommissioned.
+export * from '@s-class/auth/hooks/useAuth'

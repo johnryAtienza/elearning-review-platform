@@ -10,6 +10,17 @@
  * the production layout.
  */
 
+// Fail the production build (and surface early in the Pages build log) if any
+// subdomain URL is missing. Falling back to the hardcoded prod defaults below
+// would silently send staging links to production — a hard-to-spot footgun.
+if (import.meta.env.PROD) {
+  for (const k of ['VITE_LANDING_URL', 'VITE_PORTAL_URL', 'VITE_ADMIN_URL'] as const) {
+    if (!import.meta.env[k]) {
+      throw new Error(`[config] Missing required env var: ${k}`)
+    }
+  }
+}
+
 export const HOSTS = {
   landing: import.meta.env.VITE_LANDING_URL ?? 'https://s-class.com.ph',
   portal:  import.meta.env.VITE_PORTAL_URL  ?? 'https://portal.s-class.com.ph',

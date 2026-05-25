@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AdminLayout } from '@/features/admin/components/AdminLayout'
 import { PageLoader } from '@s-class/ui/PageLoader'
 import { AdminProtectedRoute } from '../components/AdminProtectedRoute'
+import { AdminGuestRoute } from '../components/AdminGuestRoute'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 
 // Lazy-load admin pages — matches the legacy router's lazy pattern.
@@ -29,8 +30,15 @@ const AdminWelcomeVideosPage = lazy(() => import('@/pages/admin/AdminWelcomeVide
  */
 export const router = createBrowserRouter([
   // Public — admin's own login page (same-origin so the resulting session
-  // lives on admin.* localStorage, not landing.*).
-  { path: '/login', element: <AdminLoginPage /> },
+  // lives on admin.* localStorage, not landing.*). Wrapped in AdminGuestRoute
+  // so already-signed-in admins skip the form and land on /admin, and
+  // non-admin users get bounced cross-domain to portal.*.
+  {
+    element: <AdminGuestRoute />,
+    children: [
+      { path: '/login', element: <AdminLoginPage /> },
+    ],
+  },
 
   // Auth + role guarded
   {

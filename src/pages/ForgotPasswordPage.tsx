@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { ROUTES } from '@/constants/routes'
+import { EXTERNAL } from '@s-class/constants/urls'
 import { resetPasswordForEmail } from '@/features/auth/services/authService'
 
 export function ForgotPasswordPage() {
@@ -29,7 +30,11 @@ export function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const redirectTo = `${window.location.origin}${ROUTES.RESET_PASSWORD}`
+      // Anchor on portal explicitly — /reset-password is portal-owned. Using
+      // window.location.origin would break if this form ever loads from a
+      // different subdomain (e.g. admin) or in local dev where the origin
+      // differs per app.
+      const redirectTo = `${EXTERNAL.portal()}${ROUTES.RESET_PASSWORD}`
       await resetPasswordForEmail(email.trim(), redirectTo)
     } catch {
       // Intentionally ignored — we always show the same success message

@@ -10,6 +10,7 @@ import { homeContentApi } from '@/services/homeContentApi'
 import type { Announcement, WelcomeVideo } from '@/features/home/types'
 import { OFFERINGS, CONTACT_BLURB, type Offering } from '@/constants/offerings'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { cn } from '@/utils/cn'
 
 /**
@@ -77,7 +78,10 @@ export function HomePage() {
           </div>
         </div>
         <Button asChild size="lg" variant="outline" className="shrink-0">
-          <Link to={ROUTES.REGISTER}>Enroll Now</Link>
+          {/* /register is portal-owned — cross-origin <a> so this goes directly
+              to portal in every env, rather than hopping through landing's
+              RedirectToPortal route. */}
+          <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
         </Button>
       </section>
     </div>

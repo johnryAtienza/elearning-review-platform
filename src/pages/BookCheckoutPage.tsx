@@ -9,6 +9,7 @@ import { BookCover } from '@/features/books/components/BookCover'
 import { booksApi } from '@/services/booksApi'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
+import { EXTERNAL } from '@s-class/constants/urls'
 import { formatPHP } from '@/utils/money'
 import type { Book, ShippingAddress } from '@/features/books/types'
 
@@ -125,8 +126,11 @@ export function BookCheckoutPage() {
         notes:      address.notes?.trim() || undefined,
       }
 
-      const successUrl = `${window.location.origin}${ROUTES.PAYMENT_SUCCESS}?session_id={CHECKOUT_SESSION_ID}&kind=book`
-      const cancelUrl  = `${window.location.origin}${ROUTES.PAYMENT_CANCEL}`
+      // Payment success/cancel routes are portal-owned — anchor on portal
+      // so PayMongo redirects back to the right subdomain in every env.
+      const portalOrigin = EXTERNAL.portal()
+      const successUrl = `${portalOrigin}${ROUTES.PAYMENT_SUCCESS}?session_id={CHECKOUT_SESSION_ID}&kind=book`
+      const cancelUrl  = `${portalOrigin}${ROUTES.PAYMENT_CANCEL}`
 
       const { checkoutUrl } = await booksApi.createCheckout({
         bookId:          book!.id,
@@ -136,10 +140,10 @@ export function BookCheckoutPage() {
         cancelUrl,
       })
 
-      // For mock mode, navigate to the same path the URL would resolve to;
-      // otherwise hand off to PayMongo.
-      if (checkoutUrl.startsWith(window.location.origin)) {
-        navigate(checkoutUrl.replace(window.location.origin, ''))
+      // For mock mode (checkoutUrl resolves to portal), strip the origin
+      // and SPA-navigate; otherwise hand off to PayMongo.
+      if (checkoutUrl.startsWith(portalOrigin)) {
+        navigate(checkoutUrl.replace(portalOrigin, ''))
       } else {
         window.location.href = checkoutUrl
       }

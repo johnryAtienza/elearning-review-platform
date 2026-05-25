@@ -6,7 +6,18 @@
 
 type AuthProvider = 'mock' | 'rest' | 'supabase' | 'firebase'
 
+export type AppEnv = 'local' | 'staging' | 'production'
+
+// Env-driven (not hostname-driven) so this module stays browser-safe and
+// reusable from SSR / edge / worker contexts without touching `window`.
+function detectAppEnv(): AppEnv {
+  if (import.meta.env.DEV) return 'local'
+  return import.meta.env.VITE_APP_ENV === 'staging' ? 'staging' : 'production'
+}
+
 const config = {
+  /** Coarse-grained deployment environment. See AppEnv for values. */
+  appEnv: detectAppEnv(),
   api: {
     baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1',
     /** When true the app returns local mock data and makes no network calls. */

@@ -10,6 +10,7 @@
  */
 
 import config from '@s-class/config'
+import { EXTERNAL, ROUTES } from '@s-class/constants'
 import { supabase } from './supabaseClient'
 import * as bookService from './book.service'
 import type {
@@ -60,7 +61,7 @@ export const booksApi = {
     if (config.api.useMock) {
       // Mock: skip PayMongo and pretend the order was created.
       return {
-        checkoutUrl: `${window.location.origin}/payment-success?session_id=mock_book_session&kind=book`,
+        checkoutUrl: `${EXTERNAL.portal()}${ROUTES.PAYMENT_SUCCESS}?session_id=mock_book_session&kind=book`,
         sessionId:   'mock_book_session',
         orderId:     'mock_order',
       }

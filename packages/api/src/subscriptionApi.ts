@@ -6,6 +6,7 @@
  */
 
 import config from '@s-class/config'
+import { EXTERNAL, ROUTES } from '@s-class/constants'
 import { supabase } from './supabaseClient'
 import type { SubscriptionDuration } from '@s-class/types/subscription'
 
@@ -47,11 +48,13 @@ export const subscriptionApi = {
    * After payment, PayMongo redirects to successUrl with ?session_id=xxx.
    */
   async createCheckout(durationMonths: SubscriptionDuration): Promise<CheckoutResponse> {
+    const portalOrigin = EXTERNAL.portal()
+
     if (config.api.useMock) {
       // In mock mode, skip PayMongo and pretend the checkout happened.
       // Encode a fake session ID so the success page has something to work with.
       return {
-        checkoutUrl: `${window.location.origin}/payment-success?session_id=mock_session`,
+        checkoutUrl: `${portalOrigin}${ROUTES.PAYMENT_SUCCESS}?session_id=mock_session`,
         sessionId:   'mock_session',
       }
     }
@@ -59,8 +62,8 @@ export const subscriptionApi = {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Please log in to subscribe.')
 
-    const successUrl = `${window.location.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`
-    const cancelUrl  = `${window.location.origin}/payment-cancel`
+    const successUrl = `${portalOrigin}${ROUTES.PAYMENT_SUCCESS}?session_id={CHECKOUT_SESSION_ID}`
+    const cancelUrl  = `${portalOrigin}${ROUTES.PAYMENT_CANCEL}`
 
     const { data, error } = await supabase.functions.invoke<CheckoutResponse>('create-checkout', {
       body: { durationMonths, successUrl, cancelUrl },

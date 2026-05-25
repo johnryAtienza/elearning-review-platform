@@ -34,8 +34,14 @@ You'll do these steps in the Cloudflare dashboard. The repo is already prepped (
 | `VITE_LANDING_URL` | `https://s-class.com.ph` | For cross-domain redirects |
 | `VITE_PORTAL_URL` | `https://portal.s-class.com.ph` | |
 | `VITE_ADMIN_URL` | `https://admin.s-class.com.ph` | |
+| `VITE_APP_ENV` | `production` | Surfaced as `config.appEnv`. Set to `staging` on Preview environments. |
 
 Set these in **Settings → Environment variables → Production** (and copy to Preview if you want branch previews to work end-to-end).
+
+**Preview / staging env vars**: in **Settings → Environment variables → Preview**, override:
+
+- `VITE_APP_ENV=staging`
+- `VITE_LANDING_URL` / `VITE_PORTAL_URL` / `VITE_ADMIN_URL` → the matching `*.pages.dev` URLs for that project (e.g. `https://my-branch.s-class-landing.pages.dev`). This keeps a branch's three apps wired to each other instead of cross-linking into production.
 
 ### R2 binding (set on every project — for Pages Functions)
 

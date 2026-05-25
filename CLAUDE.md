@@ -91,6 +91,7 @@ Three Edge Functions implement payment, in this order:
 
 - **Path alias:** `@/*` → `./src/*` (configured in `tsconfig.app.json` and `vite.config.ts`).
 - **Route strings:** always import from `src/constants/routes.ts` (e.g. `ROUTES.LESSON(id)`), never hardcode `/lesson/${id}`.
+- **Cross-app URLs:** the single source of truth is `@s-class/constants/urls` — use `EXTERNAL.portal()` / `EXTERNAL.admin()` / `EXTERNAL.landing()` or `getAbsoluteUrl(path)` for any cross-subdomain link or redirect (PayMongo success/cancel, Supabase `redirectTo`, post-login/logout navigation). Never build URLs from `window.location.origin` — it assumes the user is already on the right subdomain. Coarse environment (`local | staging | production`) is `config.appEnv` from `@s-class/config`.
 - **Tailwind:** v4 with `@tailwindcss/vite`. Use `cn()` from `src/utils/cn.ts` for conditional class merging. Prefer canonical utility classes over arbitrary values like `w-[60px]`.
 - **TypeScript:** `strict`, `noUnusedLocals`, `noUnusedParameters` are on — unused imports/vars fail the build. Use `interface` for object shapes, `type` for unions/aliases. Colocate types in `features/<name>/types.ts`.
 - **Errors:** `ApiError` (REST) exposes `.isUnauthorized`, `.isForbidden`, `.isNotFound`. Supabase calls return `{ data, error }` — always check `error` before using `data`. Surface user-facing errors via the `ErrorMessage` component or `sonner` toasts.

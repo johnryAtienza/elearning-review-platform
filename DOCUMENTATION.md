@@ -687,10 +687,11 @@ supabase secrets set \
 The file `public/_redirects` contains:
 
 ```
-/*  /index.html  200
+/index.html  200
+/*           /index.html  200
 ```
 
-This is **required** for React Router to handle all routes. Without it, refreshing any page other than `/` returns a 404.
+This is **required** for React Router to handle all routes. Without it, refreshing any page other than `/` returns a 404. The first line short-circuits the rule when `/index.html` is requested directly, satisfying Cloudflare's redirect-loop detector (a bare `/* /index.html 200` is now rejected as recursive).
 
 #### Required Cloudflare Environment Variables
 

@@ -3,7 +3,6 @@ import { ArrowRight, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
-import { TAGLINE } from '@/constants/aboutCopy'
 
 /**
  * Top-of-Home hero. Drives conversion with a primary "Enroll Now" CTA and
@@ -37,7 +36,7 @@ export function HeroBlock() {
 
       <div className="relative px-6 py-10 sm:px-10 sm:py-14 flex flex-col items-start gap-5 max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-          S Class Review · {TAGLINE}
+          S Class Review
         </p>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
           Pass the boards on your first attempt.

@@ -47,5 +47,3 @@ export const ABOUT_SECTIONS: AboutSection[] = [
       'were prepared.',
   },
 ]
-
-export const TAGLINE = 'Elevate Your Learning'

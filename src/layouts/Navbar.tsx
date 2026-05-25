@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
-import { TAGLINE } from '@/constants/aboutCopy'
 import { courseApi } from '@/services/courseApi'
 import type { Course } from '@/features/courses/types'
 import { cn } from '@/utils/cn'
@@ -431,11 +430,6 @@ export function Navbar() {
               <span className="text-[11px] font-medium text-muted-foreground -mt-0.5">Review</span>
             </span>
           </SmartLink>
-
-          {/* Tagline (centred on desktop) */}
-          <span className="hidden lg:block text-xs italic text-muted-foreground tracking-wide">
-            {TAGLINE}
-          </span>
 
           {/* Desktop utility / auth */}
           <div className="hidden md:flex items-center gap-3">

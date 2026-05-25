@@ -75,9 +75,14 @@ const PORTAL_PREFIXES = [
 ]
 
 function matchesPrefix(path: string, prefixes: string[]): boolean {
-  return prefixes.some((p) =>
-    path === p || path.startsWith(p + '/') || path.startsWith(p + '?'),
-  )
+  return prefixes.some((p) => {
+    // Normalize: a trailing slash in the prefix (e.g. '/course/') was
+    // intended to signal "parameterized — only matches /course/<sub>", but
+    // without this strip the subsequent `p + '/'` check looks for '//'
+    // and never matches /course/<id>.
+    const base = p.endsWith('/') ? p.slice(0, -1) : p
+    return path === base || path.startsWith(base + '/') || path.startsWith(base + '?')
+  })
 }
 
 /** Which subdomain a path belongs to. Defaults to landing for unknown paths. */
@@ -90,10 +95,13 @@ export function getRouteOwner(path: string): Subdomain {
 /** Detect which subdomain the current page is on. SSR-safe (returns 'landing'). */
 export function getCurrentSubdomain(): Subdomain {
   if (typeof window === 'undefined') return 'landing'
-  const host = window.location.hostname
+  // Compare full origin (protocol + host + port), not just hostname — in
+  // local dev all three apps share hostname 'localhost' and only differ by
+  // port, so a hostname-only check would mis-identify the current app.
+  const origin = window.location.origin
   try {
-    if (host === new URL(HOSTS.admin).hostname)  return 'admin'
-    if (host === new URL(HOSTS.portal).hostname) return 'portal'
+    if (origin === new URL(HOSTS.admin).origin)  return 'admin'
+    if (origin === new URL(HOSTS.portal).origin) return 'portal'
   } catch {
     /* fall through */
   }

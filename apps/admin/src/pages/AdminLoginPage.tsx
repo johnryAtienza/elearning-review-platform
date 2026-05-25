@@ -7,6 +7,7 @@ import { FormAlert } from '@s-class/ui/ErrorMessage'
 import { useAuthStore } from '@s-class/auth/authStore'
 import { ApiError } from '@s-class/api/ApiError'
 import { DeviceLimitError } from '@s-class/api/devicesApi'
+import { EXTERNAL } from '@s-class/constants/urls'
 
 /**
  * Admin subdomain login.
@@ -128,6 +129,15 @@ export function AdminLoginPage() {
               )}
             </Button>
           </form>
+        </div>
+
+        <div className="text-center">
+          <a
+            href={EXTERNAL.landing()}
+            className="text-xs text-muted-foreground hover:underline underline-offset-4"
+          >
+            ← Back to home
+          </a>
         </div>
       </div>
     </section>

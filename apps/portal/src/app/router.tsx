@@ -53,9 +53,16 @@ export const router = createBrowserRouter([
               { path: 'login',           element: <LoginPage />          },
               { path: 'register',        element: <RegisterPage />       },
               { path: 'forgot-password', element: <ForgotPasswordPage /> },
-              { path: 'reset-password',  element: <ResetPasswordPage />  },
             ],
           },
+
+          // reset-password lives OUTSIDE PortalGuestRoute: the Supabase
+          // recovery flow (/auth/v1/verify?type=recovery → redirect_to)
+          // always creates an active session before this page loads, so
+          // the guard would otherwise bounce the user to /dashboard before
+          // they can set a new password. ResetPasswordPage handles its own
+          // session detection via the PASSWORD_RECOVERY auth event.
+          { path: 'reset-password', element: <ResetPasswordPage /> },
 
           // Authenticated portal area
           {

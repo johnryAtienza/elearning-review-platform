@@ -1,12 +1,17 @@
 /**
  * useSecureContent
  *
- * Fetches presigned R2 GET URLs for a lesson's video and PDF.
- * Fires for all authenticated users — the edge function returns tier-appropriate
- * URLs (free tier: PDF only; standard tier: video + PDF).
+ * Fetches presigned R2 GET URLs for a lesson's video and PDF via the
+ * get-signed-urls Edge Function. Callers control when the fetch fires via
+ * `canFetch` — typically `isAuthenticated || isFreePreview(lesson)`.
  *
- * The hook re-fetches automatically when the lessonId changes.
- * Signed URLs expire after 1 hour — callers can remount the hook to refresh.
+ *   • Subscribed users   → signed URLs for every lesson.
+ *   • Free / guest users → signed URLs only for `is_free_preview` lessons.
+ *
+ * The Edge Function is the authoritative gate; the hook just relays.
+ *
+ * The hook re-fetches automatically when `lessonId` or `canFetch` change.
+ * Signed URLs expire after 60s — callers can remount the hook to refresh.
  */
 
 import { useState, useEffect } from 'react'
@@ -28,7 +33,7 @@ export interface UseSecureContentResult {
 
 export function useSecureContent(
   lessonId: string,
-  isAuthenticated: boolean,
+  canFetch: boolean,
 ): UseSecureContentResult {
   const [result, setResult] = useState<SecureContentResult>({
     videoUrl: null,
@@ -39,7 +44,7 @@ export function useSecureContent(
   const [error, setError]      = useState<SecureContentFetchError | null>(null)
 
   useEffect(() => {
-    if (!isAuthenticated || !lessonId) {
+    if (!canFetch || !lessonId) {
       setResult({ videoUrl: null, pdfUrl: null, tier: 'free' })
       setLoading(false)
       setError(null)
@@ -70,7 +75,7 @@ export function useSecureContent(
       })
 
     return () => { cancelled = true }
-  }, [lessonId, isAuthenticated])
+  }, [lessonId, canFetch])
 
   return { ...result, loading, error }
 }

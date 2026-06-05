@@ -1,22 +1,36 @@
 /**
  * get-signed-urls — Supabase Edge Function
  *
- * Generates short-lived R2 presigned GET URLs for a lesson's video and PDF.
- * Accessible to all authenticated users. Both tiers receive signed video + PDF URLs.
- * The frontend enforces tier restrictions (30s preview for free, page limit for PDFs).
+ * Returns short-lived (60s) presigned R2 GET URLs for a lesson's video and PDF.
+ * This function is the only path from the browser to R2 and is therefore the
+ * actual security boundary for premium content — the React route guards above
+ * it are UX only.
  *
- *   free tier     — { videoUrl: string | null, pdfUrl: string | null, tier: "free" }
- *   standard tier — { videoUrl: string | null, pdfUrl: string | null, tier: "standard" }
+ * Access matrix (authoritative):
  *
- * Frontend enforces additional UX-layer restrictions (30s preview, 5-page PDF limit).
- * For true enforcement, a separate PDF-truncation step should be added for free users.
+ *   ┌──────────────────────────┬──────────────────────┬────────────────────────┐
+ *   │ Caller                   │ is_free_preview=TRUE │ is_free_preview=FALSE  │
+ *   ├──────────────────────────┼──────────────────────┼────────────────────────┤
+ *   │ Guest (no JWT)           │ 200 tier=standard    │ 401 Unauthorized       │
+ *   │ Authenticated free       │ 200 tier=standard    │ 403 Forbidden          │
+ *   │ Authenticated subscribed │ 200 tier=standard    │ 200 tier=standard      │
+ *   │ Admin                    │ 200 tier=standard    │ 200 tier=standard      │
+ *   └──────────────────────────┴──────────────────────┴────────────────────────┘
+ *
+ * Subscription status is the source of truth for premium content. Logging in
+ * alone grants nothing beyond preview lessons. `is_free_preview` is the only
+ * per-lesson carve-out — it is set server-side by admins and never inferred
+ * from client input. Preview lessons always play in full (tier: standard) so
+ * the VideoPlayer does not apply the 30s free-tier cap.
  *
  * POST /functions/v1/get-signed-urls
- * Authorization: Bearer <supabase-jwt>
+ * Authorization: Bearer <supabase-jwt>   (optional — required for premium)
  * Body: { lessonId: string }
  *
  * Error responses:
- *   401 — missing / invalid JWT
+ *   400 — invalid body / missing lessonId
+ *   401 — premium lesson requested without a valid session
+ *   403 — premium lesson requested by a non-subscribed authenticated user
  *   404 — lesson not found
  *   500 — server / credentials error
  */
@@ -38,36 +52,40 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  // ── Verify JWT ───────────────────────────────────────────────────────────────
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return json({ error: 'Missing Authorization header' }, 401)
-  }
-
   const supabaseUrl        = Deno.env.get('SUPABASE_URL')!
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const adminClient        = createClient(supabaseUrl, supabaseServiceKey)
 
-  const adminClient = createClient(supabaseUrl, supabaseServiceKey)
+  // ── Resolve caller (guest is OK; access decision happens after lesson fetch) ─
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const token      = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
 
-  const token = authHeader.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
-  if (authError || !user) {
-    console.error('[get-signed-urls] Auth error:', authError?.message, authError?.status)
-    return json({ error: 'Unauthorized' }, 401)
+  // Supabase JS sends the anon key in the Authorization header when there is no
+  // user session. Treat that as a guest: getUser() will return no user for the
+  // anon key, so the user check below correctly stays null.
+  let userId:  string | null = null
+  let isAdmin                = false
+  if (token) {
+    const { data } = await adminClient.auth.getUser(token)
+    if (data?.user) {
+      userId  = data.user.id
+      isAdmin = data.user.app_metadata?.role === 'admin'
+    }
   }
 
-  // ── Determine subscription tier ──────────────────────────────────────────────
-  const now = new Date().toISOString()
-  const { data: sub } = await adminClient
-    .from('subscriptions')
-    .select('id, tier')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .or(`expires_at.is.null,expires_at.gt.${now}`)
-    .maybeSingle()
-
-  // A valid subscription row = standard tier; absence = free tier
-  const tier: 'free' | 'standard' = sub ? 'standard' : 'free'
+  // ── Determine subscription tier (authenticated users only) ───────────────────
+  let tier: 'free' | 'standard' = 'free'
+  if (userId) {
+    const now = new Date().toISOString()
+    const { data: sub } = await adminClient
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .maybeSingle()
+    if (sub) tier = 'standard'
+  }
 
   // ── Parse body ───────────────────────────────────────────────────────────────
   let body: { lessonId?: string }
@@ -77,10 +95,10 @@ Deno.serve(async (req: Request) => {
   const { lessonId } = body
   if (!lessonId) return json({ error: 'lessonId is required' }, 400)
 
-  // ── Fetch lesson storage paths ───────────────────────────────────────────────
+  // ── Fetch lesson storage paths + access flag ─────────────────────────────────
   const { data: lesson, error: lessonError } = await adminClient
     .from('lessons')
-    .select('video_url, reviewer_pdf_url')
+    .select('video_url, reviewer_pdf_url, is_free_preview')
     .eq('id', lessonId)
     .maybeSingle()
 
@@ -90,15 +108,30 @@ Deno.serve(async (req: Request) => {
   }
   if (!lesson) return json({ error: 'Lesson not found' }, 404)
 
-  const videoPath = lesson.video_url as string | null
+  // ── Authorize ────────────────────────────────────────────────────────────────
+  const isPreview = lesson.is_free_preview === true
+  const canAccess = isPreview || isAdmin || tier === 'standard'
+
+  if (!canAccess) {
+    // Distinguish guest (sign in / subscribe) from authenticated free (subscribe).
+    return userId
+      ? json({ error: 'Subscription required' }, 403)
+      : json({ error: 'Unauthorized' },          401)
+  }
+
+  // Preview lessons grant standard-tier limits for everyone so the video plays
+  // in full. Premium lessons reach this branch only for subscribed/admin users,
+  // who are already standard tier.
+  const effectiveTier: 'free' | 'standard' = isPreview ? 'standard' : tier
+
+  const videoPath = lesson.video_url        as string | null
   const pdfPath   = lesson.reviewer_pdf_url as string | null
 
-  // Both tiers get a signed video URL; frontend enforces the 30s preview limit for free users
   const shouldSignVideo = !!videoPath
   const shouldSignPdf   = !!pdfPath
 
   if (!shouldSignVideo && !shouldSignPdf) {
-    return json({ videoUrl: null, pdfUrl: null, tier })
+    return json({ videoUrl: null, pdfUrl: null, tier: effectiveTier })
   }
 
   // ── Build R2 client ──────────────────────────────────────────────────────────
@@ -136,7 +169,7 @@ Deno.serve(async (req: Request) => {
         : Promise.resolve(null),
     ])
 
-    return json({ videoUrl, pdfUrl, tier })
+    return json({ videoUrl, pdfUrl, tier: effectiveTier })
   } catch (err) {
     console.error('[get-signed-urls] Presign error:', err)
     return json({ error: 'Failed to generate signed URLs' }, 500)

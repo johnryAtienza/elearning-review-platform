@@ -46,6 +46,13 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const defaultDay  = lesson?.dayNumber  ?? (lesson?.order ?? 1)
   const [weekNumber, setWeekNumber] = useState<number>(defaultWeek)
   const [dayNumber,  setDayNumber]  = useState<number>(defaultDay)
+  // Free preview unlocks the lesson for guests and free-tier users. Defaults
+  // to existing flag when editing; on create, mirrors the post-migration
+  // backfill (Day 1 = free preview) so new courses keep the legacy convention
+  // without admins needing to remember to tick the box.
+  const [isFreePreview, setIsFreePreview] = useState<boolean>(
+    lesson?.isFreePreview ?? defaultDay === 1,
+  )
 
   const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
   const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
@@ -106,9 +113,9 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       const durationMinutes = durationHrs * 60 + durationMins || null
       let lessonId = lesson?.id
       if (isEdit) {
-        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, weekNumber, dayNumber, durationMinutes })
+        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, weekNumber, dayNumber, isFreePreview, durationMinutes })
       } else {
-        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, weekNumber, dayNumber, durationMinutes })
+        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, weekNumber, dayNumber, isFreePreview, durationMinutes })
       }
 
       // 2. Upload video (if a file was picked)
@@ -147,6 +154,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
         order,
         weekNumber,
         dayNumber,
+        isFreePreview,
         durationMinutes: durationMinutes,
         videoUrl,
         reviewerPdfUrl,
@@ -279,9 +287,28 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               </div>
               <p className="text-xs text-muted-foreground">
                 Order = position within the course. Week + Day drive the
-                curriculum grid on the course page. Day 1 lessons are free
-                for everyone (no subscription required).
+                curriculum grid on the course page.
               </p>
+            </div>
+
+            {/* Free preview toggle */}
+            <div className="space-y-1.5">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 rounded border-input"
+                  checked={isFreePreview}
+                  onChange={(e) => setIsFreePreview(e.target.checked)}
+                  disabled={saving}
+                />
+                <span className="space-y-0.5">
+                  <span className="block text-sm font-medium">Free preview</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Guests and free-tier users can watch this lesson in full
+                    without enrolling. Use sparingly to drive conversion.
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* Duration */}

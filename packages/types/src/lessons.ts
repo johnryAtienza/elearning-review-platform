@@ -14,9 +14,20 @@ export interface Lesson {
   weekNumber?: number | null
   /**
    * Curriculum day (1-based, sequential within the course).
-   * Day 1 lessons are free for all authenticated users (subscription bypass).
+   * Historical free-access trigger — superseded by `isFreePreview`. Kept on the
+   * type for display ("DAY 1", "DAY 2") and for sorting.
    */
   dayNumber?: number | null
+  /**
+   * Server-side authoritative free-access flag. When TRUE, the lesson is
+   * accessible without a subscription — guests and authenticated free-tier
+   * users can fetch its signed video/PDF URLs through the get-signed-urls
+   * Edge Function and the lesson plays in full (no 30s preview cap).
+   *
+   * Source of truth: `public.lessons.is_free_preview` (also exposed on the
+   * public `lesson_previews` view). Set by admins; never inferred client-side.
+   */
+  isFreePreview?: boolean
   /** Present when fetched from Supabase as a subscribed user. */
   videoUrl?: string
   /** Present when fetched from Supabase as a subscribed user. */

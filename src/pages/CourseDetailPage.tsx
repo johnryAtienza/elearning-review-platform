@@ -125,6 +125,10 @@ export function CourseDetailPage() {
   }
 
   const firstLesson = lessons[0]
+  // Preview CTA is offered when the first lesson is flagged is_free_preview.
+  // The flag is server-authoritative, so this stays accurate as marketing
+  // changes which lessons are free without a code deploy.
+  const firstLessonIsPreview = firstLesson?.isFreePreview === true
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8">
@@ -206,21 +210,25 @@ export function CourseDetailPage() {
                   Start First Lesson
                 </Link>
               </Button>
-            ) : isAuthenticated ? (
+            ) : firstLessonIsPreview ? (
               <>
                 <Button asChild>
                   <Link to={ROUTES.LESSON(firstLesson.id)}>
                     <Play className="size-4 mr-1.5" />
-                    Start Free Preview
+                    Watch Free Preview
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
+                  <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
+                    Enroll Now
+                  </Link>
                 </Button>
               </>
             ) : (
               <Button asChild>
-                <Link to={ROUTES.REGISTER}>Enroll Now</Link>
+                <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
+                  Enroll Now
+                </Link>
               </Button>
             )
           )}
@@ -333,11 +341,12 @@ interface DayCardProps {
 }
 
 function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
-  const isExam   = /\bexam\b/i.test(lesson.title)
-  const day      = effectiveDay(lesson)
-  const isDayOne = day === 1
-  // Day 1 is free only for authenticated users — guests must register first.
-  const unlocked = isSubscribed || (isDayOne && isAuthenticated)
+  const isExam    = /\bexam\b/i.test(lesson.title)
+  const day       = effectiveDay(lesson)
+  const isPreview = lesson.isFreePreview === true
+  // Free-preview lessons unlock for everyone — guests, free-tier auth, and
+  // subscribers alike. Premium lessons require a subscription.
+  const unlocked  = isSubscribed || isPreview
 
   const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
@@ -349,13 +358,11 @@ function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
       </span>
       {isExam
         ? <Badge variant="warning">Exam</Badge>
-        : isDayOne && isAuthenticated
-          ? <Badge variant="success">Free</Badge>
-          : isDayOne
-            ? <Badge variant="warning">Enroll</Badge>
-            : !unlocked
-              ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
-              : null
+        : isPreview && !isSubscribed
+          ? <Badge variant="success">Free Preview</Badge>
+          : !unlocked
+            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
+            : null
       }
     </div>
   )

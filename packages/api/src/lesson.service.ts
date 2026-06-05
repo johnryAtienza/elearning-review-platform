@@ -27,9 +27,13 @@ interface LessonPreviewRow {
   order: number
   week_number: number | null
   day_number: number | null
+  is_free_preview: boolean | null
   duration: string
   duration_minutes: number | null
 }
+
+const LESSON_PREVIEW_COLUMNS =
+  'id, course_id, title, description, order, week_number, day_number, is_free_preview, duration, duration_minutes'
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +48,7 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
     durationMinutes: row.duration_minutes ?? null,
     weekNumber:      row.week_number ?? null,
     dayNumber:       row.day_number  ?? null,
+    isFreePreview:   row.is_free_preview === true,
   }
 }
 
@@ -57,7 +62,7 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
 export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
   const { data, error } = await supabase
     .from('lesson_previews')
-    .select('id, course_id, title, description, order, week_number, day_number, duration, duration_minutes')
+    .select(LESSON_PREVIEW_COLUMNS)
     .eq('course_id', courseId)
     .order('order', { ascending: true })
 
@@ -77,7 +82,7 @@ export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> 
 export async function getLessonPreviewById(lessonId: string): Promise<Lesson | undefined> {
   const { data, error } = await supabase
     .from('lesson_previews')
-    .select('id, course_id, title, description, order, week_number, day_number, duration, duration_minutes')
+    .select(LESSON_PREVIEW_COLUMNS)
     .eq('id', lessonId)
     .maybeSingle()
 

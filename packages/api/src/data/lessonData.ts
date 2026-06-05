@@ -6,7 +6,18 @@ const lesson = (
   title: string,
   description: string,
   duration: string,
-): Lesson => ({ id: `${courseId}-${order}`, courseId, order, title, description, duration, durationMinutes: null })
+): Lesson => ({
+  id: `${courseId}-${order}`,
+  courseId,
+  order,
+  title,
+  description,
+  duration,
+  durationMinutes: null,
+  // Mock mode mirrors the post-migration default: the first lesson in each
+  // course is a free preview, the rest require a subscription.
+  isFreePreview: order === 1,
+})
 
 export const LESSONS: Lesson[] = [
   // Course 1 — React Fundamentals

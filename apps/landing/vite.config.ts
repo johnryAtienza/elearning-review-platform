@@ -16,6 +16,7 @@ export default defineConfig({
   envDir: REPO_ROOT,
   server: {
     port: 5174,
+    open: '/',
   },
   build: {
     outDir: path.resolve(__dirname, 'dist'),

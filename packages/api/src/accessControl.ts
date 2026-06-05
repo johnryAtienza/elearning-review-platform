@@ -30,8 +30,8 @@ export const TIER_PERMISSIONS: Record<SubscriptionTier, TierPermissions> = {
   },
 }
 
-// Guest (unauthenticated) — everything is locked. The lesson page renders a
-// "sign in to start" CTA instead of the video/PDF/quiz, so these values mostly
+// Guest (unauthenticated) — everything is locked. Reading a non-preview lesson
+// renders a "sign in to start" CTA instead of the video/PDF/quiz; these values
 // guard against accidental access if a component reads permissions directly.
 const GUEST_PERMISSIONS: TierPermissions = {
   videoPreviewSeconds:  0,
@@ -41,6 +41,13 @@ const GUEST_PERMISSIONS: TierPermissions = {
   showAnswersAfterQuiz: false,
 }
 
+// Any object with the preview flag — works with Lesson, AdminLesson, mock data,
+// etc. Only the fields we read are required.
+type PreviewableLesson = {
+  dayNumber?: number | null
+  isFreePreview?: boolean | null
+}
+
 // ── Accessor helpers ───────────────────────────────────────────────────────────
 
 export function getPermissions(tier: SubscriptionTier): TierPermissions {
@@ -48,49 +55,62 @@ export function getPermissions(tier: SubscriptionTier): TierPermissions {
 }
 
 /**
+ * True when the lesson is flagged as a free preview on the server. Preview
+ * lessons are accessible to guests and authenticated free-tier users alike,
+ * and play in full (no 30s cap, no PDF page limit, quiz enabled).
+ *
+ * Server-side authoritative — `lessons.is_free_preview`. Replaces the legacy
+ * "dayNumber === 1" rule; backfilled to TRUE on all existing Day-1 lessons by
+ * migration 20260605000001.
+ */
+export function isFreePreview(lesson: PreviewableLesson | null | undefined): boolean {
+  return lesson?.isFreePreview === true
+}
+
+/**
  * Effective permissions for a specific lesson.
  *
- * Day 1 lessons are free for every *authenticated* user (no 30s video cap, no
- * PDF page limit, no quiz lock) regardless of subscription tier. Day 2+
- * lessons follow the normal tier matrix. Unauthenticated callers get fully
- * locked permissions — signing up is the "enrollment" step that unlocks Day 1.
- *
- * Pass the lesson by reference; only `dayNumber` is read so this works with
- * any object that has the field (Lesson, AdminLesson, etc.).
+ * Free-preview lessons grant standard-tier limits to every caller (guests
+ * included) so the video plays in full. Everything else falls back to the
+ * caller's tier, and unauthenticated callers on non-preview lessons get
+ * fully locked permissions.
  */
 export function getEffectivePermissions(
   tier: SubscriptionTier,
-  lesson: { dayNumber?: number | null } | null | undefined,
+  lesson: PreviewableLesson | null | undefined,
   isAuthenticated: boolean = true,
 ): TierPermissions {
-  if (!isAuthenticated) return GUEST_PERMISSIONS
-  if (lesson?.dayNumber === 1) return TIER_PERMISSIONS.standard
+  if (isFreePreview(lesson)) return TIER_PERMISSIONS.standard
+  if (!isAuthenticated)      return GUEST_PERMISSIONS
   return TIER_PERMISSIONS[tier]
 }
 
 /**
- * True when the given lesson is the Day 1 free-access lesson AND the user is
- * authenticated. Guests do not get the Day 1 bypass — they must register first.
+ * @deprecated Use `isFreePreview(lesson)`. Kept as a thin alias for the
+ * pre-migration call sites that asked "is this the Day-1 free lesson?".
+ * Backfill (migration 20260605000001) makes the two predicates equivalent
+ * for legacy data; new lessons rely on the explicit flag.
  */
 export function isDayOneFree(
-  lesson: { dayNumber?: number | null } | null | undefined,
-  isAuthenticated: boolean = true,
+  lesson: PreviewableLesson | null | undefined,
+  _isAuthenticated: boolean = true,
 ): boolean {
-  return isAuthenticated && lesson?.dayNumber === 1
+  return isFreePreview(lesson)
 }
 
 /**
- * Effective tier for a specific lesson. Day 1 unlocks standard-tier access
- * for any authenticated user. Useful for components (e.g. ReviewerSection)
- * that derive their own permissions from a tier prop.
+ * Effective tier for a specific lesson. Free-preview lessons grant standard-tier
+ * access regardless of subscription. Useful for components (e.g. ReviewerSection)
+ * that derive their own behavior from a tier prop.
  */
 export function getEffectiveTier(
   tier: SubscriptionTier,
-  lesson: { dayNumber?: number | null } | null | undefined,
+  lesson: PreviewableLesson | null | undefined,
   isAuthenticated: boolean = true,
 ): SubscriptionTier {
-  if (!isAuthenticated) return 'free'
-  return lesson?.dayNumber === 1 ? 'standard' : tier
+  if (isFreePreview(lesson)) return 'standard'
+  if (!isAuthenticated)      return 'free'
+  return tier
 }
 
 /** Derive tier from subscription status. Extend here if more tiers are added. */

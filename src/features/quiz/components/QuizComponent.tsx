@@ -20,13 +20,28 @@ interface QuizComponentProps {
   description?: string | null
   randomize?: boolean
   /**
-   * When true the quiz is locked (free tier).
+   * When true the quiz is locked (free tier on a non-preview lesson).
    * Shows a blurred teaser + upgrade CTA instead of the real questions.
    */
   locked?: boolean
+  /**
+   * When true, submitting the quiz writes a row to quiz_results (enrolled
+   * users only). Guests and free-tier users on a preview lesson get the
+   * full interactive experience but no completion record. Defaults to true
+   * to preserve behavior for callers that don't pass it explicitly.
+   */
+  persistResults?: boolean
 }
 
-export function QuizComponent({ questions, lessonId, visible, description, randomize = false, locked = false }: QuizComponentProps) {
+export function QuizComponent({
+  questions,
+  lessonId,
+  visible,
+  description,
+  randomize = false,
+  locked = false,
+  persistResults = true,
+}: QuizComponentProps) {
   const { answers, submitted, result, setAnswer, submitQuiz, resetQuiz } = useQuizStore()
 
   // Shuffle questions once on mount only if randomize is enabled
@@ -49,7 +64,7 @@ export function QuizComponent({ questions, lessonId, visible, description, rando
   function handleNext() {
     if (isLast) {
       submitQuiz(shuffled)
-      if (!locked) {
+      if (!locked && persistResults) {
         const score = shuffled.reduce(
           (acc, q) => acc + (answers[q.id] === q.correctAnswer ? 1 : 0),
           0,

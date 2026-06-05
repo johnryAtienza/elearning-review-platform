@@ -20,7 +20,7 @@ import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
-import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isDayOneFree } from '@/features/subscription/services/accessControl'
+import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
 import type { ReviewerContent } from '@/features/lessons/types'
@@ -82,13 +82,17 @@ export function LessonPage() {
 
   const { data, loading, notFound, error } = useLesson(lessonId ?? '')
 
-  // Fetch presigned R2 URLs for all authenticated users
+  // Fetch presigned R2 URLs for users entitled to play this lesson:
+  //   • Subscribers / admins  → every lesson.
+  //   • Free / guest          → only lessons flagged is_free_preview.
+  // The Edge Function is the actual gate; this is just the client trigger.
+  const lessonIsPreview = isFreePreview(data?.lesson)
   const {
     videoUrl:    signedVideoUrl,
     pdfUrl:      signedPdfUrl,
     loading:     contentLoading,
     error:       contentError,
-  } = useSecureContent(lessonId ?? '', isAuthenticated)
+  } = useSecureContent(lessonId ?? '', isAuthenticated || lessonIsPreview)
 
   // Reset per-lesson state and reload backend progress when lesson changes
   useEffect(() => {
@@ -137,7 +141,10 @@ export function LessonPage() {
     if (!data?.lesson || isWatched || markingWatched) return
     setMarkingWatched(true)
     try {
-      if (isAuthenticated) {
+      // Persistence is for enrolled users only — guests and authenticated
+      // free-tier users (on a preview lesson) get a client-only "watched"
+      // toggle so the UI advances, but no completion record is written.
+      if (isSubscribed || isAdmin) {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
@@ -183,23 +190,24 @@ export function LessonPage() {
 
   const { lesson, course, siblings, prev, next, progress } = data
 
-  // Hard gate: free non-admin users cannot view Day 2+ lessons.
-  // Day 1 is free for any authenticated user; everything else requires a sub.
-  // Guests fall through to the GuestEnrollCTA below — they're not redirected.
-  if (isAuthenticated && !isSubscribed && !isAdmin && !isDayOneFree(lesson, isAuthenticated)) {
+  // Hard gate: authenticated free users (no subscription, not admin) cannot
+  // view a lesson unless it's flagged is_free_preview. Guests fall through
+  // to the GuestEnrollCTA when the lesson is NOT a preview, or to the
+  // normal content view when it IS — no redirect, no flash.
+  const previewBypass = isFreePreview(lesson)
+  if (isAuthenticated && !isSubscribed && !isAdmin && !previewBypass) {
     return <Navigate to={ROUTES.SUBSCRIPTION} replace />
   }
 
-  // Effective permissions take Day 1 free-access into account.
-  // When the lesson is Day 1, every authenticated user gets standard-tier
-  // limits regardless of their subscription. Guests get fully locked
-  // permissions — the content area renders a sign-up CTA instead.
+  // Effective permissions take is_free_preview into account: preview lessons
+  // grant standard-tier limits to every caller (guests included) so the video
+  // plays in full. Non-preview lessons follow the caller's tier; guests get
+  // fully locked permissions and see the GuestEnrollCTA instead of content.
   const permissions      = getEffectivePermissions(tier, lesson, isAuthenticated)
   const effectiveTier    = getEffectiveTier(tier, lesson, isAuthenticated)
-  const dayOneBypass     = isDayOneFree(lesson, isAuthenticated)
   // For navigation / progress / banner copy we still want to know if the
-  // *user* is technically subscribed vs. just getting Day 1 for free.
-  const hasFullAccess    = isSubscribed || dayOneBypass
+  // *user* is technically subscribed vs. just getting a free preview.
+  const hasFullAccess    = isSubscribed || previewBypass
 
   // Full-access (subscribed OR Day 1 free): PDF + quiz unlock after marking
   // watched. Otherwise (Day 2+ on free tier): always visible (limited/locked).
@@ -297,9 +305,11 @@ export function LessonPage() {
             <p className="text-muted-foreground text-sm leading-relaxed">{lesson.description}</p>
           </div>
 
-          {/* ── Guest CTA — replaces the entire interactive content block ── */}
-          {!isAuthenticated ? (
-            <GuestEnrollCTA lessonId={lesson.id} isDayOne={lesson.dayNumber === 1} />
+          {/* ── Guest CTA — replaces content only for guests on non-preview lessons.
+              Guests on free-preview lessons fall through to the normal content
+              view; a non-blocking PreviewConversionBanner is rendered below. ── */}
+          {!isAuthenticated && !previewBypass ? (
+            <GuestEnrollCTA lessonId={lesson.id} />
           ) : (
           <>
           {/* Content error (non-blocking) */}
@@ -342,7 +352,7 @@ export function LessonPage() {
                 onProgress={setVideoProgress}
                 lockSeekAhead={!isWatched}
                 startAt={playerStartAt}
-                onTimeChange={(s) => saveResume(lesson.id, s)}
+                onTimeChange={(s) => { if (isAuthenticated) saveResume(lesson.id, s) }}
               />
               <ContentWatermark
                 label={user?.email ?? user?.id ?? ''}
@@ -364,10 +374,17 @@ export function LessonPage() {
           />
 
           {/* ── Free tier banner ── */}
-          {/* Suppressed when the lesson is Day 1 (free for everyone) — the banner
-              would lie about preview limits that no longer apply. */}
-          {!isSubscribed && !dayOneBypass && (
+          {/* Suppressed on free-preview lessons — the preview cap copy would
+              lie about limits that don't apply (preview lessons play in full).
+              Also suppressed for guests; the PreviewConversionBanner below
+              owns the guest call-to-action. */}
+          {isAuthenticated && !isSubscribed && !previewBypass && (
             <FreeTierBanner previewEnded={previewEnded} previewSeconds={permissions.videoPreviewSeconds} />
+          )}
+
+          {/* ── Preview conversion CTA — non-blocking, never gates playback. ── */}
+          {previewBypass && !isSubscribed && (
+            <PreviewConversionBanner isAuthenticated={isAuthenticated} lessonId={lesson.id} />
           )}
 
           {/* ── Reviewer / Quiz tab panel ── */}
@@ -389,6 +406,7 @@ export function LessonPage() {
                   randomize={quiz.randomize}
                   visible={contentUnlocked}
                   locked={!permissions.quizEnabled}
+                  persistResults={isSubscribed || isAdmin}
                 />
               )}
             </div>
@@ -401,9 +419,10 @@ export function LessonPage() {
 
           {/* ── Navigation ── */}
           {(() => {
-            // Free non-admin users hop to /subscription instead of a locked Day 2+ neighbor.
-            const isNeighborUnlocked = (n: { dayNumber?: number | null }) =>
-              isSubscribed || isAdmin || n.dayNumber === 1
+            // Free non-admin users hop to /subscription instead of a locked
+            // premium neighbor. Preview neighbors stay reachable directly.
+            const isNeighborUnlocked = (n: { isFreePreview?: boolean }) =>
+              isSubscribed || isAdmin || n.isFreePreview === true
             const prevLocked = prev ? !isNeighborUnlocked(prev) : false
             const nextLocked = next ? !isNeighborUnlocked(next) : false
             const prevTo = prev ? (prevLocked ? ROUTES.SUBSCRIPTION : ROUTES.LESSON(prev.id)) : null
@@ -495,9 +514,10 @@ function getCompletionHint({
   return !previewEnded ? `Watch the ${previewSeconds}s preview to continue.` : null
 }
 
-// ── Guest CTA (replaces video/reviewer/quiz for unauthenticated visitors) ────
+// ── Guest CTA (replaces video/reviewer/quiz for unauthenticated visitors
+//     on non-preview lessons) ────────────────────────────────────────────────
 
-function GuestEnrollCTA({ lessonId, isDayOne }: { lessonId: string; isDayOne: boolean }) {
+function GuestEnrollCTA({ lessonId }: { lessonId: string }) {
   // Preserve the lesson URL so the user lands back here after login/register
   const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
   return (
@@ -506,13 +526,10 @@ function GuestEnrollCTA({ lessonId, isDayOne }: { lessonId: string; isDayOne: bo
         <Lock className="size-7 text-primary" />
       </div>
       <div className="space-y-1.5 max-w-md">
-        <h2 className="text-lg font-semibold">
-          {isDayOne ? 'Enroll to start your free Day 1' : 'Enroll to unlock this lesson'}
-        </h2>
+        <h2 className="text-lg font-semibold">Enroll to unlock this lesson</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          {isDayOne
-            ? 'Sign up for a free account to watch the Day 1 video, read the reviewer, and take the quiz.'
-            : 'Day 2 and beyond are part of the Standard plan. Create an account to get started — Day 1 is free.'}
+          This lesson is part of the Standard plan. Create an account and enroll
+          to watch the video, read the reviewer, and take the quiz.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -523,6 +540,55 @@ function GuestEnrollCTA({ lessonId, isDayOne }: { lessonId: string; isDayOne: bo
           <Link to={ROUTES.LOGIN} {...returnState}>I already have an account</Link>
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ── Preview conversion banner (non-blocking; never gates playback) ───────────
+//
+// Shown only on free-preview lessons when the user is not subscribed:
+//   • Guests             → "Create an account to save progress" → /register
+//   • Authenticated free → "Enroll to unlock the rest"           → /subscription
+//
+// Subscribers never see it. Always rendered below the video — playback is
+// fully usable while it's visible.
+
+function PreviewConversionBanner({
+  isAuthenticated,
+  lessonId,
+}: {
+  isAuthenticated: boolean
+  lessonId: string
+}) {
+  const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex items-start gap-4">
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="text-sm font-semibold">Enjoying the free preview?</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Create an account to save your progress and pick up where you left off.
+          </p>
+        </div>
+        <Button asChild size="sm" className="shrink-0">
+          <Link to={ROUTES.REGISTER} {...returnState}>Create account</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex items-start gap-4">
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="text-sm font-semibold">Ready for the rest of the course?</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Enroll to unlock every lesson, the full reviewer PDF, and the quizzes.
+        </p>
+      </div>
+      <Button asChild size="sm" className="shrink-0">
+        <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
+      </Button>
     </div>
   )
 }

@@ -25,10 +25,11 @@ export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLesso
   return (
     <ol className="space-y-1">
       {lessons.map((lesson) => {
-        const isActive = lesson.id === activeLessonId
-        const isDayOne = lesson.dayNumber === 1
-        // Day 1 is free for any authenticated (non-guest) user. Day 2+ needs a sub.
-        const unlocked = isSubscribed || isAdmin || (isDayOne && !isGuest)
+        const isActive  = lesson.id === activeLessonId
+        const isPreview = lesson.isFreePreview === true
+        // Free-preview lessons unlock for everyone (guests too); premium
+        // lessons require a subscription or admin role.
+        const unlocked  = isSubscribed || isAdmin || isPreview
 
         const inner = (
           <div
@@ -63,13 +64,13 @@ export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLesso
               <CheckCircle2 className="size-4 shrink-0 text-primary" />
             ) : !unlocked ? (
               isGuest ? (
-                <span className="text-xs text-muted-foreground shrink-0">Sign in</span>
+                <span className="text-xs text-muted-foreground shrink-0">Enroll</span>
               ) : (
-                <Lock className="size-4 shrink-0 text-muted-foreground" aria-label="Upgrade to unlock" />
+                <Lock className="size-4 shrink-0 text-muted-foreground" aria-label="Enroll to unlock" />
               )
-            ) : isDayOne && !isSubscribed && !isAdmin ? (
-              <span className="inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning shrink-0">
-                Free
+            ) : isPreview && !isSubscribed && !isAdmin ? (
+              <span className="inline-flex items-center rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success shrink-0">
+                Free Preview
               </span>
             ) : (
               <PlayCircle className="size-4 shrink-0 text-muted-foreground" />
@@ -77,11 +78,11 @@ export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLesso
           </div>
         )
 
-        // Guests (unauthenticated) can't enter lessons
-        if (isGuest) return <li key={lesson.id}>{inner}</li>
-
-        // Locked Day 2+ on free tier → route to upgrade page instead of lesson
-        const to = unlocked ? ROUTES.LESSON(lesson.id) : ROUTES.SUBSCRIPTION
+        // Locked premium lesson → route to enrollment instead of the lesson.
+        // Guests on a locked lesson hit /register; authenticated free users
+        // hit /subscription. Preview lessons stay reachable directly.
+        const lockedTarget = isGuest ? ROUTES.REGISTER : ROUTES.SUBSCRIPTION
+        const to = unlocked ? ROUTES.LESSON(lesson.id) : lockedTarget
 
         return (
           <li key={lesson.id}>

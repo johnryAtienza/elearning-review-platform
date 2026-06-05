@@ -40,19 +40,29 @@ export class SecureContentFetchError extends Error {
 
 /**
  * Fetch presigned GET URLs for a lesson's video and PDF.
- * Available to all authenticated users — tier determines which URLs are returned.
+ *
+ * The Edge Function is the authoritative access gate:
+ *   • Guests          → 200 only for `is_free_preview` lessons (401 otherwise).
+ *   • Authenticated   → 200 for preview lessons; subscribers also get premium.
+ *
+ * When the user has no session we still call the function with the project
+ * anon key as the Bearer token. The Edge Function reads `auth.getUser(token)`
+ * — the anon key returns no user, so it treats the call as a guest.
+ *
  * Throws `SecureContentFetchError` for auth / not-found errors.
  */
 export async function getSignedContentUrls(lessonId: string): Promise<SecureContentResult> {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) throw new SecureContentFetchError('UNAUTHORIZED', 'Not authenticated')
+  const anonKey  = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const bearer   = session?.access_token ?? anonKey
 
   const url = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-signed-urls`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${bearer}`,
+      apikey:        anonKey,
     },
     body: JSON.stringify({ lessonId }),
   })

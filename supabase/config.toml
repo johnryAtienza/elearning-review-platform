@@ -1,0 +1,29 @@
+# Supabase project configuration.
+#
+# The Supabase CLI reads this file when running commands like
+# `supabase functions deploy`. It is the durable source of truth for
+# per-function settings — anything set here survives future deploys
+# without needing CLI flags.
+
+project_id = "dgnpiexszwsjrqfeefmd"
+
+# ── Edge Functions ─────────────────────────────────────────────────
+#
+# `get-signed-urls` is called by guests (no Supabase session) on free
+# preview lessons. The Supabase gateway's default `verify_jwt = true`
+# rejects requests whose Bearer token does not resolve to a real user,
+# which blocks the legitimate guest-on-preview-lesson flow before the
+# function code can run.
+#
+# We disable the gateway check on this one function and let the
+# function code be the gate. It still authenticates every call:
+#   • Reads the Bearer token and resolves the user via auth.getUser.
+#   • Guests (anon key, no user) → allowed only when the lesson is
+#     flagged is_free_preview = TRUE.
+#   • Authenticated free-tier users → 403 on premium lessons.
+#   • Subscribers / admins → unchanged.
+#
+# Do NOT add `verify_jwt = false` to any other function unless it
+# implements equivalent in-function authorization.
+[functions.get-signed-urls]
+verify_jwt = false

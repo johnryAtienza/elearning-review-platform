@@ -1,307 +1,435 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  BookOpen, Eye, EyeOff, Loader2, ExternalLink,
-  Pencil, Trash2, Plus,
-} from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Pencil, Trash2, Loader2, Tag, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CourseModal } from '@/features/admin/components/CourseModal'
-import { CourseThumbnail } from '@/components/CourseThumbnail'
+import { Tip, LoadError } from '@/features/admin/components/AdminTable'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
-  type ColConfig,
-} from '@/features/admin/components/AdminTable'
-import {
-  getAdminCourses,
-  setCoursePublished,
+  getCoursesWithCount,
+  createCourse,
+  updateCourse,
   deleteCourse,
-  type AdminCourse,
-} from '@/services/admin.service'
-import { toast } from '@/lib/toast'
-import { ROUTES } from '@/constants/routes'
+  nameToSlug,
+} from '@/services/coursesApi'
+import type { Course } from '@/features/courses/types'
 
-// ── Column layout (single source of truth for header + rows) ──────────────────
-
-const GRID_COLS = 'grid-cols-[3rem_1fr_4rem_6rem_9rem]'
-
-const HEADER_COLS: ColConfig[] = [
-  { label: 'Thumb',   smOnly: true },
-  { label: 'Subject' },
-  { label: 'Lessons', center: true, smOnly: true },
-  { label: 'Status',  center: true },
-  { label: 'Actions', center: true },
-]
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type ModalState =
-  | { open: false }
-  | { open: true; course: AdminCourse | null }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export function AdminCoursesPage() {
-  const [courses,   setCourses]   = useState<AdminCourse[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [toggling,  setToggling]  = useState<Set<string>>(new Set())
-  const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
-  const [confirmId, setConfirmId] = useState<string | null>(null)
-  const [modal,     setModal]     = useState<ModalState>({ open: false })
+  const [courses, setCourses]       = useState<Course[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [search, setSearch]         = useState('')
+  const [sortKey, setSortKey]       = useState<'name' | 'subjectCount'>('name')
+  const [sortDir, setSortDir]       = useState<'asc' | 'desc'>('asc')
 
-  const load = useCallback(() => {
+  // Modal state
+  const [modalOpen, setModalOpen]   = useState(false)
+  const [editing, setEditing]       = useState<Course | null>(null)
+
+  // Delete confirmation
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  async function load() {
     setLoading(true)
-    setLoadError(null)
-    getAdminCourses()
-      .then((data) => { setCourses(data); setLoading(false) })
-      .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : 'Failed to load subjects.')
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  async function handleTogglePublished(course: AdminCourse) {
-    setToggling((prev) => new Set(prev).add(course.id))
-    const next = !course.isPublished
+    setError(null)
     try {
-      await setCoursePublished(course.id, next)
-      setCourses((prev) =>
-        prev.map((c) => c.id === course.id ? { ...c, isPublished: next } : c),
-      )
-      toast.success(next ? `"${course.title}" published` : `"${course.title}" moved to draft`)
+      const data = await getCoursesWithCount()
+      setCourses(data)
     } catch (err) {
-      toast.error(err, 'Failed to update subject.')
+      setError(err instanceof Error ? err.message : 'Failed to load courses.')
     } finally {
-      setToggling((prev) => { const s = new Set(prev); s.delete(course.id); return s })
+      setLoading(false)
     }
   }
 
-  async function handleDelete(course: AdminCourse) {
-    setDeleting((prev) => new Set(prev).add(course.id))
-    setConfirmId(null)
-    try {
-      await deleteCourse(course.id)
-      setCourses((prev) => prev.filter((c) => c.id !== course.id))
-      toast.success(`"${course.title}" deleted`)
-    } catch (err) {
-      toast.error(err, 'Failed to delete subject.')
-    } finally {
-      setDeleting((prev) => { const s = new Set(prev); s.delete(course.id); return s })
-    }
-  }
+  useEffect(() => { void load() }, [])
 
-  function handleSaved(saved: AdminCourse, isEdit: boolean) {
+  function openCreate() { setEditing(null); setModalOpen(true) }
+  function openEdit(c: Course) { setEditing(c); setModalOpen(true) }
+
+  function handleSaved(c: Course) {
     setCourses((prev) => {
-      const exists = prev.some((c) => c.id === saved.id)
-      return exists
-        ? prev.map((c) => c.id === saved.id ? saved : c)
-        : [saved, ...prev]
+      const exists = prev.find((row) => row.id === c.id)
+      if (exists) return prev.map((row) => (row.id === c.id ? { ...row, ...c } : row))
+      return [{ ...c, subjectCount: 0 }, ...prev]
     })
-    setModal({ open: false })
-    toast.success(isEdit ? `"${saved.title}" updated` : `"${saved.title}" created`)
+    setModalOpen(false)
   }
 
-  const publishedCount = courses.filter((c) => c.isPublished).length
+  async function handleDelete(id: string) {
+    setDeleteLoading(true)
+    try {
+      await deleteCourse(id)
+      setCourses((prev) => prev.filter((c) => c.id !== id))
+      setDeletingId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete course.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  function toggleSort(key: 'name' | 'subjectCount') {
+    if (sortKey === key) { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')) }
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const filtered = courses
+    .filter((c) =>
+      !search.trim() ||
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.slug.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => {
+      const mult = sortDir === 'asc' ? 1 : -1
+      if (sortKey === 'name') return mult * a.name.localeCompare(b.name)
+      return mult * ((a.subjectCount ?? 0) - (b.subjectCount ?? 0))
+    })
 
   return (
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {loading ? 'Loading…' : `${courses.length} total · ${publishedCount} published`}
+          <h1 className="text-xl font-semibold">Courses</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {loading ? 'Loading…' : `${courses.length} cours${courses.length === 1 ? 'e' : 'es'}`}
           </p>
         </div>
-        <Button onClick={() => setModal({ open: true, course: null })}>
-          <Plus className="mr-2 size-4" />
-          New Subject
+        <Button onClick={openCreate} className="gap-2 shrink-0">
+          <Plus className="size-4" />
+          New course
         </Button>
       </div>
 
-      {/* ── Load error ── */}
-      <LoadError message={loadError} />
-
-      {/* ── Table ── */}
-      <div className="rounded-xl border shadow-sm overflow-hidden">
-        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
-
-        {loading ? (
-          <div className="divide-y">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-4">
-                <Skeleton className="hidden sm:block size-10 rounded-md shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-64" />
-                </div>
-                <Skeleton className="hidden sm:block h-4 w-6" />
-                <Skeleton className="h-5 w-20 rounded-full" />
-                <Skeleton className="h-7 w-20 rounded-md" />
-              </div>
-            ))}
-          </div>
-
-        ) : courses.length === 0 ? (
-          <EmptyState
-            icon={BookOpen}
-            title="No subjects yet"
-            description="Create your first subject to get started."
-            action={
-              <Button size="sm" onClick={() => setModal({ open: true, course: null })}>
-                <Plus className="mr-2 size-4" />
-                New Subject
-              </Button>
-            }
-          />
-
-        ) : (
-          <div className="divide-y">
-            {courses.map((course) => (
-              <CourseRow
-                key={course.id}
-                course={course}
-                isToggling={toggling.has(course.id)}
-                isDeleting={deleting.has(course.id)}
-                isConfirmingDelete={confirmId === course.id}
-                onEdit={() => setModal({ open: true, course })}
-                onTogglePublished={() => handleTogglePublished(course)}
-                onConfirmDelete={() => setConfirmId(course.id)}
-                onCancelDelete={() => setConfirmId(null)}
-                onDelete={() => handleDelete(course)}
-              />
-            ))}
-          </div>
+      {/* ── Search ── */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Search courses…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 pr-9"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="size-4" />
+          </button>
         )}
       </div>
 
-      {/* ── Modal ── */}
-      {modal.open && (
-        <CourseModal
-          course={modal.course}
-          onClose={() => setModal({ open: false })}
-          onSaved={(saved) => handleSaved(saved, modal.course !== null)}
-        />
-      )}
-    </div>
-  )
-}
+      {/* ── Error ── */}
+      <LoadError message={error} />
 
-// ── CourseRow ─────────────────────────────────────────────────────────────────
-
-interface CourseRowProps {
-  course: AdminCourse
-  isToggling: boolean
-  isDeleting: boolean
-  isConfirmingDelete: boolean
-  onEdit: () => void
-  onTogglePublished: () => void
-  onConfirmDelete: () => void
-  onCancelDelete: () => void
-  onDelete: () => void
-}
-
-function CourseRow({
-  course, isToggling, isDeleting, isConfirmingDelete,
-  onEdit, onTogglePublished, onConfirmDelete, onCancelDelete, onDelete,
-}: CourseRowProps) {
-  return (
-    <div className="divide-y">
-      <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
-
-        {/* Thumbnail */}
-        <div className="hidden sm:block w-12 shrink-0">
-          <CourseThumbnail
-            src={course.thumbnailUrl}
-            alt={course.title}
-            className="size-10 rounded-md border"
-          />
-        </div>
-
-        {/* Title + description */}
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{course.title}</p>
-          {course.description ? (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-sm">
-              {course.description}
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground/40 mt-0.5 italic">No description</p>
-          )}
-        </div>
-
-        {/* Lesson count */}
-        <span className="hidden sm:flex justify-center text-sm tabular-nums text-muted-foreground">
-          {course.lessonCount}
-        </span>
-
-        {/* Status badge */}
-        <span className="flex justify-center">
-          {course.isPublished ? (
-            <Badge variant="success">Published</Badge>
-          ) : (
-            <Badge variant="secondary">Draft</Badge>
-          )}
-        </span>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-1">
-          <Tip label={course.isPublished ? 'Unpublish' : 'Publish'}>
-            <Button
-              variant="ghost" size="icon" className="size-8"
-              disabled={isToggling || isDeleting}
-              onClick={onTogglePublished}
-            >
-              {isToggling
-                ? <Loader2 className="size-4 animate-spin" />
-                : course.isPublished
-                  ? <EyeOff className="size-4" />
-                  : <Eye className="size-4" />}
-            </Button>
-          </Tip>
-          <Tip label="Edit subject">
-            <Button
-              variant="ghost" size="icon" className="size-8"
-              disabled={isDeleting} onClick={onEdit}
-            >
-              <Pencil className="size-4" />
-            </Button>
-          </Tip>
-          <Tip label={course.isPublished ? 'View on site' : 'Preview draft'}>
-            <Button
-              variant="ghost" size="icon" className="size-8"
-              disabled={isDeleting} asChild
-            >
-              <Link to={ROUTES.COURSE(course.id)} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className={`size-4 ${!course.isPublished ? 'text-warning' : ''}`} />
-              </Link>
-            </Button>
-          </Tip>
-          <Tip label="Delete subject" align="right">
-            <Button
-              variant="ghost" size="icon"
-              className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              disabled={isDeleting} onClick={onConfirmDelete}
-            >
-              {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            </Button>
-          </Tip>
-        </div>
+      {/* ── Table ── */}
+      <div className="rounded-xl border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <SortHeader label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Slug</th>
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
+              <SortHeader label="Subjects" col="subjectCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right" />
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                  <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-4 w-48" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-7 w-16 ml-auto" /></td>
+                </tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-16 text-center">
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Tag className="size-8 opacity-40" />
+                    <p className="font-medium">
+                      {search ? 'No courses match your search.' : 'No courses yet.'}
+                    </p>
+                    {!search && (
+                      <Button size="sm" variant="outline" onClick={openCreate} className="gap-1.5">
+                        <Plus className="size-3.5" />
+                        Create first course
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((c) => (
+                <tr key={c.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3 font-medium">{c.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.slug}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-muted-foreground max-w-xs truncate">
+                    {c.description ?? <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">{c.subjectCount ?? 0}</td>
+                  <td className="px-4 py-3">
+                    {deletingId === c.id ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-xs text-muted-foreground hidden sm:inline">Delete?</span>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-2.5 text-xs"
+                          disabled={deleteLoading}
+                          onClick={() => handleDelete(c.id)}
+                        >
+                          {deleteLoading ? <Loader2 className="size-3 animate-spin" /> : 'Confirm'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2.5 text-xs"
+                          disabled={deleteLoading}
+                          onClick={() => setDeletingId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Tip label="Edit course">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7"
+                            onClick={() => openEdit(c)}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        </Tip>
+                        <Tip label="Delete course" align="right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeletingId(c.id)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </Tip>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {isConfirmingDelete && (
-        <DeleteConfirmRow
-          message={<>Delete <strong>"{course.title}"</strong>? This cannot be undone.</>}
-          onConfirm={onDelete}
-          onCancel={onCancelDelete}
+      {/* ── Create / Edit modal ── */}
+      {modalOpen && (
+        <CourseModal
+          course={editing}
+          existingNames={courses.filter((c) => c.id !== editing?.id).map((c) => c.name.toLowerCase())}
+          existingSlugs={courses.filter((c) => c.id !== editing?.id).map((c) => c.slug.toLowerCase())}
+          onClose={() => setModalOpen(false)}
+          onSaved={handleSaved}
         />
       )}
     </div>
   )
 }
 
+// ── Sort header ───────────────────────────────────────────────────────────────
+
+function SortHeader({
+  label, col, sortKey, sortDir, onSort, className = '',
+}: {
+  label: string
+  col: 'name' | 'subjectCount'
+  sortKey: 'name' | 'subjectCount'
+  sortDir: 'asc' | 'desc'
+  onSort: (col: 'name' | 'subjectCount') => void
+  className?: string
+}) {
+  const active = sortKey === col
+  return (
+    <th
+      className={`px-4 py-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors ${className}`}
+      onClick={() => onSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <span className="flex flex-col">
+          <ChevronUp   className={`size-2.5 -mb-0.5 ${active && sortDir === 'asc'  ? 'text-foreground' : 'opacity-30'}`} />
+          <ChevronDown className={`size-2.5 ${active && sortDir === 'desc' ? 'text-foreground' : 'opacity-30'}`} />
+        </span>
+      </span>
+    </th>
+  )
+}
+
+// ── Course modal ──────────────────────────────────────────────────────────────
+
+interface CourseModalProps {
+  course: Course | null
+  existingNames: string[]
+  existingSlugs: string[]
+  onClose: () => void
+  onSaved: (c: Course) => void
+}
+
+function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }: CourseModalProps) {
+  const isEdit = course !== null
+
+  const [name,        setName]        = useState(course?.name        ?? '')
+  const [slug,        setSlug]        = useState(course?.slug        ?? '')
+  const [description, setDescription] = useState(course?.description ?? '')
+  const [slugEdited,  setSlugEdited]  = useState(isEdit)
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+
+  const nameRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { nameRef.current?.focus() }, [])
+
+  function handleNameChange(val: string) {
+    setName(val)
+    if (!slugEdited) setSlug(nameToSlug(val))
+  }
+
+  function validate(): string | null {
+    if (!name.trim()) return 'Name is required.'
+    if (!slug.trim()) return 'Slug is required.'
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return 'Slug must be lowercase letters, numbers, and hyphens only.'
+    if (existingNames.includes(name.trim().toLowerCase())) return 'A course with this name already exists.'
+    if (existingSlugs.includes(slug.trim().toLowerCase()))  return 'A course with this slug already exists.'
+    return null
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const validationError = validate()
+    if (validationError) { setError(validationError); return }
+
+    setSaving(true)
+    setError(null)
+    try {
+      if (isEdit) {
+        await updateCourse(course.id, {
+          name:        name.trim(),
+          slug:        slug.trim(),
+          description: description.trim() || undefined,
+        })
+        onSaved({ ...course, name: name.trim(), slug: slug.trim(), description: description.trim() || null })
+      } else {
+        const created = await createCourse({
+          name:        name.trim(),
+          slug:        slug.trim(),
+          description: description.trim() || undefined,
+        })
+        onSaved(created)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save course.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-md rounded-xl border bg-background shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="text-lg font-semibold">
+            {isEdit ? 'Edit Course' : 'New Course'}
+          </h2>
+          <Button variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={saving}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+
+          {/* Name */}
+          <div className="space-y-1.5">
+            <label htmlFor="course-name" className="text-sm font-medium">
+              Name <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="course-name"
+              ref={nameRef}
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="e.g. Web Development"
+              disabled={saving}
+            />
+          </div>
+
+          {/* Slug */}
+          <div className="space-y-1.5">
+            <label htmlFor="course-slug" className="text-sm font-medium">
+              Slug <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="course-slug"
+              value={slug}
+              onChange={(e) => { setSlugEdited(true); setSlug(e.target.value) }}
+              placeholder="e.g. web-development"
+              disabled={saving}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL-safe identifier. Auto-generated from name, but editable.
+            </p>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label htmlFor="course-desc" className="text-sm font-medium">
+              Description <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <textarea
+              id="course-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description of what this course covers…"
+              rows={2}
+              disabled={saving}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          {/* Edge case note */}
+          {isEdit && (
+            <p className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+              Deleting this course will not remove it from existing subjects — those subjects will simply become unassigned.
+            </p>
+          )}
+
+          {/* Error */}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {isEdit ? 'Save changes' : 'Create course'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

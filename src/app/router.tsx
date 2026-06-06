@@ -16,8 +16,8 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { QuizHistoryPage } from '@/pages/QuizHistoryPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
-import { CoursesPage } from '@/pages/CoursesPage'
-import { CourseDetailPage } from '@/pages/CourseDetailPage'
+import { SubjectsPage } from '@/pages/SubjectsPage'
+import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
 import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
 import { PaymentCancelPage } from '@/pages/PaymentCancelPage'
@@ -29,12 +29,12 @@ import { FAQPage } from '@/pages/FAQPage'
 import { DevicesPage } from '@/pages/DevicesPage'
 
 const AdminDashboardPage     = lazy(() => import('@/pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
-const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
+const AdminSubjectsPage      = lazy(() => import('@/pages/admin/AdminSubjectsPage').then(m => ({ default: m.AdminSubjectsPage })))
 const AdminLessonsPage       = lazy(() => import('@/pages/admin/AdminLessonsPage').then(m => ({ default: m.AdminLessonsPage })))
 const AdminQuizzesPage       = lazy(() => import('@/pages/admin/AdminQuizzesPage').then(m => ({ default: m.AdminQuizzesPage })))
 const AdminUsersPage         = lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
 const AdminSubscriptionsPage = lazy(() => import('@/pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
-const AdminCategoriesPage    = lazy(() => import('@/pages/admin/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })))
+const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
 const AdminBooksPage         = lazy(() => import('@/pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
 const AdminOrdersPage           = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
 const AdminAnnouncementsPage    = lazy(() => import('@/pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
@@ -51,8 +51,9 @@ export const router = createBrowserRouter([
       { path: 'about',            element: <AboutPage /> },
       { path: 'contact',          element: <ContactPage /> },
       { path: 'faq',              element: <FAQPage /> },
-      { path: 'courses',          element: <CoursesPage /> },
-      { path: 'course/:courseId', element: <CourseDetailPage /> },
+      // URL path strings preserved per Phase 4 scope; component files renamed.
+      { path: 'courses',          element: <SubjectsPage /> },
+      { path: 'course/:courseId', element: <SubjectDetailPage /> },
       { path: 'lesson/:lessonId', element: <LessonPage /> },
       { path: 'books',            element: <BooksPage /> },
       { path: 'book/:bookId',     element: <BookDetailPage /> },
@@ -99,13 +100,16 @@ export const router = createBrowserRouter([
               </Suspense>
             ),
             children: [
+              // URL path strings preserved per Phase 4 scope. Mapping:
+              //   /admin/courses     → AdminSubjectsPage (manages Subjects)
+              //   /admin/categories  → AdminCoursesPage  (manages parent Courses)
               { index: true,           element: <AdminDashboardPage />    },
-              { path: 'courses',       element: <AdminCoursesPage />      },
+              { path: 'courses',       element: <AdminSubjectsPage />     },
               { path: 'lessons',       element: <AdminLessonsPage />      },
               { path: 'quizzes',       element: <AdminQuizzesPage />      },
               { path: 'users',         element: <AdminUsersPage />        },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
-              { path: 'categories',    element: <AdminCategoriesPage />   },
+              { path: 'categories',    element: <AdminCoursesPage />      },
               { path: 'books',           element: <AdminBooksPage />        },
               { path: 'orders',          element: <AdminOrdersPage />       },
               { path: 'announcements',   element: <AdminAnnouncementsPage /> },

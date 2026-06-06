@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
-import { CoursesPage } from '@/pages/CoursesPage'
-import { CourseDetailPage } from '@/pages/CourseDetailPage'
+import { SubjectsPage } from '@/pages/SubjectsPage'
+import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
 import { BooksPage } from '@/pages/BooksPage'
 import { BookDetailPage } from '@/pages/BookDetailPage'
@@ -33,8 +33,9 @@ export const router = createBrowserRouter([
         children: [
           // Public browse (free preview enforced inside the components,
           // mirroring legacy /src router behavior)
-          { path: 'courses',          element: <CoursesPage />        },
-          { path: 'course/:courseId', element: <CourseDetailPage />   },
+          // URL path strings preserved per Phase 4 scope; component files renamed.
+          { path: 'courses',          element: <SubjectsPage />       },
+          { path: 'course/:courseId', element: <SubjectDetailPage />  },
           { path: 'lesson/:lessonId', element: <LessonPage />         },
           { path: 'books',            element: <BooksPage />          },
           { path: 'book/:bookId',     element: <BookDetailPage />     },

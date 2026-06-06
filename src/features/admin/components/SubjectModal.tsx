@@ -5,44 +5,44 @@ import { Input } from '@/components/ui/input'
 import { uploadToStorage } from '@/services/storageClient'
 import { storagePaths } from '@/services/storagePaths'
 import {
-  createCourse,
-  updateCourse,
-  type AdminCourse,
+  createSubject,
+  updateSubject,
+  type AdminSubject,
 } from '@/services/admin.service'
-import { getAllCategories } from '@/services/categoriesApi'
+import { getAllCourses } from '@/services/coursesApi'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
-import type { Category } from '@/features/categories/types'
+import type { Course } from '@/features/courses/types'
 
-interface CourseModalProps {
+interface SubjectModalProps {
   /** null = create mode, non-null = edit mode */
-  course: AdminCourse | null
+  subject: AdminSubject | null
   onClose: () => void
-  onSaved: (course: AdminCourse) => void
+  onSaved: (subject: AdminSubject) => void
 }
 
-export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
-  const isEdit = course !== null
+export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
+  const isEdit = subject !== null
 
-  const [title,            setTitle]            = useState(course?.title       ?? '')
-  const [description,      setDescription]      = useState(course?.description ?? '')
-  const [categoryId,       setCategoryId]       = useState<string>(course?.categoryId ?? '')
+  const [title,            setTitle]            = useState(subject?.title       ?? '')
+  const [description,      setDescription]      = useState(subject?.description ?? '')
+  const [courseId,         setCourseIdState]    = useState<string>(subject?.courseId ?? '')
   const [thumbnailFile,    setThumbnailFile]    = useState<File | null>(null)
-  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(course?.thumbnailUrl ?? null)
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(subject?.thumbnailUrl ?? null)
   const [saving,           setSaving]           = useState(false)
   const [uploadProgress,   setUploadProgress]   = useState(0)
   const [error,            setError]            = useState<string | null>(null)
-  const [categories,       setCategories]       = useState<Category[]>([])
-  const [catsLoading,      setCatsLoading]      = useState(true)
+  const [courses,          setCourses]          = useState<Course[]>([])
+  const [coursesLoading,   setCoursesLoading]   = useState(true)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load categories for the dropdown
+  // Load parent courses for the dropdown
   useEffect(() => {
-    getAllCategories()
-      .then(setCategories)
-      .catch(() => { /* silently fail — admin can still save without category */ })
-      .finally(() => setCatsLoading(false))
+    getAllCourses()
+      .then(setCourses)
+      .catch(() => { /* silently fail — admin can still save without a course */ })
+      .finally(() => setCoursesLoading(false))
   }, [])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -66,49 +66,52 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
     setError(null)
 
     try {
-      const catId = categoryId || null
+      const chosenCourseId = courseId || null
 
-      // ── 1. Create or update course record ───────────────────────────────────
-      let courseId = course?.id
+      // ── 1. Create or update subject record ──────────────────────────────────
+      let subjectId = subject?.id
       if (isEdit) {
-        await updateCourse(course.id, {
+        await updateSubject(subject.id, {
           title:       trimmedTitle,
           description: description.trim(),
-          categoryId:  catId,
+          courseId:    chosenCourseId,
         })
       } else {
-        courseId = await createCourse({
+        subjectId = await createSubject({
           title:       trimmedTitle,
           description: description.trim(),
-          categoryId:  catId,
+          courseId:    chosenCourseId,
         })
       }
 
       // ── 2. Upload thumbnail if a new file was picked ─────────────────────
-      let thumbnailUrl = course?.thumbnailUrl ?? null
-      if (thumbnailFile && courseId) {
+      let thumbnailUrl = subject?.thumbnailUrl ?? null
+      if (thumbnailFile && subjectId) {
         const ext    = thumbnailFile.name.split('.').pop() ?? 'webp'
-        const path   = storagePaths.courseThumbnail(courseId, ext)
+        // storagePaths.courseThumbnail key shape is `thumbnails/course-${id}.${ext}`.
+        // The R2 path template is intentionally unchanged — existing objects use
+        // these keys; renaming would require an R2 migration outside this phase.
+        const path   = storagePaths.courseThumbnail(subjectId, ext)
         const result = await uploadToStorage(thumbnailFile, path, (evt) => {
           setUploadProgress(evt.percent)
         })
         thumbnailUrl = result.publicUrl
-        await updateCourse(courseId, { thumbnailUrl })
+        await updateSubject(subjectId, { thumbnailUrl })
       }
 
-      const selectedCat = categories.find((c) => c.id === catId)
+      const selectedCourse = courses.find((c) => c.id === chosenCourseId)
 
       onSaved({
-        id:           courseId!,
+        id:           subjectId!,
         title:        trimmedTitle,
         description:  description.trim(),
         thumbnailUrl,
-        category:     selectedCat?.name ?? course?.category ?? '',
-        categoryId:   catId,
-        duration:     course?.duration    ?? '',
-        isPublished:  course?.isPublished ?? false,
-        lessonCount:  course?.lessonCount ?? 0,
-        createdAt:    course?.createdAt   ?? new Date().toISOString(),
+        category:     selectedCourse?.name ?? subject?.category ?? '',
+        courseId:     chosenCourseId,
+        duration:     subject?.duration    ?? '',
+        isPublished:  subject?.isPublished ?? false,
+        lessonCount:  subject?.lessonCount ?? 0,
+        createdAt:    subject?.createdAt   ?? new Date().toISOString(),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save subject.')
@@ -188,11 +191,11 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
 
           {/* Title */}
           <div className="space-y-1.5">
-            <label htmlFor="course-title" className="text-sm font-medium">
+            <label htmlFor="subject-title" className="text-sm font-medium">
               Title <span className="text-destructive">*</span>
             </label>
             <Input
-              id="course-title"
+              id="subject-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Introduction to React"
@@ -202,11 +205,11 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label htmlFor="course-desc" className="text-sm font-medium">
+            <label htmlFor="subject-desc" className="text-sm font-medium">
               Description
             </label>
             <textarea
-              id="course-desc"
+              id="subject-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What will students learn in this subject?"
@@ -216,14 +219,14 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
             />
           </div>
 
-          {/* Category */}
+          {/* Parent Course */}
           <div className="space-y-1.5">
-            <label htmlFor="course-category" className="text-sm font-medium">
+            <label htmlFor="subject-course" className="text-sm font-medium">
               Course
             </label>
-            {catsLoading ? (
+            {coursesLoading ? (
               <div className="h-9 rounded-md border bg-muted animate-pulse" />
-            ) : categories.length === 0 ? (
+            ) : courses.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 No courses yet.{' '}
                 <a href="/admin/categories" className="underline hover:text-foreground">
@@ -232,16 +235,16 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
               </p>
             ) : (
               <select
-                id="course-category"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+                id="subject-course"
+                value={courseId}
+                onChange={(e) => setCourseIdState(e.target.value)}
                 disabled={saving}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">— No course —</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>

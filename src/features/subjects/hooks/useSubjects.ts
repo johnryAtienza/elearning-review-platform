@@ -17,7 +17,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { getAllSubjects } from '../services/courseService'
+import { getAllSubjects } from '../services/subjectService'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { Subject, SortOption, DurationFilter } from '../types'
 

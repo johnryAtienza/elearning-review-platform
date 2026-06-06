@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
-import { SavedCourseCard } from '@/features/courses/components/SavedCourseCard'
+import { SavedSubjectCard } from '@/features/subjects/components/SavedSubjectCard'
 import { MyBooksCard } from '@/features/books/components/MyBooksCard'
 import { useAuthStore } from '@/store/authStore'
-import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
 import { useQuizHistoryStore } from '@/store/quizHistoryStore'
-import { useCourses } from '@/features/courses/hooks/useCourses'
+import { useSubjects } from '@/features/subjects/hooks/useSubjects'
 import { AttemptRow } from '@/pages/QuizHistoryPage'
 import { ROUTES } from '@/constants/routes'
 
@@ -18,16 +18,16 @@ export function DashboardPage() {
   const { user, isSubscribed, logout } = useAuthStore()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
-  const { savedIds, progressMap, stats, loading, fetch } = useSavedCoursesStore()
+  const { savedIds, progressMap, stats, loading, fetch } = useSavedSubjectsStore()
   const {
     attempts:      quizAttempts,
     loading:       quizLoading,
     initialized:   quizInitialized,
     fetch:         fetchQuizHistory,
   } = useQuizHistoryStore()
-  const { courses } = useCourses()
+  const { subjects } = useSubjects()
 
-  // Load saved courses + stats + quiz history on mount
+  // Load saved subjects + stats + quiz history on mount
   useEffect(() => {
     fetch()
     fetchQuizHistory()
@@ -40,13 +40,13 @@ export function DashboardPage() {
     .toUpperCase()
     .slice(0, 2) ?? '?'
 
-  // Merge saved IDs with full course data
-  const savedCourses = useMemo(
+  // Merge saved IDs with full subject data
+  const savedSubjects = useMemo(
     () =>
       savedIds
-        .map((id) => courses.find((c) => c.id === id))
-        .filter((c): c is NonNullable<typeof c> => c !== undefined),
-    [savedIds, courses],
+        .map((id) => subjects.find((s) => s.id === id))
+        .filter((s): s is NonNullable<typeof s> => s !== undefined),
+    [savedIds, subjects],
   )
 
   return (
@@ -84,7 +84,7 @@ export function DashboardPage() {
         <StatCard
           icon={BookOpen}
           label="Subjects Saved"
-          value={stats.coursesSaved}
+          value={stats.subjectsSaved}
           loading={loading}
           accent="blue"
         />
@@ -125,16 +125,16 @@ export function DashboardPage() {
         loading={quizLoading && !quizInitialized}
       />
 
-      {/* ── My Courses ── */}
+      {/* ── My Subjects ── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               My Subjects
             </h2>
-            {savedCourses.length > 0 && (
+            {savedSubjects.length > 0 && (
               <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                {savedCourses.length}
+                {savedSubjects.length}
               </span>
             )}
             <div className="h-px flex-1 bg-border w-12" />
@@ -150,21 +150,21 @@ export function DashboardPage() {
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <SavedCourseCardSkeleton key={i} />
+              <SavedSubjectCardSkeleton key={i} />
             ))}
           </div>
-        ) : savedCourses.length === 0 ? (
-          <EmptyCourses />
+        ) : savedSubjects.length === 0 ? (
+          <EmptySubjects />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {savedCourses.map((course) => {
-              const progress = progressMap[course.id]
+            {savedSubjects.map((subject) => {
+              const progress = progressMap[subject.id]
               return (
-                <SavedCourseCard
-                  key={course.id}
-                  course={course}
+                <SavedSubjectCard
+                  key={subject.id}
+                  subject={subject}
                   watchedLessons={progress?.watchedLessons ?? 0}
-                  totalLessons={progress?.totalLessons ?? course.lessons}
+                  totalLessons={progress?.totalLessons ?? subject.lessons}
                 />
               )
             })}
@@ -182,7 +182,7 @@ export function DashboardPage() {
         </h2>
         <div className="rounded-xl border bg-card divide-y overflow-hidden">
           {[
-            { to: '/courses',      label: 'Browse all subjects',    sub: `${courses.length} subjects available` },
+            { to: '/courses',      label: 'Browse all subjects',    sub: `${subjects.length} subjects available` },
             { to: '/subscription', label: 'Subscription & billing', sub: isSubscribed ? 'Standard plan — active' : 'Free plan' },
           ].map(({ to, label, sub }) => (
             <Link
@@ -302,7 +302,7 @@ function RecentQuizzesSection({
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyCourses() {
+function EmptySubjects() {
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/30 py-14 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-muted">
@@ -326,7 +326,7 @@ function EmptyCourses() {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
-function SavedCourseCardSkeleton() {
+function SavedSubjectCardSkeleton() {
   return (
     <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
       <Skeleton className="h-40 rounded-none" />

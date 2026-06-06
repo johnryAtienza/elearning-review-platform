@@ -8,15 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
-import { CourseThumbnail } from '@/components/CourseThumbnail'
+import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import { useAuthStore } from '@/store/authStore'
-import { useSavedCoursesStore } from '@/store/savedCoursesStore'
-import { getCourseById } from '@/features/courses/services/courseService'
-import { courseApi } from '@/services/courseApi'
-import { getLessonsByCourse } from '@/features/lessons/services/lessonService'
+import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
+import { getSubjectById } from '@/features/subjects/services/subjectService'
+import { subjectApi } from '@/services/subjectApi'
+import { getLessonsBySubject } from '@/features/lessons/services/lessonService'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
-import type { Course } from '@/features/courses/types'
+import type { Subject } from '@/features/subjects/types'
 import type { Lesson } from '@/features/lessons/types'
 
 /**
@@ -58,20 +58,22 @@ function groupLessonsByWeek(lessons: Lesson[]): WeekGroup[] {
     .map(([weekNumber, lessons]) => ({ weekNumber, lessons }))
 }
 
-export function CourseDetailPage() {
-  const { courseId } = useParams<{ courseId: string }>()
+export function SubjectDetailPage() {
+  // The URL param name `courseId` is preserved — URL paths are unchanged
+  // this sprint (the value is the parent subject's id).
+  const { courseId: subjectId } = useParams<{ courseId: string }>()
   const { isAuthenticated, isSubscribed, isAdmin } = useAuthStore()
-  const isSaved = useSavedCoursesStore((s) => courseId ? s.isSaved(courseId) : false)
-  const toggle  = useSavedCoursesStore((s) => s.toggle)
+  const isSaved = useSavedSubjectsStore((s) => subjectId ? s.isSaved(subjectId) : false)
+  const toggle  = useSavedSubjectsStore((s) => s.toggle)
   const [saving, setSaving] = useState(false)
 
   async function handleToggleSave() {
-    if (!courseId || saving) return
+    if (!subjectId || saving) return
     setSaving(true)
-    try { await toggle(courseId) } finally { setSaving(false) }
+    try { await toggle(subjectId) } finally { setSaving(false) }
   }
 
-  const [course, setCourse] = useState<Course | undefined>()
+  const [subject, setSubject] = useState<Subject | undefined>()
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -90,16 +92,16 @@ export function CourseDetailPage() {
   const weekGroups = useMemo(() => groupLessonsByWeek(lessons), [lessons])
 
   useEffect(() => {
-    if (!courseId) return
+    if (!subjectId) return
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    const fetchCourse = isAdmin ? courseApi.getByIdAdmin(courseId) : getCourseById(courseId)
-    Promise.all([fetchCourse, getLessonsByCourse(courseId)])
-      .then(([c, ls]) => {
+    const fetchSubject = isAdmin ? subjectApi.getByIdAdmin(subjectId) : getSubjectById(subjectId)
+    Promise.all([fetchSubject, getLessonsBySubject(subjectId)])
+      .then(([s, ls]) => {
         if (cancelled) return
-        if (!c) { setNotFound(true) } else { setCourse(c); setLessons(ls) }
+        if (!s) { setNotFound(true) } else { setSubject(s); setLessons(ls) }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load subject.')
@@ -107,12 +109,12 @@ export function CourseDetailPage() {
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [courseId, isAdmin])
+  }, [subjectId, isAdmin])
 
   if (notFound) return <Navigate to="/" replace />
   if (error) return <ErrorMessage message={error} />
 
-  if (loading || !course) {
+  if (loading || !subject) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
         <Skeleton className="h-5 w-24" />
@@ -141,7 +143,7 @@ export function CourseDetailPage() {
       </Link>
 
       {/* ── Draft preview banner (admin only) ── */}
-      {isAdmin && course.isPublished === false && (
+      {isAdmin && subject.isPublished === false && (
         <div className="flex items-center justify-between gap-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
           <div className="flex items-center gap-2.5 text-sm text-warning">
             <EyeOff className="size-4 shrink-0" />
@@ -160,17 +162,17 @@ export function CourseDetailPage() {
         </div>
       )}
 
-      {/* ── Course banner ── */}
-      <CourseBanner course={course} />
+      {/* ── Subject banner ── */}
+      <SubjectBanner subject={subject} />
 
       {/* ── Title + meta + actions ── */}
       <header className="space-y-4">
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
-            {course.title}
+            {subject.title}
           </h1>
           <p className="text-muted-foreground leading-relaxed max-w-3xl">
-            {course.description}
+            {subject.description}
           </p>
         </div>
 
@@ -187,7 +189,7 @@ export function CourseDetailPage() {
           )}
           <span className="flex items-center gap-1.5">
             <Tag className="size-4" />
-            {course.category}
+            {subject.category}
           </span>
           {isAuthenticated && (
             <span className={
@@ -273,16 +275,16 @@ export function CourseDetailPage() {
   )
 }
 
-// ── Course banner ────────────────────────────────────────────────────────────
-// 16:9 hero image at the top of the page. Uses the shared CourseThumbnail
-// component (same one CourseCard uses) so banner + card look consistent.
+// ── Subject banner ───────────────────────────────────────────────────────────
+// 16:9 hero image at the top of the page. Uses the shared SubjectThumbnail
+// component (same one SubjectCard uses) so banner + card look consistent.
 
-function CourseBanner({ course }: { course: Course }) {
+function SubjectBanner({ subject }: { subject: Subject }) {
   return (
-    <CourseThumbnail
-      src={course.thumbnailUrl}
-      alt={course.title}
-      gradient={course.thumbnail}
+    <SubjectThumbnail
+      src={subject.thumbnailUrl}
+      alt={subject.title}
+      gradient={subject.thumbnail}
       className="aspect-video w-full rounded-2xl border"
     />
   )
@@ -443,7 +445,7 @@ function EmptyCurriculum({ isAdmin }: { isAdmin: boolean }) {
       <div className="space-y-1">
         <h2 className="font-semibold text-lg">Curriculum coming soon</h2>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Lesson content is being prepared for this course.
+          Lesson content is being prepared for this subject.
         </p>
       </div>
       {isAdmin && (

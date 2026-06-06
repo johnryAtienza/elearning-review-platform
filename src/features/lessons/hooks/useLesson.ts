@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { getLessonById, getLessonsByCourse } from '../services/lessonService'
-import { getCourseById } from '@/features/courses/services/courseService'
+import { getLessonById, getLessonsBySubject } from '../services/lessonService'
+import { getSubjectById } from '@/features/subjects/services/subjectService'
 import type { Lesson } from '../types'
-import type { Course } from '@/features/courses/types'
+import type { Subject } from '@/features/subjects/types'
 
 export interface LessonData {
   lesson: Lesson
-  course: Course | undefined
+  subject: Subject | undefined
   siblings: Lesson[]
   currentIdx: number
   prev: Lesson | undefined
@@ -43,9 +43,11 @@ export function useLesson(lessonId: string): UseLessonResult {
           return
         }
 
-        const [course, siblings] = await Promise.all([
-          getCourseById(lesson.courseId),
-          getLessonsByCourse(lesson.courseId),
+        // Lesson.courseId field name is preserved (bridge field); value is the
+        // parent subject's id. See plan §6.7 follow-up notes.
+        const [subject, siblings] = await Promise.all([
+          getSubjectById(lesson.courseId),
+          getLessonsBySubject(lesson.courseId),
         ])
 
         if (cancelled) return
@@ -55,7 +57,7 @@ export function useLesson(lessonId: string): UseLessonResult {
 
         setData({
           lesson,
-          course,
+          subject,
           siblings,
           currentIdx,
           prev: siblings[currentIdx - 1],

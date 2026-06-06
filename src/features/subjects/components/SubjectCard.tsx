@@ -2,21 +2,21 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock, BookOpen, Bookmark, BookmarkCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { CourseThumbnail } from '@/components/CourseThumbnail'
-import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { SubjectThumbnail } from '@/components/SubjectThumbnail'
+import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/utils/cn'
-import type { Course } from '../types'
+import type { Subject } from '../types'
 
-interface CourseCardProps {
-  course: Course
+interface SubjectCardProps {
+  subject: Subject
 }
 
-export function CourseCard({ course }: CourseCardProps) {
+export function SubjectCard({ subject }: SubjectCardProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isAdmin = useAuthStore((s) => s.isAdmin)
-  const isSaved  = useSavedCoursesStore((s) => s.isSaved(course.id))
-  const toggle   = useSavedCoursesStore((s) => s.toggle)
+  const isSaved  = useSavedSubjectsStore((s) => s.isSaved(subject.id))
+  const toggle   = useSavedSubjectsStore((s) => s.toggle)
   const [saving, setSaving] = useState(false)
 
   async function handleToggleSave(e: React.MouseEvent) {
@@ -25,7 +25,7 @@ export function CourseCard({ course }: CourseCardProps) {
     if (saving) return
     setSaving(true)
     try {
-      await toggle(course.id)
+      await toggle(subject.id)
     } finally {
       setSaving(false)
     }
@@ -33,20 +33,20 @@ export function CourseCard({ course }: CourseCardProps) {
 
   return (
     <Link
-      to={`/course/${course.id}`}
+      to={`/course/${subject.id}`}
       className="group relative flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}
-      <CourseThumbnail
-        src={course.thumbnailUrl}
-        alt={course.title}
-        gradient={course.thumbnail}
+      <SubjectThumbnail
+        src={subject.thumbnailUrl}
+        alt={subject.title}
+        gradient={subject.thumbnail}
         className="h-44"
       >
         <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
         <div className="absolute bottom-3 left-3">
           <Badge variant="secondary" className="bg-black/25 text-white border-0 backdrop-blur-sm text-xs">
-            {course.category}
+            {subject.category}
           </Badge>
         </div>
 
@@ -72,27 +72,27 @@ export function CourseCard({ course }: CourseCardProps) {
             }
           </button>
         )}
-      </CourseThumbnail>
+      </SubjectThumbnail>
 
       {/* Body */}
       <div className="flex flex-col gap-2.5 p-4 flex-1">
         <h3 className="font-semibold text-[0.9375rem] leading-snug group-hover:text-primary transition-colors line-clamp-2">
-          {course.title}
+          {subject.title}
         </h3>
         <p className="text-sm text-muted-foreground line-clamp-2 flex-1 leading-relaxed">
-          {course.description}
+          {subject.description}
         </p>
 
         {/* Meta */}
         <div className="flex items-center gap-4 pt-1 text-xs text-muted-foreground border-t">
           <span className="flex items-center gap-1 pt-2.5">
             <BookOpen className="size-3.5" />
-            {course.lessons} lessons
+            {subject.lessons} lessons
           </span>
-          {course.duration && (
+          {subject.duration && (
             <span className="flex items-center gap-1 pt-2.5">
               <Clock className="size-3.5" />
-              {course.duration}
+              {subject.duration}
             </span>
           )}
         </div>

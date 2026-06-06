@@ -13,8 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
-import { courseApi } from '@/services/courseApi'
-import type { Course } from '@/features/courses/types'
+import { subjectApi } from '@/services/subjectApi'
+import type { Subject } from '@/features/subjects/types'
 import { cn } from '@/utils/cn'
 import {
   getAbsoluteUrl,
@@ -22,27 +22,27 @@ import {
   getRouteOwner,
 } from '@s-class/constants/urls'
 
-// ── Module-level cache for the published course list ─────────────────────────
+// ── Module-level cache for the published subject list ────────────────────────
 // Cached so we only fetch once per full page load even if the Navbar re-mounts.
-let coursesCache: Course[] | null = null
-let coursesPromise: Promise<Course[]> | null = null
+let subjectsCache: Subject[] | null = null
+let subjectsPromise: Promise<Subject[]> | null = null
 
-function fetchPublishedCourses(): Promise<Course[]> {
-  if (coursesCache) return Promise.resolve(coursesCache)
-  if (coursesPromise) return coursesPromise
-  coursesPromise = courseApi
+function fetchPublishedSubjects(): Promise<Subject[]> {
+  if (subjectsCache) return Promise.resolve(subjectsCache)
+  if (subjectsPromise) return subjectsPromise
+  subjectsPromise = subjectApi
     .getAll()
-    .then((all) => {
-      const published = all.filter((c) => c.isPublished !== false)
-      coursesCache = published
+    .then((all: Subject[]) => {
+      const published = all.filter((s: Subject) => s.isPublished !== false)
+      subjectsCache = published
       return published
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       // Don't cache failures — let the next navigation try again.
-      coursesPromise = null
+      subjectsPromise = null
       throw err
     })
-  return coursesPromise
+  return subjectsPromise
 }
 
 // ── Smart link components ────────────────────────────────────────────────────
@@ -254,14 +254,14 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
 
 // ── Subjects dropdown (desktop tab) ──────────────────────────────────────────
 
-function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: boolean }) {
+function SubjectsDropdown({ subjects, loading }: { subjects: Subject[]; loading: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const onCourseRoute = useMatch('/course/:courseId')
 
   useDismissable(open, () => setOpen(false), ref)
 
-  if (!loading && courses.length === 0) return null
+  if (!loading && subjects.length === 0) return null
 
   const isActive = open || onCourseRoute !== null
 
@@ -297,14 +297,14 @@ function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: bo
               <Skeleton className="h-6 w-36" />
             </div>
           ) : (
-            courses.map((c) => (
+            subjects.map((s) => (
               <SmartLink
-                key={c.id}
-                to={ROUTES.COURSE(c.id)}
+                key={s.id}
+                to={ROUTES.COURSE(s.id)}
                 onClick={() => setOpen(false)}
                 className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
-                {c.title}
+                {s.title}
               </SmartLink>
             ))
           )}
@@ -317,17 +317,17 @@ function SubjectsDropdown({ courses, loading }: { courses: Course[]; loading: bo
 // ── Subjects section (mobile, collapsible) ───────────────────────────────────
 
 function MobileSubjectsSection({
-  courses,
+  subjects,
   loading,
   onNavigate,
 }: {
-  courses: Course[]
+  subjects: Subject[]
   loading: boolean
   onNavigate: () => void
 }) {
   const [open, setOpen] = useState(false)
 
-  if (!loading && courses.length === 0) return null
+  if (!loading && subjects.length === 0) return null
 
   return (
     <div>
@@ -350,14 +350,14 @@ function MobileSubjectsSection({
               <Skeleton className="h-5 w-28" />
             </div>
           ) : (
-            courses.map((c) => (
+            subjects.map((s) => (
               <SmartLink
-                key={c.id}
-                to={ROUTES.COURSE(c.id)}
+                key={s.id}
+                to={ROUTES.COURSE(s.id)}
                 onClick={onNavigate}
                 className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
-                {c.title}
+                {s.title}
               </SmartLink>
             ))
           )}
@@ -374,17 +374,17 @@ export function Navbar() {
   const onAdminRoute = useMatch('/admin/*') !== null
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const [courses, setCourses] = useState<Course[]>(() => coursesCache ?? [])
-  const [loading, setLoading] = useState<boolean>(() => coursesCache === null)
+  const [subjects, setSubjects] = useState<Subject[]>(() => subjectsCache ?? [])
+  const [loading, setLoading] = useState<boolean>(() => subjectsCache === null)
 
-  // Fetch the published course list once for the dynamic tabs.
+  // Fetch the published subject list once for the dynamic tabs.
   useEffect(() => {
-    if (coursesCache) return
+    if (subjectsCache) return
     let cancelled = false
-    fetchPublishedCourses()
+    fetchPublishedSubjects()
       .then((list) => {
         if (!cancelled) {
-          setCourses(list)
+          setSubjects(list)
           setLoading(false)
         }
       })
@@ -494,7 +494,7 @@ export function Navbar() {
             <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
             <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
             <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
-            <SubjectsDropdown courses={courses} loading={loading} />
+            <SubjectsDropdown subjects={subjects} loading={loading} />
             <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
             <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
           </div>
@@ -507,7 +507,7 @@ export function Navbar() {
             <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
             <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
             <MobileSubjectsSection
-              courses={courses}
+              subjects={subjects}
               loading={loading}
               onNavigate={() => setMobileOpen(false)}
             />

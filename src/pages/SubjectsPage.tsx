@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, SlidersHorizontal, X, Loader2, ChevronDown } from 'lucide-react'
+import { Search, SlidersHorizontal, X, Loader2, ChevronDown, BookOpen, SearchX } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CourseList } from '@/features/courses/components/CourseList'
+import { SubjectList } from '@/features/subjects/components/SubjectList'
+import { SubjectCard } from '@/features/subjects/components/SubjectCard'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
-import { useCourses } from '@/features/courses/hooks/useCourses'
+import { useSubjects } from '@/features/subjects/hooks/useSubjects'
 import { cn } from '@/utils/cn'
-import { CoursesPageSkeleton } from '@/pages/CoursesPageSkeleton'
-import type { SortOption, DurationFilter } from '@/features/courses/types'
+import { SubjectsPageSkeleton } from '@/pages/SubjectsPageSkeleton'
+import type { Subject, SortOption, DurationFilter } from '@/features/subjects/types'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ const DURATION_OPTIONS: { value: DurationFilter; label: string }[] = [
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export function CoursesPage() {
+export function SubjectsPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isSubscribed = useAuthStore((s) => s.isSubscribed)
   const isAdmin = useAuthStore((s) => s.isAdmin)
@@ -38,14 +39,14 @@ export function CoursesPage() {
   const filterBtnRef   = useRef<HTMLButtonElement>(null)
 
   const {
-    courses, filtered, recommended,
-    categories, loading, isSearching, error,
+    subjects, filtered, recommended,
+    courses, loading, isSearching, error,
     search, setSearch, debouncedSearch,
-    category, setCategory,
+    course, setCourse,
     duration, setDuration,
     sort, setSort,
     activeFilterCount, clearFilters,
-  } = useCourses()
+  } = useSubjects()
 
   // Close popup on outside click
   useEffect(() => {
@@ -65,9 +66,9 @@ export function CoursesPage() {
   const hasResults  = filtered.length > 0
   const showEmpty   = !loading && !isSearching && (hasQuery || activeFilterCount > 0) && !hasResults
   const showResults = !loading && !showEmpty
-  const showRecommended = !hasQuery && activeFilterCount === 0 && !loading && courses.length > 0
+  const showRecommended = !hasQuery && activeFilterCount === 0 && !loading && subjects.length > 0
 
-  if (loading && courses.length === 0 && !error) return <CoursesPageSkeleton />
+  if (loading && subjects.length === 0 && !error) return <SubjectsPageSkeleton />
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-8 max-w-6xl">
@@ -80,8 +81,8 @@ export function CoursesPage() {
             {loading
               ? 'Loading…'
               : hasQuery || activeFilterCount > 0
-                ? `${filtered.length} of ${courses.length} subjects`
-                : `${courses.length} subjects available`}
+                ? `${filtered.length} of ${subjects.length} subjects`
+                : `${subjects.length} subjects available`}
             {!isSubscribed && !isAdmin && (isAuthenticated
               ? ' — subscribe to unlock lessons'
               : ' — enroll for free to start Day 1')}
@@ -153,19 +154,19 @@ export function CoursesPage() {
                 'rounded-xl border bg-popover shadow-lg p-4 space-y-5',
               )}
             >
-              {/* Category */}
+              {/* Parent Course */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Course
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {categories.map((cat) => (
+                  {courses.map((c) => (
                     <FilterPill
-                      key={cat}
-                      active={cat === category}
-                      onClick={() => setCategory(cat)}
+                      key={c}
+                      active={c === course}
+                      onClick={() => setCourse(c)}
                     >
-                      {cat}
+                      {c}
                     </FilterPill>
                   ))}
                 </div>
@@ -235,13 +236,13 @@ export function CoursesPage() {
       ) : showResults ? (
         <>
           {showRecommended ? (
-            <RecommendedSection courses={recommended} loading={loading} />
+            <RecommendedSection subjects={recommended} loading={loading} />
           ) : (
-            <CourseList courses={filtered} loading={loading || isSearching} />
+            <SubjectList subjects={filtered} loading={loading || isSearching} />
           )}
         </>
       ) : (
-        <CourseList courses={[]} loading={loading} />
+        <SubjectList subjects={[]} loading={loading} />
       )}
     </div>
   )
@@ -273,10 +274,7 @@ function FilterPill({
 
 // ── Recommended section ───────────────────────────────────────────────────────
 
-import { CourseCard } from '@/features/courses/components/CourseCard'
-import type { Course } from '@/features/courses/types'
-
-function RecommendedSection({ courses, loading }: { courses: Course[]; loading: boolean }) {
+function RecommendedSection({ subjects, loading }: { subjects: Subject[]; loading: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -285,16 +283,14 @@ function RecommendedSection({ courses, loading }: { courses: Course[]; loading: 
         </h2>
         <div className="flex-1 h-px bg-border" />
       </div>
-      <CourseList courses={courses} loading={loading} />
+      <SubjectList subjects={subjects} loading={loading} />
     </div>
   )
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-import { BookOpen, SearchX } from 'lucide-react'
-
-function EmptyState({ query, recommended }: { query: string; recommended: Course[] }) {
+function EmptyState({ query, recommended }: { query: string; recommended: Subject[] }) {
   return (
     <div className="space-y-10">
       <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/30 py-16 text-center">
@@ -325,8 +321,8 @@ function EmptyState({ query, recommended }: { query: string; recommended: Course
             <div className="flex-1 h-px bg-border" />
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {recommended.map((course) => (
-              <CourseCard key={course.id} course={course} />
+            {recommended.map((subject) => (
+              <SubjectCard key={subject.id} subject={subject} />
             ))}
           </div>
         </div>

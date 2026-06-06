@@ -8,12 +8,12 @@ import { AdminLoginPage } from '../pages/AdminLoginPage'
 
 // Lazy-load admin pages — matches the legacy router's lazy pattern.
 const AdminDashboardPage     = lazy(() => import('@/pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
-const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
+const AdminSubjectsPage      = lazy(() => import('@/pages/admin/AdminSubjectsPage').then(m => ({ default: m.AdminSubjectsPage })))
 const AdminLessonsPage       = lazy(() => import('@/pages/admin/AdminLessonsPage').then(m => ({ default: m.AdminLessonsPage })))
 const AdminQuizzesPage       = lazy(() => import('@/pages/admin/AdminQuizzesPage').then(m => ({ default: m.AdminQuizzesPage })))
 const AdminUsersPage         = lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
 const AdminSubscriptionsPage = lazy(() => import('@/pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
-const AdminCategoriesPage    = lazy(() => import('@/pages/admin/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })))
+const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
 const AdminBooksPage         = lazy(() => import('@/pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
 const AdminOrdersPage        = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
 const AdminAnnouncementsPage = lazy(() => import('@/pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
@@ -52,13 +52,16 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
         children: [
+          // URL path strings preserved per Phase 4 scope. Mapping:
+          //   /admin/courses     → AdminSubjectsPage (manages Subjects, UI heading "Subjects")
+          //   /admin/categories  → AdminCoursesPage  (manages parent Courses, UI heading "Courses")
           { index: true,            element: <AdminDashboardPage />     },
-          { path: 'courses',        element: <AdminCoursesPage />       },
+          { path: 'courses',        element: <AdminSubjectsPage />      },
           { path: 'lessons',        element: <AdminLessonsPage />       },
           { path: 'quizzes',        element: <AdminQuizzesPage />       },
           { path: 'users',          element: <AdminUsersPage />         },
           { path: 'subscriptions',  element: <AdminSubscriptionsPage /> },
-          { path: 'categories',     element: <AdminCategoriesPage />    },
+          { path: 'categories',     element: <AdminCoursesPage />       },
           { path: 'books',          element: <AdminBooksPage />         },
           { path: 'orders',         element: <AdminOrdersPage />        },
           { path: 'announcements',  element: <AdminAnnouncementsPage /> },

@@ -7,10 +7,10 @@ import { storagePaths } from '@/services/storagePaths'
 import {
   createAdminLesson,
   updateAdminLesson,
-  getCoursesForSelect,
-  getMaxLessonOrderInCourse,
+  getSubjectsForSelect,
+  getMaxLessonOrderInSubject,
   type AdminLesson,
-  type CourseOption,
+  type SubjectOption,
 } from '@/services/admin.service'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
@@ -60,7 +60,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [pdfFile,      setPdfFile]      = useState<File | null>(null)
 
   // ── UI state ─────────────────────────────────────────────────────────────────
-  const [courses,      setCourses]      = useState<CourseOption[]>([])
+  const [courses,      setCourses]      = useState<SubjectOption[]>([])
   const [coursesLoading, setCoursesLoading] = useState(true)
   const [saving,       setSaving]       = useState(false)
   const [stage,        setStage]        = useState<UploadStage>('idle')
@@ -70,7 +70,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
 
   // ── Load courses for dropdown (runs once on mount) ───────────────────────────
   useEffect(() => {
-    getCoursesForSelect()
+    getSubjectsForSelect()
       .then((data) => {
         setCourses(data)
         // Auto-select first course only if no course was pre-selected
@@ -89,7 +89,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
     } else {
       // New course selected — set order to next available slot
       try {
-        const max = await getMaxLessonOrderInCourse(newCourseId)
+        const max = await getMaxLessonOrderInSubject(newCourseId)
         setOrder(max + 1)
       } catch {
         // Non-fatal; user can adjust order manually

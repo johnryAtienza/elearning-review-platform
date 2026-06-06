@@ -204,7 +204,7 @@ export function LessonPage() {
     return <LessonPageSkeleton />
   }
 
-  const { lesson, course, siblings, prev, next, progress } = data
+  const { lesson, subject, siblings, prev, next, progress } = data
 
   // Hard gate: authenticated free users (no subscription, not admin) cannot
   // view a lesson unless it's flagged is_free_preview. Guests fall through
@@ -263,7 +263,7 @@ export function LessonPage() {
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">{course?.title ?? 'Subject'}</span>
+            <span className="hidden sm:inline">{subject?.title ?? 'Subject'}</span>
           </Link>
 
           <div className="flex-1 min-w-0">
@@ -305,7 +305,7 @@ export function LessonPage() {
         {sidebarOpen && (
           <div className="lg:hidden border-b bg-card px-3 py-3 max-h-64 overflow-y-auto">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-3 pb-2">
-              {course?.title}
+              {subject?.title}
             </p>
             <LessonList lessons={siblings} isSubscribed={isSubscribed} isAdmin={isAdmin} activeLessonId={lesson.id} />
           </div>
@@ -359,7 +359,7 @@ export function LessonPage() {
               <VideoPlayer
                 key={lesson.id}
                 title={lesson.title}
-                thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
+                thumbnail={subject?.thumbnail ?? 'from-gray-400 to-gray-500'}
                 src={signedVideoUrl ?? undefined}
                 durationSeconds={30}
                 onEnded={() => { setVideoProgress(100); clearResume(lesson.id) }}
@@ -488,7 +488,7 @@ export function LessonPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Course Content
             </p>
-            <p className="text-sm font-medium mt-0.5 truncate">{course?.title}</p>
+            <p className="text-sm font-medium mt-0.5 truncate">{subject?.title}</p>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />

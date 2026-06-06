@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import type { QuizQuestion } from '@/features/quiz/types'
 import { useQuizStore } from '@/store/quizStore'
-import { useSavedCoursesStore } from '@/store/savedCoursesStore'
+import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
 import { useQuizHistoryStore } from '@/store/quizHistoryStore'
 import { saveQuizResult } from '@/services/quizResultsApi'
 import { answerLabel } from '@/features/quiz/utils'
@@ -84,7 +84,7 @@ export function QuizComponent({
       answers,
     })
     if (ok) {
-      void useSavedCoursesStore.getState().fetch()
+      void useSavedSubjectsStore.getState().fetch()
       void useQuizHistoryStore.getState().fetch()
     }
   }

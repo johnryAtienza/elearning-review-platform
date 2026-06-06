@@ -1,14 +1,14 @@
 import { BookOpen } from 'lucide-react'
-import { CourseCard } from './CourseCard'
+import { SubjectCard } from './SubjectCard'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Course } from '../types'
+import type { Subject } from '../types'
 
-interface CourseListProps {
-  courses: Course[]
+interface SubjectListProps {
+  subjects: Subject[]
   loading?: boolean
 }
 
-function CourseCardSkeleton() {
+function SubjectCardSkeleton() {
   return (
     <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
       <Skeleton className="h-44 rounded-none" />
@@ -25,18 +25,18 @@ function CourseCardSkeleton() {
   )
 }
 
-export function CourseList({ courses, loading = false }: CourseListProps) {
+export function SubjectList({ subjects, loading = false }: SubjectListProps) {
   if (loading) {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <CourseCardSkeleton key={i} />
+          <SubjectCardSkeleton key={i} />
         ))}
       </div>
     )
   }
 
-  if (courses.length === 0) {
+  if (subjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 py-20 text-center">
         <div className="flex size-14 items-center justify-center rounded-full bg-muted">
@@ -52,8 +52,8 @@ export function CourseList({ courses, loading = false }: CourseListProps) {
 
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {courses.map((course) => (
-        <CourseCard key={course.id} course={course} />
+      {subjects.map((subject) => (
+        <SubjectCard key={subject.id} subject={subject} />
       ))}
     </div>
   )

@@ -14,9 +14,9 @@ import {
 import {
   getAdminLessons,
   deleteAdminLesson,
-  getCoursesForSelect,
+  getSubjectsForSelect,
   type AdminLesson,
-  type CourseOption,
+  type SubjectOption,
 } from '@/services/admin.service'
 import { toast } from '@/lib/toast'
 
@@ -42,7 +42,7 @@ type ModalState =
 
 export function AdminLessonsPage() {
   const [lessons,   setLessons]   = useState<AdminLesson[]>([])
-  const [courses,   setCourses]   = useState<CourseOption[]>([])
+  const [courses,   setCourses]   = useState<SubjectOption[]>([])
   const [loading,   setLoading]   = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter,    setFilter]    = useState<string>('all')
@@ -53,7 +53,7 @@ export function AdminLessonsPage() {
   const load = useCallback(() => {
     setLoading(true)
     setLoadError(null)
-    Promise.all([getAdminLessons(), getCoursesForSelect()])
+    Promise.all([getAdminLessons(), getSubjectsForSelect()])
       .then(([ls, cs]) => { setLessons(ls); setCourses(cs); setLoading(false) })
       .catch((err: unknown) => {
         setLoadError(err instanceof Error ? err.message : 'Failed to load lessons.')

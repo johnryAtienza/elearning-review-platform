@@ -1,9 +1,9 @@
 import { cn } from '@/utils/cn'
 
-interface CourseThumbnailProps {
+interface SubjectThumbnailProps {
   src?: string | null
   alt?: string
-  /** Gradient classes used as the fallback background (e.g. `course.thumbnail`). */
+  /** Gradient classes used as the fallback background (e.g. `subject.thumbnail`). */
   gradient?: string
   className?: string
   /** Any overlay content (badges, etc.) rendered on top. */
@@ -11,17 +11,17 @@ interface CourseThumbnailProps {
 }
 
 /**
- * Renders a course image.
+ * Renders a subject image.
  * - If `src` is set   → shows the real image.
  * - Otherwise         → shows the gradient background + centered logo watermark.
  */
-export function CourseThumbnail({
+export function SubjectThumbnail({
   src,
   alt = 'Subject',
   gradient,
   className,
   children,
-}: CourseThumbnailProps) {
+}: SubjectThumbnailProps) {
   return (
     <div
       className={cn(

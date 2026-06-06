@@ -1,3 +1,3 @@
-// Re-export shim — real implementation lives in @s-class/api/data/courses.
+// Re-export shim — real implementation lives in @s-class/api/data/subjects.
 // Removed in Phase 5 when /src is decommissioned.
-export * from '@s-class/api/data/courses'
+export * from '@s-class/api/data/subjects'

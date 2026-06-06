@@ -1,23 +1,22 @@
+/**
+ * Course — the parent academic grouping (e.g. "Engineering",
+ * "Information Technology"). Contains many Subjects.
+ *
+ * This file was `categories.ts` before the Phase 3 rename.
+ */
 export interface Course {
   id: string
-  title: string
-  description: string
-  thumbnail: string
-  thumbnailUrl?: string | null
-  category: string
-  /** UUID of the linked categories row — null for legacy/uncategorized courses */
-  categoryId?: string | null
-  lessons: number
-  duration: string
-  /** ISO timestamp from created_at — used for "Newest" sort */
-  createdAt?: string
-  /** Skill level — populated after running add_course_search_indexes migration */
-  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced'
-  /** Free-form keyword tags for search */
-  tags?: string[]
-  /** Whether the course is published and visible to students. Undefined for legacy data. */
-  isPublished?: boolean
+  name: string
+  slug: string
+  description: string | null
+  /** Count of subjects assigned to this course. Populated by getCoursesWithCount. */
+  subjectCount?: number
+  createdAt: string
 }
 
-export type SortOption = 'relevant' | 'newest' | 'az' | 'most-lessons'
-export type DurationFilter = 'all' | 'short' | 'medium' | 'long'
+/** Lightweight option used in dropdowns. */
+export interface CourseOption {
+  id: string
+  name: string
+  slug: string
+}

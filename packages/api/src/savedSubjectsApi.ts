@@ -6,28 +6,21 @@
  *
  * Prerequisites:
  *   - 20260606000001_rename_to_course_subject_hierarchy migration must be applied
- *
- * Naming note: this file was savedCoursesApi.ts before the Phase 1 DB rename.
- * Exported type identifiers (`CourseProgress`, `DashboardStats`) and field
- * names (`coursesSaved`, `courseId`) still use the old vocabulary because
- * Phase 3 of the domain refactor renames those types. The mapper below
- * bridges the new DB column / RPC field names (snake_case) to the
- * still-old TS property names (camelCase) — Phase 3 catches the TS side up.
  */
 
 import { supabase } from './supabaseClient'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface CourseProgress {
-  courseId:       string
+export interface SubjectProgress {
+  subjectId:      string
   watchedLessons: number
   totalLessons:   number
   addedAt:        string
 }
 
 export interface DashboardStats {
-  coursesSaved:     number
+  subjectsSaved:    number
   lessonsCompleted: number
   quizzesTaken:     number
 }
@@ -83,7 +76,7 @@ export async function removeSavedSubject(subjectId: string): Promise<void> {
  * Returns per-subject progress (watched + total lessons) for all saved subjects.
  * Uses the get_saved_subjects_progress() RPC defined in the Phase 1 migration.
  */
-export async function getSavedSubjectsProgress(): Promise<CourseProgress[]> {
+export async function getSavedSubjectsProgress(): Promise<SubjectProgress[]> {
   const { data, error } = await supabase.rpc('get_saved_subjects_progress')
   if (error) throw new Error(error.message)
 
@@ -95,7 +88,7 @@ export async function getSavedSubjectsProgress(): Promise<CourseProgress[]> {
       added_at:        string
     }
     return {
-      courseId:       r.subject_id,
+      subjectId:      r.subject_id,
       watchedLessons: Number(r.watched_lessons),
       totalLessons:   Number(r.total_lessons),
       addedAt:        r.added_at,
@@ -105,9 +98,7 @@ export async function getSavedSubjectsProgress(): Promise<CourseProgress[]> {
 
 /**
  * Returns aggregated dashboard metrics for the calling user.
- * Uses the get_dashboard_stats() RPC. The JSON key `subjects_saved` was
- * renamed from `courses_saved` in the Phase 1 migration; the TS property
- * `coursesSaved` is kept until Phase 3 renames the DashboardStats type.
+ * Uses the get_dashboard_stats() RPC.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
   const { data, error } = await supabase.rpc('get_dashboard_stats')
@@ -120,7 +111,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   return {
-    coursesSaved:     d.subjects_saved    ?? 0,
+    subjectsSaved:    d.subjects_saved    ?? 0,
     lessonsCompleted: d.lessons_completed ?? 0,
     quizzesTaken:     d.quizzes_taken     ?? 0,
   }

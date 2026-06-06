@@ -1,20 +1,25 @@
 /**
- * useCourses
+ * useSubjects
  *
- * Loads all published courses then applies client-side filtering with:
+ * Loads all published subjects then applies client-side filtering with:
  *   - 300 ms debounce on the search query
  *   - Fuzzy-scored full-text matching (title › description › tags)
- *   - Category, duration, and difficulty filters
+ *   - Course (parent grouping), duration, and difficulty filters
  *   - Sorting: relevant | newest | a-z | most-lessons
  *
  * Structured so it can migrate to server-side search (Supabase full-text
  * search via `search_vector` column) without changing the public API.
+ *
+ * Naming note: the parent-Course filter list is derived from the legacy
+ * `subject.category` text column. Plan §8a will switch the derivation
+ * source to the embedded `course:courses(name)` join when the legacy
+ * column is dropped.
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { getAllCourses } from '../services/courseService'
+import { getAllSubjects } from '../services/courseService'
 import { useDebounce } from '@/hooks/useDebounce'
-import type { Course, SortOption, DurationFilter } from '../types'
+import type { Subject, SortOption, DurationFilter } from '../types'
 
 // ── Duration bucketing ────────────────────────────────────────────────────────
 
@@ -25,9 +30,9 @@ function parseDurationMinutes(duration: string): number {
   return (h ? parseInt(h[1]) : 0) * 60 + (m ? parseInt(m[1]) : 0)
 }
 
-function matchesDuration(course: Course, filter: DurationFilter): boolean {
+function matchesDuration(subject: Subject, filter: DurationFilter): boolean {
   if (filter === 'all') return true
-  const mins = parseDurationMinutes(course.duration)
+  const mins = parseDurationMinutes(subject.duration)
   if (filter === 'short')  return mins < 180             // < 3 h
   if (filter === 'medium') return mins >= 180 && mins < 360 // 3 – 6 h
   return mins >= 360                                     // ≥ 6 h
@@ -39,13 +44,13 @@ function matchesDuration(course: Course, filter: DurationFilter): boolean {
  * Returns a relevance score ≥ 0.
  * Higher = better match. 0 = no match (exclude from results).
  */
-function scoreMatch(course: Course, query: string): number {
+function scoreMatch(subject: Subject, query: string): number {
   const q = query.toLowerCase().trim()
-  if (!q) return 1  // no query → all courses match equally
+  if (!q) return 1  // no query → all subjects match equally
 
-  const title = course.title.toLowerCase()
-  const desc  = course.description.toLowerCase()
-  const tags  = (course.tags ?? []).join(' ').toLowerCase()
+  const title = subject.title.toLowerCase()
+  const desc  = subject.description.toLowerCase()
+  const tags  = (subject.tags ?? []).join(' ').toLowerCase()
   const all   = `${title} ${desc} ${tags}`
 
   let score = 0
@@ -91,11 +96,11 @@ function charSequenceScore(text: string, query: string): number {
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
 function applySorting(
-  courses: Array<Course & { _score: number }>,
+  subjects: Array<Subject & { _score: number }>,
   sort: SortOption,
   hasQuery: boolean,
-): Course[] {
-  const sorted = [...courses].sort((a, b) => {
+): Subject[] {
+  const sorted = [...subjects].sort((a, b) => {
     if (sort === 'relevant' && hasQuery) return b._score - a._score
     if (sort === 'newest') {
       const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
@@ -113,11 +118,12 @@ function applySorting(
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export interface UseCoursesResult {
-  courses: Course[]
-  filtered: Course[]
-  recommended: Course[]
-  categories: string[]
+export interface UseSubjectsResult {
+  subjects: Subject[]
+  filtered: Subject[]
+  recommended: Subject[]
+  /** Parent-Course names available as filter pills (derived from subject.category). */
+  courses: string[]
   loading: boolean
   /** True for the 300 ms debounce window after the user types */
   isSearching: boolean
@@ -125,8 +131,9 @@ export interface UseCoursesResult {
   search: string
   setSearch: (v: string) => void
   debouncedSearch: string
-  category: string
-  setCategory: (v: string) => void
+  /** Currently selected parent-Course filter (default 'All'). */
+  course: string
+  setCourse: (v: string) => void
   duration: DurationFilter
   setDuration: (v: DurationFilter) => void
   sort: SortOption
@@ -139,8 +146,8 @@ export interface UseCoursesResult {
 const DEBOUNCE_MS = 300
 const RECOMMENDED_COUNT = 6
 
-export function useCourses(): UseCoursesResult {
-  const [courses,  setCourses]  = useState<Course[]>([])
+export function useSubjects(): UseSubjectsResult {
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
 
@@ -150,7 +157,7 @@ export function useCourses(): UseCoursesResult {
   const isSearching = search !== debouncedSearch
 
   // Filters
-  const [category, setCategory] = useState('All')
+  const [course,   setCourse]   = useState('All')
   const [duration, setDuration] = useState<DurationFilter>('all')
 
   // Sort
@@ -162,77 +169,77 @@ export function useCourses(): UseCoursesResult {
     setLoading(true)
     setError(null)
 
-    getAllCourses()
-      .then((data) => { if (!cancelled) setCourses(data) })
+    getAllSubjects()
+      .then((data) => { if (!cancelled) setSubjects(data) })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load courses.')
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load subjects.')
       })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
   }, [])
 
-  // Derived categories
-  const categories = useMemo(
-    () => ['All', ...Array.from(new Set(courses.map((c) => c.category).filter(Boolean))).sort()],
-    [courses],
+  // Derived parent-Course filter list (still sourced from legacy text column).
+  const courses = useMemo(
+    () => ['All', ...Array.from(new Set(subjects.map((s) => s.category).filter(Boolean))).sort()],
+    [subjects],
   )
 
   // Filter + score + sort
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim()
 
-    const scored = courses
-      .map((c) => {
-        const score = scoreMatch(c, q)
-        return { ...c, _score: score }
+    const scored = subjects
+      .map((s) => {
+        const score = scoreMatch(s, q)
+        return { ...s, _score: score }
       })
-      .filter(({ _score, category: cat, ...c }) => {
+      .filter(({ _score, category: cat, ...s }) => {
         if (_score === 0 && q !== '') return false
-        if (category !== 'All' && cat !== category) return false
-        if (!matchesDuration({ ...c, category: cat }, duration)) return false
+        if (course !== 'All' && cat !== course) return false
+        if (!matchesDuration({ ...s, category: cat }, duration)) return false
         return true
       })
 
     return applySorting(scored, sort, q !== '')
-  }, [courses, debouncedSearch, category, duration, sort])
+  }, [subjects, debouncedSearch, course, duration, sort])
 
-  // Recommended: top courses by lesson count (shown when no query + no filters)
+  // Recommended: top subjects by lesson count (shown when no query + no filters)
   const recommended = useMemo(
     () =>
-      [...courses]
+      [...subjects]
         .sort((a, b) => b.lessons - a.lessons)
         .slice(0, RECOMMENDED_COUNT),
-    [courses],
+    [subjects],
   )
 
   const activeFilterCount = useMemo(() => {
     let n = 0
-    if (category !== 'All') n++
-    if (duration  !== 'all') n++
+    if (course   !== 'All') n++
+    if (duration !== 'all') n++
     if (sort !== 'relevant') n++
     return n
-  }, [category, duration, sort])
+  }, [course, duration, sort])
 
   function clearFilters() {
-    setCategory('All')
+    setCourse('All')
     setDuration('all')
     setSort('relevant')
   }
 
   return {
-    courses,
+    subjects,
     filtered,
     recommended,
-    categories,
+    courses,
     loading,
     isSearching,
     error,
     search,
     setSearch,
     debouncedSearch,
-    category,
-    setCategory,
+    course,
+    setCourse,
     duration,
     setDuration,
     sort,

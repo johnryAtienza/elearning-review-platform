@@ -1,13 +1,12 @@
 import { subjectApi } from './subjectApi'
-import type { Course } from '@s-class/types/courses'
+import type { Subject } from '@s-class/types/subjects'
 
-// Thin convenience wrapper around the subjectApi router. The `Course` return
-// type is renamed to `Subject` in Phase 3 of the domain refactor.
+// Thin convenience wrapper around the subjectApi router.
 
-export async function getAllSubjects(): Promise<Course[]> {
+export async function getAllSubjects(): Promise<Subject[]> {
   return subjectApi.getAll()
 }
 
-export async function getSubjectById(id: string): Promise<Course | undefined> {
+export async function getSubjectById(id: string): Promise<Subject | undefined> {
   return subjectApi.getById(id)
 }

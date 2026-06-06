@@ -1,3 +1,3 @@
-// Re-export shim — real implementation lives in @s-class/auth/savedCoursesStore.
+// Re-export shim — real implementation lives in @s-class/auth/savedSubjectsStore.
 // Removed in Phase 5 when /src is decommissioned.
-export * from '@s-class/auth/savedCoursesStore'
+export * from '@s-class/auth/savedSubjectsStore'

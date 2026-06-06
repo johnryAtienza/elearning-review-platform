@@ -4,16 +4,11 @@
  * All Supabase queries for the courses table (the parent grouping in the
  * Course → Subject hierarchy). Public read is open to everyone; write
  * operations require admin role (enforced by RLS).
- *
- * Naming note: this file was categoriesApi.ts before the Phase 1 DB rename.
- * The public TS type `Category` (still in @s-class/types/categories) will be
- * renamed to `Course` in Phase 3; for now the mapper outputs the old
- * `Category` shape against the new `courses` table.
  */
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
-import type { Category } from '@s-class/types/categories'
+import type { Course } from '@s-class/types/courses'
 
 // ── Raw DB row ─────────────────────────────────────────────────────────────────
 
@@ -30,7 +25,7 @@ interface CourseRow {
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /** Fetch all courses ordered by name — for dropdowns and filter pills. */
-export async function getAllCourses(): Promise<Category[]> {
+export async function getAllCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
     .select('id, name, slug, description, created_at')
@@ -48,7 +43,7 @@ export async function getAllCourses(): Promise<Category[]> {
 }
 
 /** Fetch all courses including the number of subjects assigned to each. */
-export async function getCoursesWithCount(): Promise<Category[]> {
+export async function getCoursesWithCount(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
     .select('id, name, slug, description, created_at, subjects:subjects(count)')
@@ -57,12 +52,12 @@ export async function getCoursesWithCount(): Promise<Category[]> {
   if (error) throw new ApiError(500, 'COURSES_FETCH_FAILED', error.message)
 
   return (data as CourseRow[]).map((row) => ({
-    id:          row.id,
-    name:        row.name,
-    slug:        row.slug,
-    description: row.description,
-    courseCount: row.subjects?.[0]?.count ?? 0,
-    createdAt:   row.created_at,
+    id:           row.id,
+    name:         row.name,
+    slug:         row.slug,
+    description:  row.description,
+    subjectCount: row.subjects?.[0]?.count ?? 0,
+    createdAt:    row.created_at,
   }))
 }
 
@@ -71,7 +66,7 @@ export async function createCourse(data: {
   name: string
   slug: string
   description?: string
-}): Promise<Category> {
+}): Promise<Course> {
   const { data: row, error } = await supabase
     .from('courses')
     .insert({

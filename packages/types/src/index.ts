@@ -2,8 +2,8 @@
 // where possible — they're tree-shake-friendly and avoid name collisions.
 export type * from './auth.js'
 export type * from './books.js'
-export type * from './categories.js'
 export type * from './courses.js'
+export type * from './subjects.js'
 export type * from './devices.js'
 export type * from './home.js'
 export type * from './lessons.js'

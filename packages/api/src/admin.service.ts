@@ -26,12 +26,14 @@ export interface AdminStats {
   totalLessonsCompleted: number
 }
 
-export interface AdminCourse {
+export interface AdminSubject {
   id: string
   title: string
   description: string
+  /** Legacy denormalized text — parent-Course name. Kept until plan §8a cleanup. */
   category: string
-  categoryId: string | null
+  /** UUID of the parent Course. */
+  courseId: string | null
   duration: string
   isPublished: boolean
   lessonCount: number
@@ -39,10 +41,10 @@ export interface AdminCourse {
   createdAt: string
 }
 
-export interface CourseFormData {
+export interface SubjectFormData {
   title: string
   description: string
-  categoryId?: string | null
+  courseId?: string | null
 }
 
 export interface AdminLesson {
@@ -108,7 +110,7 @@ export interface LessonFormData {
   durationMinutes?: number | null
 }
 
-export interface CourseOption {
+export interface SubjectOption {
   id: string
   title: string
 }
@@ -142,9 +144,7 @@ export interface AdminUser {
 // ── Raw DB shapes ─────────────────────────────────────────────────────────────
 //
 // Internal row interfaces match the renamed columns from the Phase 1 migration
-// (course_id, subject_id). The exported AdminCourse / CourseFormData / CourseOption
-// type names still use the old vocabulary and are renamed to AdminSubject etc.
-// in Phase 3 of the domain refactor.
+// (course_id, subject_id).
 
 interface CourseRef {
   id: string
@@ -278,11 +278,8 @@ export async function getAdminStats(): Promise<AdminStats> {
 }
 
 // ── Subjects ──────────────────────────────────────────────────────────────────
-//
-// Function names use the new "subject" vocabulary; the exported types
-// (AdminCourse, CourseFormData) keep the old names until Phase 3 renames them.
 
-export async function getAdminSubjects(): Promise<AdminCourse[]> {
+export async function getAdminSubjects(): Promise<AdminSubject[]> {
   const { data, error } = await supabase
     .from('subjects')
     .select('id, title, description, category, course_id, duration, is_published, thumbnail_url, created_at, lessons:lessons(count), course:courses(id,name)')
@@ -296,7 +293,7 @@ export async function getAdminSubjects(): Promise<AdminCourse[]> {
     description:  row.description ?? '',
     // Prefer joined parent-Course name; fall back to legacy text column
     category:     row.course?.name ?? row.category ?? '',
-    categoryId:   row.course_id ?? null,
+    courseId:     row.course_id ?? null,
     duration:     row.duration,
     isPublished:  row.is_published,
     lessonCount:  row.lessons[0]?.count ?? 0,
@@ -305,14 +302,14 @@ export async function getAdminSubjects(): Promise<AdminCourse[]> {
   }))
 }
 
-export async function createSubject(data: CourseFormData): Promise<string> {
+export async function createSubject(data: SubjectFormData): Promise<string> {
   const { data: row, error } = await supabase
     .from('subjects')
     .insert({
       title:        data.title,
       description:  data.description,
       category:     '',
-      course_id:    data.categoryId ?? null,
+      course_id:    data.courseId ?? null,
       duration:     '',
       is_published: false,
     })
@@ -325,13 +322,13 @@ export async function createSubject(data: CourseFormData): Promise<string> {
 
 export async function updateSubject(
   subjectId: string,
-  data: Partial<CourseFormData & { thumbnailUrl: string }>,
+  data: Partial<SubjectFormData & { thumbnailUrl: string }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
   if (data.title        !== undefined) update.title         = data.title
   if (data.description  !== undefined) update.description   = data.description
   if (data.thumbnailUrl !== undefined) update.thumbnail_url = data.thumbnailUrl
-  if ('categoryId' in data)            update.course_id     = data.categoryId ?? null
+  if ('courseId' in data)              update.course_id     = data.courseId ?? null
 
   const { error } = await supabase
     .from('subjects')
@@ -388,14 +385,14 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
   }))
 }
 
-export async function getSubjectsForSelect(): Promise<CourseOption[]> {
+export async function getSubjectsForSelect(): Promise<SubjectOption[]> {
   const { data, error } = await supabase
     .from('subjects')
     .select('id, title')
     .order('title')
 
   if (error) throw new ApiError(500, 'ADMIN_SUBJECTS_FAILED', error.message)
-  return data as CourseOption[]
+  return data as SubjectOption[]
 }
 
 /** Returns the highest `order` value among lessons in a subject, or 0 if none. */

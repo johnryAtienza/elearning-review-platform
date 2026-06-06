@@ -13,7 +13,7 @@ import {
 } from '@s-class/api/authService'
 import { supabase } from '@s-class/api/supabaseClient'
 import { registerCurrentDevice, DeviceLimitError } from '@s-class/api/devicesApi'
-import { useSavedCoursesStore } from './savedCoursesStore'
+import { useSavedSubjectsStore } from './savedSubjectsStore'
 import { useQuizHistoryStore } from './quizHistoryStore'
 
 interface AuthState {
@@ -134,7 +134,7 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
           await get().syncSubscription()
-          void useSavedCoursesStore.getState().fetch()
+          void useSavedSubjectsStore.getState().fetch()
           void useQuizHistoryStore.getState().fetch()
           // Phase G — register/touch this device. On limit_reached, sign
           // the user out locally and surface the modal so they can revoke
@@ -152,7 +152,7 @@ export const useAuthStore = create<AuthState>()(
                 subscription: null,
                 pendingDeviceLimit: err.devices,
               })
-              useSavedCoursesStore.getState().reset()
+              useSavedSubjectsStore.getState().reset()
               useQuizHistoryStore.getState().reset()
             } else {
               console.warn('[authStore] registerCurrentDevice failed (non-blocking):', err)
@@ -165,11 +165,11 @@ export const useAuthStore = create<AuthState>()(
           if (user) {
             set({ user, isAuthenticated: true, isAdmin: user.role === 'admin' })
             await get().syncSubscription()
-            void useSavedCoursesStore.getState().fetch()
+            void useSavedSubjectsStore.getState().fetch()
             void useQuizHistoryStore.getState().fetch()
           } else {
             set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
-            useSavedCoursesStore.getState().reset()
+            useSavedSubjectsStore.getState().reset()
             useQuizHistoryStore.getState().reset()
           }
         })
@@ -179,7 +179,7 @@ export const useAuthStore = create<AuthState>()(
         const { user } = await login({ email, password })
         set({ user, isAuthenticated: true, isAdmin: user.role === 'admin', confirmationPending: false })
         await get().syncSubscription()
-        void useSavedCoursesStore.getState().fetch()
+        void useSavedSubjectsStore.getState().fetch()
         void useQuizHistoryStore.getState().fetch()
         // Phase G — register device. If limit hit, sign out and re-throw
         // so LoginPage can mount DeviceLimitModal.
@@ -196,7 +196,7 @@ export const useAuthStore = create<AuthState>()(
               subscription: null,
               pendingDeviceLimit: err.devices,
             })
-            useSavedCoursesStore.getState().reset()
+            useSavedSubjectsStore.getState().reset()
             useQuizHistoryStore.getState().reset()
             throw err
           }
@@ -226,7 +226,7 @@ export const useAuthStore = create<AuthState>()(
                 subscription: null,
                 pendingDeviceLimit: err.devices,
               })
-              useSavedCoursesStore.getState().reset()
+              useSavedSubjectsStore.getState().reset()
               useQuizHistoryStore.getState().reset()
               throw err
             }
@@ -240,7 +240,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         await logout()
         set({ user: null, isAuthenticated: false, isAdmin: false, isSubscribed: false, subscription: null })
-        useSavedCoursesStore.getState().reset()
+        useSavedSubjectsStore.getState().reset()
         useQuizHistoryStore.getState().reset()
       },
 

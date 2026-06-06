@@ -1,4 +1,9 @@
-export interface Course {
+/**
+ * Mock fixture. Field `category: string` is intentionally retained —
+ * it feeds the useSubjects() filter pill list until the legacy DB column
+ * is dropped (plan §8a).
+ */
+export interface Subject {
   id: string
   title: string
   description: string
@@ -8,11 +13,7 @@ export interface Course {
   duration: string
 }
 
-// Mock fixture. The `Course` interface stays locally for now — Phase 3 renames
-// the type to `Subject` in @s-class/types. Field `category: string` is
-// intentionally kept; it feeds the useSubjects() filter pill list until the
-// legacy DB column is dropped (plan §8a).
-export const SUBJECTS: Course[] = [
+export const SUBJECTS: Subject[] = [
   {
     id: '1',
     title: 'React Fundamentals',

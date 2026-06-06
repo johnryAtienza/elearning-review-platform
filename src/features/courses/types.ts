@@ -1,3 +1,3 @@
-// Re-export shim — real types now live in @s-class/types/courses.
+// Re-export shim — real types now live in @s-class/types/subjects.
 // Removed in Phase 5 when /src is decommissioned.
-export type * from '@s-class/types/courses'
+export type * from '@s-class/types/subjects'

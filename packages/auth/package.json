@@ -8,7 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./authStore": "./src/authStore.ts",
-    "./savedCoursesStore": "./src/savedCoursesStore.ts",
+    "./savedSubjectsStore": "./src/savedSubjectsStore.ts",
     "./quizHistoryStore": "./src/quizHistoryStore.ts",
     "./components/GuestRoute": "./src/components/GuestRoute.tsx",
     "./components/ProtectedRoute": "./src/components/ProtectedRoute.tsx",

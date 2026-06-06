@@ -362,7 +362,7 @@ export function LessonPage() {
                 thumbnail={course?.thumbnail ?? 'from-gray-400 to-gray-500'}
                 src={signedVideoUrl ?? undefined}
                 durationSeconds={30}
-                onEnded={() => setVideoProgress(100)}
+                onEnded={() => { setVideoProgress(100); clearResume(lesson.id) }}
                 previewDuration={videoPreviewSec}
                 onPreviewEnded={() => setPreviewEnded(true)}
                 onProgress={setVideoProgress}

@@ -2,6 +2,12 @@
  * Application route paths.
  * Import from here instead of writing '/login', '/courses', etc. as strings.
  * Changing a path only needs to happen in one place — here and in router.tsx.
+ *
+ * Note on the Subject-domain constants below: the path strings (/courses,
+ * /course/:courseId, /admin/courses, /admin/categories) are historical and
+ * intentionally retained. The constant names reflect the new
+ * Course → Subject domain established by the domain refactor. URL migration
+ * is scoped separately — when it happens, only the right-hand values change.
  */
 export const ROUTES = {
   HOME:            '/',
@@ -12,9 +18,9 @@ export const ROUTES = {
   RESET_PASSWORD:  '/reset-password',
   DASHBOARD:       '/dashboard',
   QUIZ_HISTORY:    '/quizzes',
-  COURSES:         '/courses',
+  SUBJECTS:        '/courses',
   SUBSCRIPTION:    '/subscription',
-  COURSE:  (id: string) => `/course/${id}`,
+  SUBJECT: (id: string) => `/course/${id}`,
   LESSON:  (id: string) => `/lesson/${id}`,
 
   PROFILE:          '/profile',
@@ -31,12 +37,12 @@ export const ROUTES = {
 
   // Admin panel
   ADMIN:                '/admin',
-  ADMIN_COURSES:        '/admin/courses',
+  ADMIN_SUBJECTS:       '/admin/courses',
   ADMIN_LESSONS:        '/admin/lessons',
   ADMIN_QUIZZES:        '/admin/quizzes',
   ADMIN_USERS:          '/admin/users',
   ADMIN_SUBSCRIPTIONS:  '/admin/subscriptions',
-  ADMIN_CATEGORIES:     '/admin/categories',
+  ADMIN_COURSES:        '/admin/categories',
   ADMIN_BOOKS:          '/admin/books',
   ADMIN_ORDERS:         '/admin/orders',
   ADMIN_ANNOUNCEMENTS:  '/admin/announcements',

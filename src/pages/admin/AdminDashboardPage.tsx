@@ -132,7 +132,7 @@ export function AdminDashboardPage() {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLink
-            to={ROUTES.ADMIN_COURSES}
+            to={ROUTES.ADMIN_SUBJECTS}
             label="Manage Subjects"
             description="Publish, unpublish, and review all subjects."
             icon={BookOpen}

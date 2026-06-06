@@ -195,7 +195,7 @@ export function PaymentSuccessPage() {
 
         <div className="flex flex-col gap-2">
           <Button asChild className="w-full">
-            <Link to={ROUTES.COURSES}>
+            <Link to={ROUTES.SUBJECTS}>
               <Check className="size-4 mr-2" />
               Start learning
             </Link>

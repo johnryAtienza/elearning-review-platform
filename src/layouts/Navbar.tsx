@@ -300,7 +300,7 @@ function SubjectsDropdown({ subjects, loading }: { subjects: Subject[]; loading:
             subjects.map((s) => (
               <SmartLink
                 key={s.id}
-                to={ROUTES.COURSE(s.id)}
+                to={ROUTES.SUBJECT(s.id)}
                 onClick={() => setOpen(false)}
                 className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
@@ -353,7 +353,7 @@ function MobileSubjectsSection({
             subjects.map((s) => (
               <SmartLink
                 key={s.id}
-                to={ROUTES.COURSE(s.id)}
+                to={ROUTES.SUBJECT(s.id)}
                 onClick={onNavigate}
                 className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >

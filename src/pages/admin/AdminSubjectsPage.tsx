@@ -277,7 +277,7 @@ function SubjectRow({
               variant="ghost" size="icon" className="size-8"
               disabled={isDeleting} asChild
             >
-              <Link to={ROUTES.COURSE(subject.id)} target="_blank" rel="noopener noreferrer">
+              <Link to={ROUTES.SUBJECT(subject.id)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className={`size-4 ${!subject.isPublished ? 'text-warning' : ''}`} />
               </Link>
             </Button>

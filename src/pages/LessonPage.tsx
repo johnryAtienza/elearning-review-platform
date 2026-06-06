@@ -259,7 +259,7 @@ export function LessonPage() {
         {/* Top bar */}
         <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
           <Link
-            to={ROUTES.COURSE(lesson.courseId)}
+            to={ROUTES.SUBJECT(lesson.courseId)}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <ChevronLeft className="size-4" />
@@ -470,7 +470,7 @@ export function LessonPage() {
                   </Button>
                 ) : (
                   <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Subject</Link>
+                    <Link to={ROUTES.SUBJECT(lesson.courseId)}>Back to Subject</Link>
                   </Button>
                 )}
               </div>

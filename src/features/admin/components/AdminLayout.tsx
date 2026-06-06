@@ -27,8 +27,8 @@ import { cn } from '@/utils/cn'
 
 const NAV_ITEMS = [
   { to: ROUTES.ADMIN,               label: 'Dashboard',     icon: LayoutDashboard, end: true  },
-  { to: ROUTES.ADMIN_COURSES,       label: 'Subjects',      icon: BookOpen,        end: false },
-  { to: ROUTES.ADMIN_CATEGORIES,    label: 'Courses',       icon: Tag,             end: false },
+  { to: ROUTES.ADMIN_SUBJECTS,      label: 'Subjects',      icon: BookOpen,        end: false },
+  { to: ROUTES.ADMIN_COURSES,       label: 'Courses',       icon: Tag,             end: false },
   { to: ROUTES.ADMIN_LESSONS,       label: 'Lessons',       icon: BookMarked,      end: false },
   { to: ROUTES.ADMIN_QUIZZES,       label: 'Quizzes',       icon: ClipboardList,   end: false },
   { to: ROUTES.ADMIN_BOOKS,            label: 'Books',          icon: Library,         end: false },
@@ -43,8 +43,8 @@ const NAV_ITEMS = [
 
 const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN]:               'Dashboard',
-  [ROUTES.ADMIN_COURSES]:       'Subjects',
-  [ROUTES.ADMIN_CATEGORIES]:    'Courses',
+  [ROUTES.ADMIN_SUBJECTS]:      'Subjects',
+  [ROUTES.ADMIN_COURSES]:       'Courses',
   [ROUTES.ADMIN_LESSONS]:       'Lessons',
   [ROUTES.ADMIN_QUIZZES]:       'Quizzes',
   [ROUTES.ADMIN_BOOKS]:            'Books',

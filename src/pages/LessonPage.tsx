@@ -115,23 +115,21 @@ export function LessonPage() {
     Promise.all([
       getReviewerContent(lessonId),
       getQuizByLessonId(lessonId),
-      // Load persisted watch status for authenticated users
       isAuthenticated ? getLessonWatchedStatus(lessonId) : Promise.resolve(false),
     ]).then(([rc, qz, watched]) => {
       setReviewerContent(rc)
       setQuiz(qz)
       setIsWatched(watched)
-      // Restore tab state for previously-watched lessons
       if (watched) {
         const defaultTab = (rc || signedPdfUrl) ? 'reviewer' : qz ? 'quiz' : null
         setActiveTab(defaultTab)
-      } else {
-        // Only offer resume when lesson isn't already fully watched.
-        const saved = loadResume(lessonId)
-        if (saved !== null) {
-          setResumeAt(saved)
-          setResumeChoice('pending')
-        }
+      }
+      // Offer resume whenever localStorage has a position — Watched lessons
+      // stay re-watchable from where the user last paused.
+      const saved = loadResume(lessonId)
+      if (saved !== null) {
+        setResumeAt(saved)
+        setResumeChoice('pending')
       }
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -148,14 +146,12 @@ export function LessonPage() {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
-      clearResume(data.lesson.id)
       // Auto-open reviewer (or quiz as fallback) after marking watched
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
-      clearResume(data.lesson.id)
       const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } finally {
@@ -352,7 +348,7 @@ export function LessonPage() {
                 onProgress={setVideoProgress}
                 lockSeekAhead={!isWatched}
                 startAt={playerStartAt}
-                onTimeChange={(s) => { if (isAuthenticated) saveResume(lesson.id, s) }}
+                onTimeChange={(s) => saveResume(lesson.id, s)}
               />
               <ContentWatermark
                 label={user?.email ?? user?.id ?? ''}
@@ -568,11 +564,11 @@ function PreviewConversionBanner({
         <div className="flex-1 min-w-0 space-y-1">
           <p className="text-sm font-semibold">Enjoying the free preview?</p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Create an account to save your progress and pick up where you left off.
+            Enroll an account to save your progress and pick up where you left off.
           </p>
         </div>
         <Button asChild size="sm" className="shrink-0">
-          <Link to={ROUTES.REGISTER} {...returnState}>Create account</Link>
+          <Link to={ROUTES.REGISTER} {...returnState}>Enroll Now</Link>
         </Button>
       </div>
     )
@@ -587,7 +583,7 @@ function PreviewConversionBanner({
         </p>
       </div>
       <Button asChild size="sm" className="shrink-0">
-        <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
+        <Link to={ROUTES.SUBSCRIPTION}>Upgrade Now</Link>
       </Button>
     </div>
   )

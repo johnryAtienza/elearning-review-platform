@@ -286,10 +286,10 @@ export function RegisterPage() {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Creating account…
+                  Enrolling account…
                 </>
               ) : (
-                'Create account'
+                'Enroll Account'
               )}
             </Button>
           </form>

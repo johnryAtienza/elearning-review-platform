@@ -134,6 +134,26 @@ export function LessonPage() {
     })
   }, [data?.lesson.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Clear per-lesson UI state when the user logs out while staying on this page.
+  // The lesson-id reset effect above only fires on navigation, so without this
+  // the prior session's Watched badge, active quiz tab, and quiz answers would
+  // leak into the guest view of a free-preview lesson.
+  const prevAuthRef = useRef(isAuthenticated)
+  useEffect(() => {
+    if (prevAuthRef.current && !isAuthenticated) {
+      setIsWatched(false)
+      setMarkingWatched(false)
+      setActiveTab(null)
+      setResumeAt(null)
+      setResumeChoice('resolved')
+      setPlayerStartAt(undefined)
+      setPreviewEnded(false)
+      setVideoProgress(0)
+      useQuizStore.getState().resetQuiz()
+    }
+    prevAuthRef.current = isAuthenticated
+  }, [isAuthenticated])
+
   // ── Mark as Watched handler ──────────────────────────────────────────────
   async function handleMarkWatched() {
     if (!data?.lesson || isWatched || markingWatched) return

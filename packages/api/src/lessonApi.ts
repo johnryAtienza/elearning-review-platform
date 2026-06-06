@@ -6,12 +6,14 @@ import { apiClient } from './apiClient'
 import * as lessonService from './lesson.service'
 
 export const lessonApi = {
-  async getByCourse(courseId: string): Promise<Lesson[]> {
+  async getBySubject(subjectId: string): Promise<Lesson[]> {
     if (config.api.useMock) {
-      return LESSONS.filter((l) => l.courseId === courseId).sort((a, b) => a.order - b.order)
+      // Lesson.courseId field name is still the old TS name; the value is
+      // the parent subject's id. Phase 3 follow-up renames the field.
+      return LESSONS.filter((l) => l.courseId === subjectId).sort((a, b) => a.order - b.order)
     }
-    if (config.auth.provider === 'supabase') return lessonService.getLessonsByCourseId(courseId)
-    return apiClient.get<Lesson[]>(`/courses/${courseId}/lessons`)
+    if (config.auth.provider === 'supabase') return lessonService.getLessonsBySubjectId(subjectId)
+    return apiClient.get<Lesson[]>(`/courses/${subjectId}/lessons`)
   },
 
   async getById(lessonId: string): Promise<Lesson | undefined> {

@@ -140,19 +140,26 @@ export interface AdminUser {
 }
 
 // ── Raw DB shapes ─────────────────────────────────────────────────────────────
+//
+// Internal row interfaces match the renamed columns from the Phase 1 migration
+// (course_id, subject_id). The exported AdminCourse / CourseFormData / CourseOption
+// type names still use the old vocabulary and are renamed to AdminSubject etc.
+// in Phase 3 of the domain refactor.
 
-interface CategoryRef {
+interface CourseRef {
   id: string
   name: string
 }
 
-interface CourseRow {
+interface SubjectRow {
   id: string
   title: string
   description: string
+  /** Legacy denormalized field — kept until plan §8a cleanup. */
   category: string
-  category_id: string | null
-  cat: CategoryRef | null
+  course_id: string | null
+  /** Joined from courses table via course_id FK. */
+  course: CourseRef | null
   duration: string
   is_published: boolean
   thumbnail_url: string | null
@@ -168,7 +175,7 @@ interface QuizRow {
   description: string | null
   randomize_questions: boolean
   created_at: string
-  lessons: { title: string; courses: { title: string } | null } | null
+  lessons: { title: string; subjects: { title: string } | null } | null
   quiz_questions: { count: number }[]
 }
 
@@ -186,7 +193,7 @@ interface QuizQuestionRow {
 
 interface LessonRow {
   id: string
-  course_id: string
+  subject_id: string
   title: string
   order: number
   week_number: number | null
@@ -196,7 +203,7 @@ interface LessonRow {
   video_url: string | null
   reviewer_pdf_url: string | null
   created_at: string
-  courses: { title: string } | null
+  subjects: { title: string } | null
 }
 
 interface UserListRow {
@@ -228,7 +235,10 @@ interface SubscriptionRow {
 
 export async function getAdminStats(): Promise<AdminStats> {
   const [coursesRes, lessonsRes, usersRes, subsRes, completionsRes, completionsCountRes] = await Promise.all([
-    supabase.from('courses').select('is_published', { count: 'exact', head: false }),
+    // Note: `coursesRes` here counts SUBJECTS, not parent Courses. The variable
+    // name matches the still-unchanged AdminStats.totalCourses field, which
+    // Phase 3 of the domain refactor will rename to totalSubjects.
+    supabase.from('subjects').select('is_published', { count: 'exact', head: false }),
     supabase.from('lessons').select('id', { count: 'exact', head: true }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
     supabase
@@ -267,22 +277,26 @@ export async function getAdminStats(): Promise<AdminStats> {
   }
 }
 
-// ── Courses ───────────────────────────────────────────────────────────────────
+// ── Subjects ──────────────────────────────────────────────────────────────────
+//
+// Function names use the new "subject" vocabulary; the exported types
+// (AdminCourse, CourseFormData) keep the old names until Phase 3 renames them.
 
-export async function getAdminCourses(): Promise<AdminCourse[]> {
+export async function getAdminSubjects(): Promise<AdminCourse[]> {
   const { data, error } = await supabase
-    .from('courses')
-    .select('id, title, description, category, category_id, duration, is_published, thumbnail_url, created_at, lessons:lessons(count), cat:categories(id,name)')
+    .from('subjects')
+    .select('id, title, description, category, course_id, duration, is_published, thumbnail_url, created_at, lessons:lessons(count), course:courses(id,name)')
     .order('created_at', { ascending: false })
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSES_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECTS_FAILED', error.message)
 
-  return (data as unknown as CourseRow[]).map((row) => ({
+  return (data as unknown as SubjectRow[]).map((row) => ({
     id:           row.id,
     title:        row.title,
     description:  row.description ?? '',
-    category:     row.cat?.name ?? row.category ?? '',
-    categoryId:   row.category_id ?? null,
+    // Prefer joined parent-Course name; fall back to legacy text column
+    category:     row.course?.name ?? row.category ?? '',
+    categoryId:   row.course_id ?? null,
     duration:     row.duration,
     isPublished:  row.is_published,
     lessonCount:  row.lessons[0]?.count ?? 0,
@@ -291,58 +305,58 @@ export async function getAdminCourses(): Promise<AdminCourse[]> {
   }))
 }
 
-export async function createCourse(data: CourseFormData): Promise<string> {
+export async function createSubject(data: CourseFormData): Promise<string> {
   const { data: row, error } = await supabase
-    .from('courses')
+    .from('subjects')
     .insert({
       title:        data.title,
       description:  data.description,
       category:     '',
-      category_id:  data.categoryId ?? null,
+      course_id:    data.categoryId ?? null,
       duration:     '',
       is_published: false,
     })
     .select('id')
     .single()
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSE_CREATE_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECT_CREATE_FAILED', error.message)
   return (row as { id: string }).id
 }
 
-export async function updateCourse(
-  courseId: string,
+export async function updateSubject(
+  subjectId: string,
   data: Partial<CourseFormData & { thumbnailUrl: string }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
   if (data.title        !== undefined) update.title         = data.title
   if (data.description  !== undefined) update.description   = data.description
   if (data.thumbnailUrl !== undefined) update.thumbnail_url = data.thumbnailUrl
-  if ('categoryId' in data)            update.category_id   = data.categoryId ?? null
+  if ('categoryId' in data)            update.course_id     = data.categoryId ?? null
 
   const { error } = await supabase
-    .from('courses')
+    .from('subjects')
     .update(update)
-    .eq('id', courseId)
+    .eq('id', subjectId)
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSE_UPDATE_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECT_UPDATE_FAILED', error.message)
 }
 
-export async function setCoursePublished(courseId: string, isPublished: boolean): Promise<void> {
+export async function setSubjectPublished(subjectId: string, isPublished: boolean): Promise<void> {
   const { error } = await supabase
-    .from('courses')
+    .from('subjects')
     .update({ is_published: isPublished })
-    .eq('id', courseId)
+    .eq('id', subjectId)
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSE_UPDATE_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECT_UPDATE_FAILED', error.message)
 }
 
-export async function deleteCourse(courseId: string): Promise<void> {
+export async function deleteSubject(subjectId: string): Promise<void> {
   const { error } = await supabase
-    .from('courses')
+    .from('subjects')
     .delete()
-    .eq('id', courseId)
+    .eq('id', subjectId)
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSE_DELETE_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECT_DELETE_FAILED', error.message)
 }
 
 // ── Lessons ───────────────────────────────────────────────────────────────────
@@ -350,16 +364,18 @@ export async function deleteCourse(courseId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, course_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, created_at, courses(title)')
-    .order('course_id')
+    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, created_at, subjects(title)')
+    .order('subject_id')
     .order('order', { ascending: true })
 
   if (error) throw new ApiError(500, 'ADMIN_LESSONS_FAILED', error.message)
 
   return (data as unknown as LessonRow[]).map((row) => ({
     id:              row.id,
-    courseId:        row.course_id,
-    courseTitle:     row.courses?.title ?? 'Unknown',
+    // AdminLesson.courseId / courseTitle field names are kept until a
+    // future cleanup; the values point at the parent SUBJECT.
+    courseId:        row.subject_id,
+    courseTitle:     row.subjects?.title ?? 'Unknown',
     title:           row.title,
     order:           row.order,
     weekNumber:      row.week_number ?? null,
@@ -372,22 +388,22 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
   }))
 }
 
-export async function getCoursesForSelect(): Promise<CourseOption[]> {
+export async function getSubjectsForSelect(): Promise<CourseOption[]> {
   const { data, error } = await supabase
-    .from('courses')
+    .from('subjects')
     .select('id, title')
     .order('title')
 
-  if (error) throw new ApiError(500, 'ADMIN_COURSES_FAILED', error.message)
+  if (error) throw new ApiError(500, 'ADMIN_SUBJECTS_FAILED', error.message)
   return data as CourseOption[]
 }
 
-/** Returns the highest `order` value among lessons in a course, or 0 if none. */
-export async function getMaxLessonOrderInCourse(courseId: string): Promise<number> {
+/** Returns the highest `order` value among lessons in a subject, or 0 if none. */
+export async function getMaxLessonOrderInSubject(subjectId: string): Promise<number> {
   const { data, error } = await supabase
     .from('lessons')
     .select('order')
-    .eq('course_id', courseId)
+    .eq('subject_id', subjectId)
     .order('order', { ascending: false })
     .limit(1)
 
@@ -399,7 +415,9 @@ export async function createAdminLesson(data: LessonFormData): Promise<string> {
   const { data: row, error } = await supabase
     .from('lessons')
     .insert({
-      course_id:        data.courseId,
+      // LessonFormData.courseId still represents the parent subject's id
+      // until Phase 3 renames the field.
+      subject_id:       data.courseId,
       title:            data.title,
       order:            data.order,
       week_number:      data.weekNumber ?? null,
@@ -421,7 +439,7 @@ export async function updateAdminLesson(
   data: Partial<LessonFormData & { videoUrl: string; reviewerPdfUrl: string }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
-  if (data.courseId        !== undefined) update.course_id         = data.courseId
+  if (data.courseId        !== undefined) update.subject_id        = data.courseId
   if (data.title           !== undefined) update.title             = data.title
   if (data.order           !== undefined) update.order             = data.order
   if (data.weekNumber      !== undefined) update.week_number       = data.weekNumber
@@ -453,7 +471,7 @@ export async function deleteAdminLesson(lessonId: string): Promise<void> {
 export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, courses(title)), quiz_questions(count)')
+    .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, subjects(title)), quiz_questions(count)')
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZZES_FAILED', error.message)
@@ -462,7 +480,9 @@ export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
     id:            row.id,
     lessonId:      row.lesson_id,
     lessonTitle:   row.lessons?.title ?? 'Unknown lesson',
-    courseTitle:   row.lessons?.courses?.title ?? 'Unknown course',
+    // AdminQuiz.courseTitle field name kept until Phase 3; value is the
+    // parent subject's title.
+    courseTitle:   row.lessons?.subjects?.title ?? 'Unknown subject',
     description:   row.description ?? null,
     randomize:     row.randomize_questions ?? false,
     questionCount: row.quiz_questions[0]?.count ?? 0,
@@ -474,7 +494,7 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
   const [quizRes, questionsRes] = await Promise.all([
     supabase
       .from('quizzes')
-      .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, courses(title))')
+      .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, subjects(title))')
       .eq('id', quizId)
       .single(),
     supabase
@@ -505,7 +525,7 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
     id:            quiz.id,
     lessonId:      quiz.lesson_id,
     lessonTitle:   quiz.lessons?.title ?? 'Unknown lesson',
-    courseTitle:   quiz.lessons?.courses?.title ?? 'Unknown course',
+    courseTitle:   quiz.lessons?.subjects?.title ?? 'Unknown subject',
     description:   quiz.description ?? null,
     randomize:     quiz.randomize_questions ?? false,
     questionCount: questions.length,

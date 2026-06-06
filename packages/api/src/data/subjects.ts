@@ -8,7 +8,11 @@ export interface Course {
   duration: string
 }
 
-export const COURSES: Course[] = [
+// Mock fixture. The `Course` interface stays locally for now — Phase 3 renames
+// the type to `Subject` in @s-class/types. Field `category: string` is
+// intentionally kept; it feeds the useSubjects() filter pill list until the
+// legacy DB column is dropped (plan §8a).
+export const SUBJECTS: Course[] = [
   {
     id: '1',
     title: 'React Fundamentals',

@@ -1,5 +1,5 @@
 // Barrel re-export. Prefer subpath imports in app code
-// (e.g. `import { courseApi } from '@s-class/api/courseApi'`)
+// (e.g. `import { subjectApi } from '@s-class/api/subjectApi'`)
 // to keep things tree-shake-friendly.
 
 // Infrastructure (2.5a)
@@ -26,13 +26,13 @@ export type {
   AuthResponse,
 } from './authApi'
 export { booksApi } from './booksApi'
-export { categoriesApi } from './categoriesApi'
-export { courseApi } from './courseApi'
+export * as coursesApi from './coursesApi'
+export { subjectApi } from './subjectApi'
 export { devicesApi } from './devicesApi'
 export { homeContentApi } from './homeContentApi'
 export { lessonApi } from './lessonApi'
 export { lessonProgressApi } from './lessonProgressApi'
 export { quizApi } from './quizApi'
 export { quizResultsApi } from './quizResultsApi'
-export { savedCoursesApi } from './savedCoursesApi'
+export * as savedSubjectsApi from './savedSubjectsApi'
 export { subscriptionApi } from './subscriptionApi'

@@ -21,7 +21,7 @@ import type { Lesson, ReviewerContent } from '@s-class/types/lessons'
 
 interface LessonPreviewRow {
   id: string
-  course_id: string
+  subject_id: string
   title: string
   description: string
   order: number
@@ -33,14 +33,16 @@ interface LessonPreviewRow {
 }
 
 const LESSON_PREVIEW_COLUMNS =
-  'id, course_id, title, description, order, week_number, day_number, is_free_preview, duration, duration_minutes'
+  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, duration, duration_minutes'
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
 function toAppLesson(row: LessonPreviewRow): Lesson {
   return {
     id:              row.id,
-    courseId:        row.course_id,
+    // Lesson.courseId field name kept until a future cleanup; the value
+    // points at the parent SUBJECT.
+    courseId:        row.subject_id,
     order:           row.order,
     title:           row.title,
     description:     row.description,
@@ -55,15 +57,15 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
- * Fetch the preview list of lessons for a course.
+ * Fetch the preview list of lessons for a subject.
  * Queries the `lesson_previews` view — excludes premium columns.
  * Accessible to all authenticated users regardless of subscription.
  */
-export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
+export async function getLessonsBySubjectId(subjectId: string): Promise<Lesson[]> {
   const { data, error } = await supabase
     .from('lesson_previews')
     .select(LESSON_PREVIEW_COLUMNS)
-    .eq('course_id', courseId)
+    .eq('subject_id', subjectId)
     .order('order', { ascending: true })
 
   if (error) {

@@ -66,7 +66,13 @@ export async function saveQuizResult(input: SaveQuizResultInput): Promise<boolea
 
 /**
  * Returns the user's quiz attempts (newest first), joined with
- * lesson and course titles. Uses the get_quiz_history() RPC.
+ * lesson and subject titles. Uses the get_quiz_history() RPC.
+ *
+ * The RPC return shape changed in the Phase 1 migration:
+ * `course_id` / `course_title` → `subject_id` / `subject_title`.
+ * The QuizAttempt TS fields (`courseId`, `courseTitle`) keep their
+ * old names until a future cleanup; the values point at the parent
+ * SUBJECT.
  */
 export async function getQuizHistory(limit = 50): Promise<QuizAttempt[]> {
   const { data, error } = await supabase.rpc('get_quiz_history', { p_limit: limit })
@@ -74,21 +80,21 @@ export async function getQuizHistory(limit = 50): Promise<QuizAttempt[]> {
 
   return ((data as unknown[]) ?? []).map((row) => {
     const r = row as {
-      id:           string
-      lesson_id:    string
-      lesson_title: string
-      course_id:    string
-      course_title: string
-      score:        number
-      total:        number
-      submitted_at: string
+      id:            string
+      lesson_id:     string
+      lesson_title:  string
+      subject_id:    string
+      subject_title: string
+      score:         number
+      total:         number
+      submitted_at:  string
     }
     return {
       id:          r.id,
       lessonId:    r.lesson_id,
       lessonTitle: r.lesson_title,
-      courseId:    r.course_id,
-      courseTitle: r.course_title,
+      courseId:    r.subject_id,
+      courseTitle: r.subject_title,
       score:       Number(r.score),
       total:       Number(r.total),
       submittedAt: r.submitted_at,

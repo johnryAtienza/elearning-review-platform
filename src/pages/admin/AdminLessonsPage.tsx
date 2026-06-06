@@ -103,7 +103,7 @@ export function AdminLessonsPage() {
             {loading ? 'Loading…' : (
               <>
                 {lessons.length} total
-                {filter !== 'all' && ` · ${filtered.length} in selected course`}
+                {filter !== 'all' && ` · ${filtered.length} in selected subject`}
               </>
             )}
           </p>
@@ -118,7 +118,7 @@ export function AdminLessonsPage() {
       {courses.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => setFilter('all')} className={filterTabClass(filter === 'all')}>
-            All courses
+            All subjects
           </button>
           {courses.map((c) => (
             <button key={c.id} onClick={() => setFilter(c.id)} className={filterTabClass(filter === c.id)}>
@@ -154,7 +154,7 @@ export function AdminLessonsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={BookMarked}
-            title={filter !== 'all' ? 'No lessons in this course' : 'No lessons yet'}
+            title={filter !== 'all' ? 'No lessons in this subject' : 'No lessons yet'}
             description="Create your first lesson to get started."
             action={
               <Button size="sm" onClick={() => setModal({ open: true, lesson: null })}>

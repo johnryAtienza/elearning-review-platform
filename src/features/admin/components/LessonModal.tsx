@@ -163,7 +163,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
       if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key')) {
-        setError('Another lesson in this course already has the same order number. Please use a different order value.')
+        setError('Another lesson in this subject already has the same order number. Please use a different order value.')
       } else {
         setError(msg || 'Failed to save lesson.')
       }
@@ -209,7 +209,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
             {/* Course */}
             <div className="space-y-1.5">
               <label htmlFor="lesson-course" className="text-sm font-medium">
-                Course <span className="text-destructive">*</span>
+                Subject <span className="text-destructive">*</span>
               </label>
               <select
                 id="lesson-course"
@@ -219,9 +219,9 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {coursesLoading ? (
-                  <option>Loading courses…</option>
+                  <option>Loading subjects…</option>
                 ) : courses.length === 0 ? (
-                  <option value="">No courses available</option>
+                  <option value="">No subjects available</option>
                 ) : (
                   courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
@@ -286,8 +286,8 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Order = position within the course. Week + Day drive the
-                curriculum grid on the course page.
+                Order = position within the subject. Week + Day drive the
+                curriculum grid on the subject page.
               </p>
             </div>
 
@@ -343,7 +343,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Shown to students on the course page. Leave at 0 to hide.
+                Shown to students on the subject page. Leave at 0 to hide.
               </p>
             </div>
 

@@ -5,7 +5,7 @@ export function CoursesPageSkeleton() {
     <div
       className="container mx-auto px-4 py-10 space-y-8 max-w-6xl"
       aria-busy="true"
-      aria-label="Loading courses"
+      aria-label="Loading subjects"
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">

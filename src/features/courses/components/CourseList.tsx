@@ -43,7 +43,7 @@ export function CourseList({ courses, loading = false }: CourseListProps) {
           <BookOpen className="size-7 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <p className="font-medium">No courses found</p>
+          <p className="font-medium">No subjects found</p>
           <p className="text-sm text-muted-foreground">Try adjusting your search or filter.</p>
         </div>
       </div>

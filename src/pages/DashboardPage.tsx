@@ -83,7 +83,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-3 gap-4">
         <StatCard
           icon={BookOpen}
-          label="Courses Saved"
+          label="Subjects Saved"
           value={stats.coursesSaved}
           loading={loading}
           accent="blue"
@@ -130,7 +130,7 @@ export function DashboardPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              My Courses
+              My Subjects
             </h2>
             {savedCourses.length > 0 && (
               <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
@@ -142,7 +142,7 @@ export function DashboardPage() {
           <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs">
             <Link to="/courses">
               <Plus className="size-3.5" />
-              Add courses
+              Add subjects
             </Link>
           </Button>
         </div>
@@ -182,7 +182,7 @@ export function DashboardPage() {
         </h2>
         <div className="rounded-xl border bg-card divide-y overflow-hidden">
           {[
-            { to: '/courses',      label: 'Browse all courses',     sub: `${courses.length} courses available` },
+            { to: '/courses',      label: 'Browse all subjects',    sub: `${courses.length} subjects available` },
             { to: '/subscription', label: 'Subscription & billing', sub: isSubscribed ? 'Standard plan — active' : 'Free plan' },
           ].map(({ to, label, sub }) => (
             <Link
@@ -309,15 +309,15 @@ function EmptyCourses() {
         <BookOpen className="size-7 text-muted-foreground" />
       </div>
       <div className="space-y-1.5">
-        <p className="font-semibold">No courses saved yet</p>
+        <p className="font-semibold">No subjects saved yet</p>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Browse courses and click the bookmark icon to add them here.
+          Browse subjects and click the bookmark icon to add them here.
         </p>
       </div>
       <Button asChild size="sm" variant="outline" className="mt-1 gap-1.5">
         <Link to="/courses">
           <Plus className="size-3.5" />
-          Browse courses
+          Browse subjects
         </Link>
       </Button>
     </div>

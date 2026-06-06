@@ -38,7 +38,7 @@ export function AdminCategoriesPage() {
       const data = await getCategoriesWithCount()
       setCategories(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load categories.')
+      setError(err instanceof Error ? err.message : 'Failed to load courses.')
     } finally {
       setLoading(false)
     }
@@ -65,7 +65,7 @@ export function AdminCategoriesPage() {
       setCategories((prev) => prev.filter((c) => c.id !== id))
       setDeletingId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete category.')
+      setError(err instanceof Error ? err.message : 'Failed to delete course.')
     } finally {
       setDeleteLoading(false)
     }
@@ -94,14 +94,14 @@ export function AdminCategoriesPage() {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Categories</h1>
+          <h1 className="text-xl font-semibold">Courses</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {loading ? 'Loading…' : `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}`}
+            {loading ? 'Loading…' : `${categories.length} cours${categories.length === 1 ? 'e' : 'es'}`}
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2 shrink-0">
           <Plus className="size-4" />
-          New category
+          New course
         </Button>
       </div>
 
@@ -109,7 +109,7 @@ export function AdminCategoriesPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input
-          placeholder="Search categories…"
+          placeholder="Search courses…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9 pr-9"
@@ -135,7 +135,7 @@ export function AdminCategoriesPage() {
               <SortHeader label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Slug</th>
               <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
-              <SortHeader label="Courses" col="courseCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right" />
+              <SortHeader label="Subjects" col="courseCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right" />
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -156,12 +156,12 @@ export function AdminCategoriesPage() {
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Tag className="size-8 opacity-40" />
                     <p className="font-medium">
-                      {search ? 'No categories match your search.' : 'No categories yet.'}
+                      {search ? 'No courses match your search.' : 'No courses yet.'}
                     </p>
                     {!search && (
                       <Button size="sm" variant="outline" onClick={openCreate} className="gap-1.5">
                         <Plus className="size-3.5" />
-                        Create first category
+                        Create first course
                       </Button>
                     )}
                   </div>
@@ -201,7 +201,7 @@ export function AdminCategoriesPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-1.5">
-                        <Tip label="Edit category">
+                        <Tip label="Edit course">
                           <Button
                             size="icon"
                             variant="ghost"
@@ -211,7 +211,7 @@ export function AdminCategoriesPage() {
                             <Pencil className="size-3.5" />
                           </Button>
                         </Tip>
-                        <Tip label="Delete category" align="right">
+                        <Tip label="Delete course" align="right">
                           <Button
                             size="icon"
                             variant="ghost"
@@ -306,8 +306,8 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
     if (!name.trim()) return 'Name is required.'
     if (!slug.trim()) return 'Slug is required.'
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return 'Slug must be lowercase letters, numbers, and hyphens only.'
-    if (existingNames.includes(name.trim().toLowerCase())) return 'A category with this name already exists.'
-    if (existingSlugs.includes(slug.trim().toLowerCase()))  return 'A category with this slug already exists.'
+    if (existingNames.includes(name.trim().toLowerCase())) return 'A course with this name already exists.'
+    if (existingSlugs.includes(slug.trim().toLowerCase()))  return 'A course with this slug already exists.'
     return null
   }
 
@@ -335,7 +335,7 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
         onSaved(created)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save category.')
+      setError(err instanceof Error ? err.message : 'Failed to save course.')
     } finally {
       setSaving(false)
     }
@@ -349,7 +349,7 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold">
-            {isEdit ? 'Edit Category' : 'New Category'}
+            {isEdit ? 'Edit Course' : 'New Course'}
           </h2>
           <Button variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={saving}>
             <X className="size-4" />
@@ -401,7 +401,7 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
               id="cat-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of what this category covers…"
+              placeholder="Brief description of what this course covers…"
               rows={2}
               disabled={saving}
               className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -411,7 +411,7 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
           {/* Edge case note */}
           {isEdit && (
             <p className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
-              Deleting this category will not remove it from existing courses — those courses will simply become uncategorized.
+              Deleting this course will not remove it from existing subjects — those subjects will simply become unassigned.
             </p>
           )}
 
@@ -425,7 +425,7 @@ function CategoryModal({ category, existingNames, existingSlugs, onClose, onSave
             </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {isEdit ? 'Save changes' : 'Create category'}
+              {isEdit ? 'Save changes' : 'Create course'}
             </Button>
           </div>
         </form>

@@ -17,7 +17,7 @@ interface CourseThumbnailProps {
  */
 export function CourseThumbnail({
   src,
-  alt = 'Course',
+  alt = 'Subject',
   gradient,
   className,
   children,
@@ -36,7 +36,7 @@ export function CourseThumbnail({
         <div className="absolute inset-0 flex items-center justify-center">
           <img
             src="/elearning-logo.png"
-            alt="Default course thumbnail"
+            alt="Default subject thumbnail"
             className="h-1/2 w-auto object-contain opacity-20"
           />
         </div>

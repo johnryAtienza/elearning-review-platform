@@ -10,7 +10,7 @@ import { cn } from '@/utils/cn'
 import type { SubscriptionDuration } from '@/features/subscription/types'
 
 const COMPARISON_ROWS: { label: string; free: string | boolean; standard: string | boolean }[] = [
-  { label: 'Browse courses',          free: true,             standard: true },
+  { label: 'Browse subjects',         free: true,             standard: true },
   { label: 'Video access',            free: '30s preview',    standard: 'Full access' },
   { label: 'Reviewer PDFs',           free: 'First 5 pages',  standard: 'Full access' },
   { label: 'Quizzes',                 free: false,            standard: true },

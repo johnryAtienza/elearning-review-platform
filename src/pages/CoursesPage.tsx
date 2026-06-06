@@ -75,13 +75,13 @@ export function CoursesPage() {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
           <p className="text-sm text-muted-foreground">
             {loading
               ? 'Loading…'
               : hasQuery || activeFilterCount > 0
-                ? `${filtered.length} of ${courses.length} courses`
-                : `${courses.length} courses available`}
+                ? `${filtered.length} of ${courses.length} subjects`
+                : `${courses.length} subjects available`}
             {!isSubscribed && !isAdmin && (isAuthenticated
               ? ' — subscribe to unlock lessons'
               : ' — enroll for free to start Day 1')}
@@ -103,7 +103,7 @@ export function CoursesPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Search courses…"
+            placeholder="Search subjects…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-9"
@@ -156,7 +156,7 @@ export function CoursesPage() {
               {/* Category */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Category
+                  Course
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {categories.map((cat) => (
@@ -302,7 +302,7 @@ function EmptyState({ query, recommended }: { query: string; recommended: Course
           <SearchX className="size-7 text-muted-foreground" />
         </div>
         <div className="space-y-1.5">
-          <p className="font-semibold text-base">No courses found</p>
+          <p className="font-semibold text-base">No subjects found</p>
           {query ? (
             <p className="text-sm text-muted-foreground max-w-xs">
               No results for <strong>"{query}"</strong>. Try different keywords or clear your filters.

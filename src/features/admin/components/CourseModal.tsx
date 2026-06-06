@@ -111,7 +111,7 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
         createdAt:    course?.createdAt   ?? new Date().toISOString(),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save course.')
+      setError(err instanceof Error ? err.message : 'Failed to save subject.')
     } finally {
       setSaving(false)
       setUploadProgress(0)
@@ -129,7 +129,7 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold">
-            {isEdit ? 'Edit Course' : 'New Course'}
+            {isEdit ? 'Edit Subject' : 'New Subject'}
           </h2>
           <Button variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={saving}>
             <X className="size-4" />
@@ -209,7 +209,7 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
               id="course-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What will students learn in this course?"
+              placeholder="What will students learn in this subject?"
               rows={3}
               disabled={saving}
               className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -219,13 +219,13 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
           {/* Category */}
           <div className="space-y-1.5">
             <label htmlFor="course-category" className="text-sm font-medium">
-              Category
+              Course
             </label>
             {catsLoading ? (
               <div className="h-9 rounded-md border bg-muted animate-pulse" />
             ) : categories.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                No categories yet.{' '}
+                No courses yet.{' '}
                 <a href="/admin/categories" className="underline hover:text-foreground">
                   Create one first.
                 </a>
@@ -238,7 +238,7 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
                 disabled={saving}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="">— No category —</option>
+                <option value="">— No course —</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
@@ -274,7 +274,7 @@ export function CourseModal({ course, onClose, onSaved }: CourseModalProps) {
             </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {isEdit ? 'Save changes' : 'Create course'}
+              {isEdit ? 'Save changes' : 'Create subject'}
             </Button>
           </div>
         </form>

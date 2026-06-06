@@ -263,7 +263,7 @@ export function LessonPage() {
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">{course?.title ?? 'Course'}</span>
+            <span className="hidden sm:inline">{course?.title ?? 'Subject'}</span>
           </Link>
 
           <div className="flex-1 min-w-0">
@@ -470,7 +470,7 @@ export function LessonPage() {
                   </Button>
                 ) : (
                   <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Course</Link>
+                    <Link to={ROUTES.COURSE(lesson.courseId)}>Back to Subject</Link>
                   </Button>
                 )}
               </div>
@@ -597,7 +597,7 @@ function PreviewConversionBanner({
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex items-start gap-4">
       <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm font-semibold">Ready for the rest of the course?</p>
+        <p className="text-sm font-semibold">Ready for the rest of the subject?</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           Enroll to unlock every lesson, the full reviewer PDF, and the quizzes.
         </p>

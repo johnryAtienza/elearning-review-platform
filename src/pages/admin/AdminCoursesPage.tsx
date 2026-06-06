@@ -28,7 +28,7 @@ const GRID_COLS = 'grid-cols-[3rem_1fr_4rem_6rem_9rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'Thumb',   smOnly: true },
-  { label: 'Course' },
+  { label: 'Subject' },
   { label: 'Lessons', center: true, smOnly: true },
   { label: 'Status',  center: true },
   { label: 'Actions', center: true },
@@ -57,7 +57,7 @@ export function AdminCoursesPage() {
     getAdminCourses()
       .then((data) => { setCourses(data); setLoading(false) })
       .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : 'Failed to load courses.')
+        setLoadError(err instanceof Error ? err.message : 'Failed to load subjects.')
         setLoading(false)
       })
   }, [])
@@ -74,7 +74,7 @@ export function AdminCoursesPage() {
       )
       toast.success(next ? `"${course.title}" published` : `"${course.title}" moved to draft`)
     } catch (err) {
-      toast.error(err, 'Failed to update course.')
+      toast.error(err, 'Failed to update subject.')
     } finally {
       setToggling((prev) => { const s = new Set(prev); s.delete(course.id); return s })
     }
@@ -88,7 +88,7 @@ export function AdminCoursesPage() {
       setCourses((prev) => prev.filter((c) => c.id !== course.id))
       toast.success(`"${course.title}" deleted`)
     } catch (err) {
-      toast.error(err, 'Failed to delete course.')
+      toast.error(err, 'Failed to delete subject.')
     } finally {
       setDeleting((prev) => { const s = new Set(prev); s.delete(course.id); return s })
     }
@@ -113,14 +113,14 @@ export function AdminCoursesPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {loading ? 'Loading…' : `${courses.length} total · ${publishedCount} published`}
           </p>
         </div>
         <Button onClick={() => setModal({ open: true, course: null })}>
           <Plus className="mr-2 size-4" />
-          New Course
+          New Subject
         </Button>
       </div>
 
@@ -150,12 +150,12 @@ export function AdminCoursesPage() {
         ) : courses.length === 0 ? (
           <EmptyState
             icon={BookOpen}
-            title="No courses yet"
-            description="Create your first course to get started."
+            title="No subjects yet"
+            description="Create your first subject to get started."
             action={
               <Button size="sm" onClick={() => setModal({ open: true, course: null })}>
                 <Plus className="mr-2 size-4" />
-                New Course
+                New Subject
               </Button>
             }
           />
@@ -264,7 +264,7 @@ function CourseRow({
                   : <Eye className="size-4" />}
             </Button>
           </Tip>
-          <Tip label="Edit course">
+          <Tip label="Edit subject">
             <Button
               variant="ghost" size="icon" className="size-8"
               disabled={isDeleting} onClick={onEdit}
@@ -282,7 +282,7 @@ function CourseRow({
               </Link>
             </Button>
           </Tip>
-          <Tip label="Delete course" align="right">
+          <Tip label="Delete subject" align="right">
             <Button
               variant="ghost" size="icon"
               className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"

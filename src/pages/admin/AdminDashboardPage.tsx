@@ -59,7 +59,7 @@ export function AdminDashboardPage() {
           tooltip="All registered accounts, including admins. Split into Standard (paid) and Free below."
         />
         <StatCard
-          label="Total Courses"
+          label="Total Subjects"
           value={stats?.totalCourses}
           icon={BookOpen}
           sub={
@@ -70,7 +70,7 @@ export function AdminDashboardPage() {
           loading={loading}
           iconColor="text-primary"
           iconBg="bg-primary/15"
-          tooltip="All courses in the catalog. Published courses are visible to students; drafts are admin-only."
+          tooltip="All subjects in the catalog. Published subjects are visible to students; drafts are admin-only."
         />
         <StatCard
           label="Total Lessons"
@@ -79,7 +79,7 @@ export function AdminDashboardPage() {
           loading={loading}
           iconColor="text-primary"
           iconBg="bg-primary/15"
-          tooltip="Total number of lessons across every course, published or draft."
+          tooltip="Total number of lessons across every subject, published or draft."
         />
         <StatCard
           label="Active Subscriptions"
@@ -133,14 +133,14 @@ export function AdminDashboardPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLink
             to={ROUTES.ADMIN_COURSES}
-            label="Manage Courses"
-            description="Publish, unpublish, and review all courses."
+            label="Manage Subjects"
+            description="Publish, unpublish, and review all subjects."
             icon={BookOpen}
           />
           <QuickLink
             to={ROUTES.ADMIN_LESSONS}
             label="Manage Lessons"
-            description="View and edit lessons across all courses."
+            description="View and edit lessons across all subjects."
             icon={BookMarked}
           />
           <QuickLink

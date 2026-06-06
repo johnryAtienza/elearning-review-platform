@@ -102,7 +102,7 @@ export function CourseDetailPage() {
         if (!c) { setNotFound(true) } else { setCourse(c); setLessons(ls) }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load course.')
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load subject.')
       })
       .finally(() => { if (!cancelled) setLoading(false) })
 
@@ -147,7 +147,7 @@ export function CourseDetailPage() {
             <EyeOff className="size-4 shrink-0" />
             <span>
               <span className="font-semibold">Draft Preview</span>
-              {' '}— this course is not visible to students yet.
+              {' '}— this subject is not visible to students yet.
             </span>
           </div>
           <Link

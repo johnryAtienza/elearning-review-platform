@@ -104,7 +104,7 @@ function EmptyHistory() {
         </p>
       </div>
       <Button asChild size="sm" variant="outline" className="mt-1">
-        <Link to={ROUTES.COURSES}>Browse courses</Link>
+        <Link to={ROUTES.COURSES}>Browse subjects</Link>
       </Button>
     </div>
   )

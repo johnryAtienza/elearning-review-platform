@@ -177,12 +177,12 @@ export function AdminLayout() {
     : 'A'
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex h-screen overflow-hidden">
 
       {/* ── Mobile backdrop ── */}
       {mobileOpen && (
         <div
-          className="fixed top-16 inset-x-0 bottom-0 z-30 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -190,8 +190,7 @@ export function AdminLayout() {
       {/* ── Sidebar ── */}
       <aside
         className={cn(
-          'hidden md:flex flex-col border-r bg-card transition-all duration-200',
-          'sticky top-16 self-start h-[calc(100vh-4rem)]',
+          'hidden md:flex flex-col border-r bg-card transition-all duration-200 shrink-0 h-full',
           collapsed ? 'w-15' : 'w-60',
         )}
       >
@@ -206,11 +205,11 @@ export function AdminLayout() {
       {/* ── Mobile slide-in sidebar ── */}
       <aside
         className={cn(
-          'fixed top-16 bottom-0 left-0 z-40 flex flex-col w-64 border-r bg-card transition-transform duration-200 md:hidden',
+          'fixed inset-y-0 left-0 z-40 flex flex-col w-64 border-r bg-card transition-transform duration-200 md:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-primary" />
             <span className="text-sm font-semibold">Admin Panel</span>
@@ -224,10 +223,10 @@ export function AdminLayout() {
             <X className="size-4" />
           </Button>
         </div>
-        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto min-h-0">
           <NavSections collapsed={false} onItemClick={() => setMobileOpen(false)} />
         </nav>
-        <div className="px-3 py-3 border-t space-y-2">
+        <div className="px-3 py-3 border-t space-y-2 shrink-0">
           <Link
             to={ROUTES.HOME}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -248,10 +247,10 @@ export function AdminLayout() {
       </aside>
 
       {/* ── Right side: header + content ── */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
         {/* ── Header ── */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/60 px-4">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/60 px-4">
           {/* Mobile: hamburger */}
           <Button
             variant="ghost"
@@ -290,7 +289,7 @@ export function AdminLayout() {
         </header>
 
         {/* ── Main content ── */}
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 overflow-auto">
+        <main className="flex-1 min-h-0 px-4 py-6 sm:px-6 sm:py-8 overflow-auto">
           <Outlet />
         </main>
       </div>
@@ -316,7 +315,7 @@ function SidebarContent({
       {/* Brand area */}
       <div
         className={cn(
-          'flex items-center gap-2 px-4 py-4 border-b',
+          'flex items-center gap-2 px-4 py-4 border-b shrink-0',
           collapsed ? 'justify-center px-2' : '',
         )}
       >
@@ -329,12 +328,12 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 min-h-0 px-2 py-3 space-y-0.5 overflow-y-auto">
         <NavSections collapsed={collapsed} />
       </nav>
 
       {/* User + back to site */}
-      <div className="px-3 py-3 border-t space-y-2">
+      <div className="px-3 py-3 border-t space-y-2 shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-1">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary select-none">

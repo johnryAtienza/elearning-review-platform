@@ -8,7 +8,7 @@ export function RootLayout() {
   return (
     <div className="relative min-h-screen flex flex-col">
       <SiteBackground />
-      <Navbar />
+      {!onAdminRoute && <Navbar />}
       <main className="flex-1">
         <Outlet />
       </main>

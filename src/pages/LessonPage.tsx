@@ -313,6 +313,33 @@ export function LessonPage() {
 
         {/* Content */}
         <div className="px-4 py-8 max-w-3xl mx-auto space-y-8">
+          {/* Breadcrumb — hierarchy context only; "Dashboard" omitted for guests. */}
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            {isAuthenticated && (
+              <>
+                <Link to={ROUTES.DASHBOARD} className="hover:text-foreground transition-colors">
+                  Dashboard
+                </Link>
+                <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+              </>
+            )}
+            <Link
+              to={isAuthenticated ? ROUTES.PORTAL_SUBJECTS : ROUTES.SUBJECTS}
+              className="hover:text-foreground transition-colors"
+            >
+              Subjects
+            </Link>
+            <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+            <Link
+              to={isAuthenticated ? ROUTES.PORTAL_SUBJECT(lesson.courseId) : ROUTES.SUBJECT(lesson.courseId)}
+              className="hover:text-foreground transition-colors"
+            >
+              {subject?.title ?? 'Subject'}
+            </Link>
+            <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+            <span className="text-foreground" aria-current="page">{lesson.title}</span>
+          </nav>
+
           <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
               Lesson {lesson.order} · {lesson.duration}

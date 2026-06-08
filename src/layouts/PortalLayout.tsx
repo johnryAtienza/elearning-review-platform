@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink, Outlet, Link, useLocation, useMatch } from 'react-router-dom'
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   BookOpen,
@@ -348,24 +348,21 @@ function SidebarContent({
 }
 
 // ── Hook for RootLayout: is the current location a portal-shell path? ─────────
-
-const PORTAL_SHELL_PATTERNS = [
-  ROUTES.DASHBOARD,
-  ROUTES.QUIZ_HISTORY,
-  ROUTES.SUBSCRIPTION,
-  ROUTES.PROFILE,
-  ROUTES.DEVICES,
-  '/portal/*',
-] as const
+//
+// Implemented via useLocation + pathname checks rather than useMatch.
+// Pathname comparison is unambiguous and avoids any pattern-matching edge
+// case (trailing slash, end:true vs splat) that could leave the public
+// Navbar stacked above the portal shell.
 
 export function usePortalShellMatch(): boolean {
-  const matches = [
-    useMatch(PORTAL_SHELL_PATTERNS[0]),
-    useMatch(PORTAL_SHELL_PATTERNS[1]),
-    useMatch(PORTAL_SHELL_PATTERNS[2]),
-    useMatch(PORTAL_SHELL_PATTERNS[3]),
-    useMatch(PORTAL_SHELL_PATTERNS[4]),
-    useMatch(PORTAL_SHELL_PATTERNS[5]),
-  ]
-  return matches.some((m) => m !== null)
+  const { pathname } = useLocation()
+  return (
+    pathname === ROUTES.DASHBOARD
+    || pathname === ROUTES.QUIZ_HISTORY
+    || pathname === ROUTES.SUBSCRIPTION
+    || pathname === ROUTES.PROFILE
+    || pathname.startsWith(ROUTES.PROFILE + '/')
+    || pathname === '/portal'
+    || pathname.startsWith('/portal/')
+  )
 }

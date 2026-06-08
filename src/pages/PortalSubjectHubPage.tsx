@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import {
-  Clock, BookOpen, Tag, ChevronLeft, Play,
-  Bookmark, BookmarkCheck, CalendarClock, PlusCircle, EyeOff, Pencil,
+  Clock, BookOpen, Tag, ChevronLeft, Play, Bookmark, BookmarkCheck,
+  CalendarClock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,20 +11,34 @@ import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
 import { getSubjectById } from '@/features/subjects/services/subjectService'
-import { subjectApi } from '@/services/subjectApi'
 import { getLessonsBySubject } from '@/features/lessons/services/lessonService'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
 import { ROUTES } from '@/constants/routes'
+import { cn } from '@/utils/cn'
 import type { Subject } from '@/features/subjects/types'
 import type { Lesson } from '@/features/lessons/types'
 
-export function SubjectDetailPage() {
-  // The URL param name `courseId` is preserved — URL paths are unchanged
-  // this sprint (the value is the parent subject's id).
-  const { courseId: subjectId } = useParams<{ courseId: string }>()
-  const { isAuthenticated, isSubscribed, isAdmin } = useAuthStore()
+/**
+ * Authenticated subject hub. Companion to the public SubjectDetailPage
+ * (/course/:courseId) but framed as an LMS — progress-first header,
+ * curriculum below.
+ *
+ * Reuses:
+ *   - getSubjectById, getLessonsBySubject (existing services)
+ *   - useSavedSubjectsStore (existing store, read-only for progress)
+ *   - WeekBlock + groupLessonsByWeek (extracted curriculum primitives,
+ *     same code path SubjectDetailPage uses)
+ *
+ * No new business logic, no new data fetching, no progress-tracking writes.
+ */
+export function PortalSubjectHubPage() {
+  const { subjectId } = useParams<{ subjectId: string }>()
+  const { isAuthenticated, isSubscribed } = useAuthStore()
   const isSaved = useSavedSubjectsStore((s) => subjectId ? s.isSaved(subjectId) : false)
   const toggle  = useSavedSubjectsStore((s) => s.toggle)
+  const progress = useSavedSubjectsStore(
+    (s) => subjectId ? s.progressMap[subjectId] : undefined,
+  )
   const [saving, setSaving] = useState(false)
 
   async function handleToggleSave() {
@@ -37,7 +51,7 @@ export function SubjectDetailPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]       = useState<string | null>(null)
 
   const totalDuration = useMemo(() => {
     const total = lessons.reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0)
@@ -57,8 +71,7 @@ export function SubjectDetailPage() {
     setLoading(true)
     setError(null)
 
-    const fetchSubject = isAdmin ? subjectApi.getByIdAdmin(subjectId) : getSubjectById(subjectId)
-    Promise.all([fetchSubject, getLessonsBySubject(subjectId)])
+    Promise.all([getSubjectById(subjectId), getLessonsBySubject(subjectId)])
       .then(([s, ls]) => {
         if (cancelled) return
         if (!s) { setNotFound(true) } else { setSubject(s); setLessons(ls) }
@@ -69,63 +82,54 @@ export function SubjectDetailPage() {
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [subjectId, isAdmin])
+  }, [subjectId])
 
-  if (notFound) return <Navigate to="/" replace />
-  if (error) return <ErrorMessage message={error} />
+  if (notFound) return <Navigate to={ROUTES.PORTAL_SUBJECTS} replace />
+  if (error)    return <ErrorMessage message={error} />
 
   if (loading || !subject) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+      <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
         <Skeleton className="h-5 w-24" />
         <Skeleton className="aspect-video w-full rounded-2xl" />
         <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-24 w-full rounded-xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
       </div>
     )
   }
 
-  const firstLesson = lessons[0]
-  // Preview CTA is offered when the first lesson is flagged is_free_preview.
-  // The flag is server-authoritative, so this stays accurate as marketing
-  // changes which lessons are free without a code deploy.
-  const firstLessonIsPreview = firstLesson?.isFreePreview === true
+  const firstLesson           = lessons[0]
+  const firstLessonIsPreview  = firstLesson?.isFreePreview === true
+  const watched               = progress?.watchedLessons ?? 0
+  const totalForProgress      = progress?.totalLessons ?? lessons.length
+  const progressPct           = totalForProgress > 0
+    ? Math.round((watched / totalForProgress) * 100)
+    : 0
+  const hasProgress           = isSaved && totalForProgress > 0
+  const completed             = hasProgress && progressPct === 100
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8">
+    <div className="container mx-auto px-4 py-6 max-w-6xl space-y-8">
+
+      {/* ── Back link ── */}
       <Link
-        to="/"
+        to={ROUTES.PORTAL_SUBJECTS}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="size-4" />
-        Home
+        Subjects
       </Link>
 
-      {/* ── Draft preview banner (admin only) ── */}
-      {isAdmin && subject.isPublished === false && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
-          <div className="flex items-center gap-2.5 text-sm text-warning">
-            <EyeOff className="size-4 shrink-0" />
-            <span>
-              <span className="font-semibold">Draft Preview</span>
-              {' '}— this subject is not visible to students yet.
-            </span>
-          </div>
-          <Link
-            to="/admin/courses"
-            className="shrink-0 text-xs font-medium text-warning hover:underline inline-flex items-center gap-1"
-          >
-            <Pencil className="size-3" />
-            Edit
-          </Link>
-        </div>
-      )}
-
       {/* ── Subject banner ── */}
-      <SubjectBanner subject={subject} />
+      <SubjectThumbnail
+        src={subject.thumbnailUrl}
+        alt={subject.title}
+        gradient={subject.thumbnail}
+        className="aspect-video w-full rounded-2xl border"
+      />
 
-      {/* ── Title + meta + actions ── */}
+      {/* ── Title + meta ── */}
       <header className="space-y-4">
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">
@@ -151,74 +155,99 @@ export function SubjectDetailPage() {
             <Tag className="size-4" />
             {subject.category}
           </span>
-          {isAuthenticated && (
-            <span className={
-              isSubscribed
-                ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
-                : 'inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning'
-            }>
-              {isSubscribed ? 'Standard Plan' : 'Free Plan'}
-            </span>
-          )}
-        </div>
-
-        {/* Action row */}
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          {!isAdmin && firstLesson && (
-            isSubscribed ? (
-              <Button asChild>
-                <Link to={ROUTES.LESSON(firstLesson.id)}>
-                  <Play className="size-4 mr-1.5" />
-                  Start First Lesson
-                </Link>
-              </Button>
-            ) : firstLessonIsPreview ? (
-              <>
-                <Button asChild>
-                  <Link to={ROUTES.LESSON(firstLesson.id)}>
-                    <Play className="size-4 mr-1.5" />
-                    Watch Free Preview
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
-                    Enroll Now
-                  </Link>
-                </Button>
-              </>
-            ) : (
-              <Button asChild>
-                <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
-                  Enroll Now
-                </Link>
-              </Button>
-            )
-          )}
-
-          {isAuthenticated && !isAdmin && (
-            <Button
-              variant={isSaved ? 'secondary' : 'outline'}
-              onClick={handleToggleSave}
-              disabled={saving}
-            >
-              {isSaved
-                ? <><BookmarkCheck className="size-4 mr-1.5" /> Saved</>
-                : <><Bookmark className="size-4 mr-1.5" /> Save to Dashboard</>
-              }
-            </Button>
-          )}
+          <span className={
+            isSubscribed
+              ? 'inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary'
+              : 'inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning'
+          }>
+            {isSubscribed ? 'Standard Plan' : 'Free Plan'}
+          </span>
         </div>
       </header>
 
-      {/* ── Curriculum (week × day grid) ── */}
+      {/* ── Progress card ── */}
+      {hasProgress && (
+        <div className="rounded-2xl border bg-card p-5 space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Your progress
+              </p>
+              <p className="text-sm mt-1">
+                <span className="font-semibold tabular-nums">
+                  {watched} / {totalForProgress}
+                </span>{' '}
+                lessons watched
+              </p>
+            </div>
+            <p className={cn(
+              'text-2xl font-bold tabular-nums',
+              completed ? 'text-success' : 'text-primary',
+            )}>
+              {progressPct}%
+            </p>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-500',
+                completed ? 'bg-success' : 'bg-primary',
+              )}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Action row ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        {firstLesson && (
+          isSubscribed ? (
+            <Button asChild>
+              <Link to={ROUTES.LESSON(firstLesson.id)}>
+                <Play className="size-4 mr-1.5" />
+                {hasProgress && watched > 0 ? 'Continue Learning' : 'Start First Lesson'}
+              </Link>
+            </Button>
+          ) : firstLessonIsPreview ? (
+            <>
+              <Button asChild>
+                <Link to={ROUTES.LESSON(firstLesson.id)}>
+                  <Play className="size-4 mr-1.5" />
+                  Watch Free Preview
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
+              </Button>
+            </>
+          ) : (
+            <Button asChild>
+              <Link to={ROUTES.SUBSCRIPTION}>Enroll Now</Link>
+            </Button>
+          )
+        )}
+
+        <Button
+          variant={isSaved ? 'secondary' : 'outline'}
+          onClick={handleToggleSave}
+          disabled={saving}
+        >
+          {isSaved
+            ? <><BookmarkCheck className="size-4 mr-1.5" /> Saved</>
+            : <><Bookmark className="size-4 mr-1.5" /> Save to Dashboard</>
+          }
+        </Button>
+      </div>
+
+      {/* ── Curriculum ── */}
       {lessons.length === 0 ? (
-        <EmptyCurriculum isAdmin={isAdmin} />
+        <EmptyCurriculum />
       ) : (
         <section className="space-y-6">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Curriculum
           </h2>
-
           <div className="space-y-8">
             {weekGroups.map((group) => (
               <WeekBlock
@@ -235,24 +264,9 @@ export function SubjectDetailPage() {
   )
 }
 
-// ── Subject banner ───────────────────────────────────────────────────────────
-// 16:9 hero image at the top of the page. Uses the shared SubjectThumbnail
-// component (same one SubjectCard uses) so banner + card look consistent.
-
-function SubjectBanner({ subject }: { subject: Subject }) {
-  return (
-    <SubjectThumbnail
-      src={subject.thumbnailUrl}
-      alt={subject.title}
-      gradient={subject.thumbnail}
-      className="aspect-video w-full rounded-2xl border"
-    />
-  )
-}
-
 // ── Empty curriculum ─────────────────────────────────────────────────────────
 
-function EmptyCurriculum({ isAdmin }: { isAdmin: boolean }) {
+function EmptyCurriculum() {
   return (
     <div className="rounded-xl border bg-card p-10 flex flex-col items-center text-center gap-3">
       <div className="rounded-full bg-muted p-4">
@@ -264,15 +278,6 @@ function EmptyCurriculum({ isAdmin }: { isAdmin: boolean }) {
           Lesson content is being prepared for this subject.
         </p>
       </div>
-      {isAdmin && (
-        <Link
-          to="/admin/lessons"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
-        >
-          <PlusCircle className="size-4" />
-          Add lessons in Admin
-        </Link>
-      )}
     </div>
   )
 }

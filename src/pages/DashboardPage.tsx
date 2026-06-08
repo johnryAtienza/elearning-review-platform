@@ -153,6 +153,7 @@ export function DashboardPage() {
                   subject={subject}
                   watchedLessons={progress?.watchedLessons ?? 0}
                   totalLessons={progress?.totalLessons ?? subject.lessons}
+                  to={ROUTES.PORTAL_SUBJECT(subject.id)}
                 />
               )
             })}

@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
+import { PortalLayout } from '@/layouts/PortalLayout'
+import { PortalShellOrPublic } from '@/layouts/PortalShellOrPublic'
 import { SubjectsPage } from '@/pages/SubjectsPage'
 import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
@@ -17,6 +19,8 @@ import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
+import { PortalSubjectsPage } from '@/pages/PortalSubjectsPage'
+import { PortalSubjectHubPage } from '@/pages/PortalSubjectHubPage'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
 import { PortalGuestRoute } from '../components/PortalGuestRoute'
 import { PortalAdminBouncer } from '../components/PortalAdminBouncer'
@@ -37,8 +41,8 @@ export const router = createBrowserRouter([
           { path: 'courses',          element: <SubjectsPage />       },
           { path: 'course/:courseId', element: <SubjectDetailPage />  },
           { path: 'lesson/:lessonId', element: <LessonPage />         },
-          { path: 'books',            element: <BooksPage />          },
-          { path: 'book/:bookId',     element: <BookDetailPage />     },
+          { path: 'books',            element: <PortalShellOrPublic><BooksPage /></PortalShellOrPublic>           },
+          { path: 'book/:bookId',     element: <PortalShellOrPublic><BookDetailPage /></PortalShellOrPublic>      },
 
           // Payment result pages — public so users can land here after
           // PayMongo redirects them back, even if the session expired mid-flow.
@@ -71,12 +75,23 @@ export const router = createBrowserRouter([
             children: [
               // portal root → dashboard. Keeps existing ROUTES.DASHBOARD
               // (`/dashboard`) callsites working unchanged.
-              { index: true,                   element: <Navigate to="/dashboard" replace /> },
-              { path: 'dashboard',             element: <DashboardPage />    },
-              { path: 'quizzes',               element: <QuizHistoryPage />  },
-              { path: 'subscription',          element: <SubscriptionPage /> },
-              { path: 'profile',               element: <ProfilePage />      },
-              { path: 'profile/devices',       element: <DevicesPage />      },
+              { index: true, element: <Navigate to="/dashboard" replace /> },
+
+              // Pages that live inside the portal sidebar shell.
+              {
+                element: <PortalLayout />,
+                children: [
+                  { path: 'dashboard',                  element: <DashboardPage />        },
+                  { path: 'quizzes',                    element: <QuizHistoryPage />      },
+                  { path: 'subscription',               element: <SubscriptionPage />     },
+                  { path: 'profile',                    element: <ProfilePage />          },
+                  { path: 'profile/devices',            element: <DevicesPage />          },
+                  { path: 'portal/subjects',            element: <PortalSubjectsPage />   },
+                  { path: 'portal/subjects/:subjectId', element: <PortalSubjectHubPage /> },
+                ],
+              },
+
+              // Protected routes that intentionally stay outside the portal shell.
               { path: 'book/:bookId/checkout', element: <BookCheckoutPage /> },
             ],
           },

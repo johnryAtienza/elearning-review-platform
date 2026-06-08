@@ -11,9 +11,11 @@ interface SavedSubjectCardProps {
   subject:        Subject
   watchedLessons: number
   totalLessons:   number
+  /** Override the card's link target. Defaults to the public subject page. */
+  to?:            string
 }
 
-export function SavedSubjectCard({ subject, watchedLessons, totalLessons }: SavedSubjectCardProps) {
+export function SavedSubjectCard({ subject, watchedLessons, totalLessons, to }: SavedSubjectCardProps) {
   const remove  = useSavedSubjectsStore((s) => s.remove)
   const [removing, setRemoving] = useState(false)
 
@@ -35,7 +37,7 @@ export function SavedSubjectCard({ subject, watchedLessons, totalLessons }: Save
 
   return (
     <Link
-      to={`/course/${subject.id}`}
+      to={to ?? `/course/${subject.id}`}
       className="group relative flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}

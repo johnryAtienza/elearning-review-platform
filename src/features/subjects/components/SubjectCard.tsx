@@ -10,9 +10,11 @@ import type { Subject } from '../types'
 
 interface SubjectCardProps {
   subject: Subject
+  /** Override the card's link target. Defaults to the public subject page. */
+  to?: string
 }
 
-export function SubjectCard({ subject }: SubjectCardProps) {
+export function SubjectCard({ subject, to }: SubjectCardProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isAdmin = useAuthStore((s) => s.isAdmin)
   const isSaved  = useSavedSubjectsStore((s) => s.isSaved(subject.id))
@@ -33,7 +35,7 @@ export function SubjectCard({ subject }: SubjectCardProps) {
 
   return (
     <Link
-      to={`/course/${subject.id}`}
+      to={to ?? `/course/${subject.id}`}
       className="group relative flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}

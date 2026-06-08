@@ -15,6 +15,13 @@ export interface StatCardProps {
   iconBg: string
   /** Optional explanation shown on hover of a small info icon next to the label. */
   tooltip?: string
+  /**
+   * Tooltip horizontal anchor relative to the info icon.
+   * 'start' (default) extends the tooltip rightward; 'end' extends it leftward.
+   * Use 'end' for cards in the right half of a row so the 256px tooltip stays
+   * inside the layout instead of forcing the parent to scroll horizontally.
+   */
+  tooltipAlign?: 'start' | 'end'
 }
 
 export function StatCard({
@@ -26,6 +33,7 @@ export function StatCard({
   iconColor,
   iconBg,
   tooltip,
+  tooltipAlign = 'start',
 }: StatCardProps) {
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -41,7 +49,8 @@ export function StatCard({
               <span
                 role="tooltip"
                 className={cn(
-                  'pointer-events-none absolute top-full left-0 mt-1.5 z-50',
+                  'pointer-events-none absolute top-full mt-1.5 z-50',
+                  tooltipAlign === 'end' ? 'right-0' : 'left-0',
                   'w-64 rounded-md border bg-popover text-popover-foreground shadow-md',
                   'px-3 py-2 text-xs leading-relaxed',
                   'opacity-0 group-hover/info:opacity-100 transition-opacity',

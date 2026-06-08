@@ -25,18 +25,38 @@ import { cn } from '@/utils/cn'
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 
-const NAV_ITEMS = [
-  { to: ROUTES.ADMIN,               label: 'Dashboard',     icon: LayoutDashboard, end: true  },
-  { to: ROUTES.ADMIN_SUBJECTS,      label: 'Subjects',      icon: BookOpen,        end: false },
-  { to: ROUTES.ADMIN_COURSES,       label: 'Courses',       icon: Tag,             end: false },
-  { to: ROUTES.ADMIN_LESSONS,       label: 'Lessons',       icon: BookMarked,      end: false },
-  { to: ROUTES.ADMIN_QUIZZES,       label: 'Quizzes',       icon: ClipboardList,   end: false },
-  { to: ROUTES.ADMIN_BOOKS,            label: 'Books',          icon: Library,         end: false },
-  { to: ROUTES.ADMIN_ORDERS,           label: 'Orders',         icon: Package,         end: false },
-  { to: ROUTES.ADMIN_ANNOUNCEMENTS,    label: 'Announcements',  icon: Bell,            end: false },
-  { to: ROUTES.ADMIN_WELCOME_VIDEOS,   label: 'Welcome Videos', icon: PlayCircle,      end: false },
-  { to: ROUTES.ADMIN_USERS,            label: 'Users',          icon: Users,           end: false },
-  { to: ROUTES.ADMIN_SUBSCRIPTIONS,    label: 'Subscriptions',  icon: CreditCard,      end: false },
+const NAV_SECTIONS = [
+  {
+    label: null,
+    items: [
+      { to: ROUTES.ADMIN, label: 'Dashboard', icon: LayoutDashboard, end: true },
+    ],
+  },
+  {
+    label: 'Learning Content',
+    items: [
+      { to: ROUTES.ADMIN_COURSES,        label: 'Courses',        icon: Tag,           end: false },
+      { to: ROUTES.ADMIN_LESSONS,        label: 'Lessons',        icon: BookMarked,    end: false },
+      { to: ROUTES.ADMIN_QUIZZES,        label: 'Quizzes',        icon: ClipboardList, end: false },
+      { to: ROUTES.ADMIN_SUBJECTS,       label: 'Subjects',       icon: BookOpen,      end: false },
+      { to: ROUTES.ADMIN_BOOKS,          label: 'Books',          icon: Library,       end: false },
+      { to: ROUTES.ADMIN_WELCOME_VIDEOS, label: 'Welcome Videos', icon: PlayCircle,    end: false },
+    ],
+  },
+  {
+    label: 'Members',
+    items: [
+      { to: ROUTES.ADMIN_USERS,         label: 'Users',         icon: Users, end: false },
+      { to: ROUTES.ADMIN_ANNOUNCEMENTS, label: 'Announcements', icon: Bell,  end: false },
+    ],
+  },
+  {
+    label: 'Revenue',
+    items: [
+      { to: ROUTES.ADMIN_ORDERS,        label: 'Orders',        icon: Package,    end: false },
+      { to: ROUTES.ADMIN_SUBSCRIPTIONS, label: 'Subscriptions', icon: CreditCard, end: false },
+    ],
+  },
 ] as const
 
 // ── Route label map for header breadcrumb ────────────────────────────────────
@@ -96,6 +116,42 @@ function SidebarLink({
       <Icon className="size-4 shrink-0" />
       {!collapsed && <span>{label}</span>}
     </NavLink>
+  )
+}
+
+// ── Grouped nav renderer ──────────────────────────────────────────────────────
+
+function NavSections({
+  collapsed,
+  onItemClick,
+}: {
+  collapsed: boolean
+  onItemClick?: () => void
+}) {
+  return (
+    <>
+      {NAV_SECTIONS.map((section, idx) => (
+        <div key={section.label ?? `section-${idx}`}>
+          {idx > 0 && <div className="border-t border-border/50 mt-3 mb-1" />}
+          {section.label && !collapsed && (
+            <p className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {section.label}
+            </p>
+          )}
+          {section.items.map(({ to, label, icon, end }) => (
+            <SidebarLink
+              key={to}
+              to={to}
+              label={label}
+              icon={icon}
+              end={end}
+              collapsed={collapsed}
+              onClick={onItemClick}
+            />
+          ))}
+        </div>
+      ))}
+    </>
   )
 }
 
@@ -169,17 +225,7 @@ export function AdminLayout() {
           </Button>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map(({ to, label, icon, end }) => (
-            <SidebarLink
-              key={to}
-              to={to}
-              label={label}
-              icon={icon}
-              end={end}
-              collapsed={false}
-              onClick={() => setMobileOpen(false)}
-            />
-          ))}
+          <NavSections collapsed={false} onItemClick={() => setMobileOpen(false)} />
         </nav>
         <div className="px-3 py-3 border-t space-y-2">
           <Link
@@ -284,16 +330,7 @@ function SidebarContent({
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ to, label, icon, end }) => (
-          <SidebarLink
-            key={to}
-            to={to}
-            label={label}
-            icon={icon}
-            end={end}
-            collapsed={collapsed}
-          />
-        ))}
+        <NavSections collapsed={collapsed} />
       </nav>
 
       {/* User + back to site */}

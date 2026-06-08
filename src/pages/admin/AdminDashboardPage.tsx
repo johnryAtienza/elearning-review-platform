@@ -94,6 +94,7 @@ export function AdminDashboardPage() {
           iconColor="text-primary"
           iconBg="bg-primary/15"
           tooltip="Users with a currently active paid subscription. Conversion rate = active subs ÷ total users."
+          tooltipAlign="end"
         />
         <StatCard
           label="Lesson Finishers"
@@ -108,6 +109,7 @@ export function AdminDashboardPage() {
           iconColor="text-primary"
           iconBg="bg-primary/15"
           tooltip="Unique students (counted once each) who have marked at least one lesson as watched."
+          tooltipAlign="end"
         />
         <StatCard
           label="Lessons Completed"
@@ -122,6 +124,7 @@ export function AdminDashboardPage() {
           iconColor="text-primary"
           iconBg="bg-primary/15"
           tooltip="Total lesson-completion events across all users. If one student finishes 3 lessons, that counts as 3 here."
+          tooltipAlign="end"
         />
       </div>
 

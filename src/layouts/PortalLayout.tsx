@@ -134,11 +134,19 @@ function NavSections({
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 
+// Hoisted selectors — stable references; see RootLayout.tsx for rationale.
+type AuthStateSlice = {
+  user:   { name?: string } | null | undefined
+  logout: () => Promise<void> | void
+}
+const selectUser   = (s: AuthStateSlice) => s.user
+const selectLogout = (s: AuthStateSlice) => s.logout
+
 export function PortalLayout({ children }: { children?: ReactNode }) {
   const [collapsed, setCollapsed]   = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user } = useAuthStore()
-  const logout = useAuthStore((s) => s.logout)
+  const user      = useAuthStore(selectUser)
+  const logout    = useAuthStore(selectLogout)
   const pageTitle = usePageTitle()
 
   async function handleLogout() {
@@ -347,22 +355,3 @@ function SidebarContent({
   )
 }
 
-// ── Hook for RootLayout: is the current location a portal-shell path? ─────────
-//
-// Implemented via useLocation + pathname checks rather than useMatch.
-// Pathname comparison is unambiguous and avoids any pattern-matching edge
-// case (trailing slash, end:true vs splat) that could leave the public
-// Navbar stacked above the portal shell.
-
-export function usePortalShellMatch(): boolean {
-  const { pathname } = useLocation()
-  return (
-    pathname === ROUTES.DASHBOARD
-    || pathname === ROUTES.QUIZ_HISTORY
-    || pathname === ROUTES.SUBSCRIPTION
-    || pathname === ROUTES.PROFILE
-    || pathname.startsWith(ROUTES.PROFILE + '/')
-    || pathname === '/portal'
-    || pathname.startsWith('/portal/')
-  )
-}

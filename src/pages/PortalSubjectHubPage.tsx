@@ -31,9 +31,15 @@ import type { Lesson } from '@/features/lessons/types'
  *
  * No new business logic, no new data fetching, no progress-tracking writes.
  */
+
+// Hoisted selectors — stable references; see RootLayout.tsx for rationale.
+const selectIsAuthenticated = (s: { isAuthenticated: boolean }) => s.isAuthenticated
+const selectIsSubscribed    = (s: { isSubscribed: boolean })    => s.isSubscribed
+
 export function PortalSubjectHubPage() {
   const { subjectId } = useParams<{ subjectId: string }>()
-  const { isAuthenticated, isSubscribed } = useAuthStore()
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+  const isSubscribed    = useAuthStore(selectIsSubscribed)
   const isSaved = useSavedSubjectsStore((s) => subjectId ? s.isSaved(subjectId) : false)
   const toggle  = useSavedSubjectsStore((s) => s.toggle)
   const progress = useSavedSubjectsStore(

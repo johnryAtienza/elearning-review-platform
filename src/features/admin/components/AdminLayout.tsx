@@ -35,19 +35,19 @@ const NAV_SECTIONS = [
   {
     label: 'Learning Content',
     items: [
-      { to: ROUTES.ADMIN_COURSES,        label: 'Courses',        icon: Tag,           end: false },
-      { to: ROUTES.ADMIN_LESSONS,        label: 'Lessons',        icon: BookMarked,    end: false },
-      { to: ROUTES.ADMIN_QUIZZES,        label: 'Quizzes',        icon: ClipboardList, end: false },
-      { to: ROUTES.ADMIN_SUBJECTS,       label: 'Subjects',       icon: BookOpen,      end: false },
-      { to: ROUTES.ADMIN_BOOKS,          label: 'Books',          icon: Library,       end: false },
-      { to: ROUTES.ADMIN_WELCOME_VIDEOS, label: 'Welcome Videos', icon: PlayCircle,    end: false },
+      { to: ROUTES.ADMIN_COURSES,  label: 'Courses',  icon: Tag,           end: false },
+      { to: ROUTES.ADMIN_SUBJECTS, label: 'Subjects', icon: BookOpen,      end: false },
+      { to: ROUTES.ADMIN_LESSONS,  label: 'Lessons',  icon: BookMarked,    end: false },
+      { to: ROUTES.ADMIN_QUIZZES,  label: 'Quizzes',  icon: ClipboardList, end: false },
+      { to: ROUTES.ADMIN_BOOKS,    label: 'Books',    icon: Library,       end: false },
     ],
   },
   {
     label: 'Members',
     items: [
-      { to: ROUTES.ADMIN_USERS,         label: 'Users',         icon: Users, end: false },
-      { to: ROUTES.ADMIN_ANNOUNCEMENTS, label: 'Announcements', icon: Bell,  end: false },
+      { to: ROUTES.ADMIN_USERS,          label: 'Users',          icon: Users,      end: false },
+      { to: ROUTES.ADMIN_ANNOUNCEMENTS,  label: 'Announcements',  icon: Bell,       end: false },
+      { to: ROUTES.ADMIN_WELCOME_VIDEOS, label: 'Welcome Videos', icon: PlayCircle, end: false },
     ],
   },
   {

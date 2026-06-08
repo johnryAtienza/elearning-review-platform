@@ -23,6 +23,10 @@ export const ROUTES = {
   SUBJECT: (id: string) => `/course/${id}`,
   LESSON:  (id: string) => `/lesson/${id}`,
 
+  // Authenticated student portal (sidebar shell)
+  PORTAL_SUBJECTS: '/portal/subjects',
+  PORTAL_SUBJECT:  (id: string) => `/portal/subjects/${id}`,
+
   PROFILE:          '/profile',
   DEVICES:          '/profile/devices',
   PAYMENT_SUCCESS:  '/payment-success',

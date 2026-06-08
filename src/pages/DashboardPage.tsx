@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Zap, Award, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LogoutModal } from '@/components/LogoutModal'
 import { SavedSubjectCard } from '@/features/subjects/components/SavedSubjectCard'
 import { MyBooksCard } from '@/features/books/components/MyBooksCard'
 import { useAuthStore } from '@/store/authStore'
@@ -15,8 +14,7 @@ import { AttemptRow } from '@/pages/QuizHistoryPage'
 import { ROUTES } from '@/constants/routes'
 
 export function DashboardPage() {
-  const { user, isSubscribed, logout } = useAuthStore()
-  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const { user, isSubscribed } = useAuthStore()
 
   const { savedIds, progressMap, stats, loading, fetch } = useSavedSubjectsStore()
   const {
@@ -51,13 +49,6 @@ export function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl space-y-8">
-      {showLogoutModal && (
-        <LogoutModal
-          onConfirm={() => { setShowLogoutModal(false); logout() }}
-          onCancel={() => setShowLogoutModal(false)}
-        />
-      )}
-
       <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 
       {/* ── Profile card ── */}
@@ -74,9 +65,6 @@ export function DashboardPage() {
           </div>
           <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className="shrink-0">
-          Log out
-        </Button>
       </div>
 
       {/* ── Stats cards ── */}
@@ -174,31 +162,6 @@ export function DashboardPage() {
 
       {/* ── My books (only renders if user has any orders) ── */}
       <MyBooksCard />
-
-      {/* ── Quick links ── */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Quick Links
-        </h2>
-        <div className="rounded-xl border bg-card divide-y overflow-hidden">
-          {[
-            { to: '/courses',      label: 'Browse all subjects',    sub: `${subjects.length} subjects available` },
-            { to: '/subscription', label: 'Subscription & billing', sub: isSubscribed ? 'Standard plan — active' : 'Free plan' },
-          ].map(({ to, label, sub }) => (
-            <Link
-              key={to}
-              to={to}
-              className="flex items-center justify-between px-5 py-4 hover:bg-muted/40 transition-colors group"
-            >
-              <div>
-                <p className="text-sm font-medium">{label}</p>
-                <p className="text-xs text-muted-foreground">{sub}</p>
-              </div>
-              <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   )
 }

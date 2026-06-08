@@ -1,0 +1,371 @@
+import { useState, type ReactNode } from 'react'
+import { NavLink, Outlet, Link, useLocation, useMatch } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  BookOpen,
+  Library,
+  CreditCard,
+  User,
+  GraduationCap,
+  ChevronLeft,
+  Menu,
+  X,
+  LogOut,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/store/authStore'
+import { ROUTES } from '@/constants/routes'
+import { cn } from '@/utils/cn'
+
+// ── Nav items ─────────────────────────────────────────────────────────────────
+
+const NAV_SECTIONS = [
+  {
+    label: 'Learning',
+    items: [
+      { to: ROUTES.DASHBOARD,       label: 'Dashboard', icon: LayoutDashboard, end: true  },
+      { to: ROUTES.PORTAL_SUBJECTS, label: 'Subjects',  icon: BookOpen,        end: false },
+      { to: ROUTES.BOOKS,           label: 'Books',     icon: Library,         end: false },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: ROUTES.SUBSCRIPTION, label: 'Subscription', icon: CreditCard, end: false },
+      { to: ROUTES.PROFILE,      label: 'Profile',      icon: User,       end: false },
+    ],
+  },
+] as const
+
+// ── Route label map for header breadcrumb ────────────────────────────────────
+
+const ROUTE_LABELS: Record<string, string> = {
+  [ROUTES.DASHBOARD]:       'Dashboard',
+  [ROUTES.PORTAL_SUBJECTS]: 'Subjects',
+  [ROUTES.BOOKS]:           'Books',
+  [ROUTES.SUBSCRIPTION]:    'Subscription',
+  [ROUTES.PROFILE]:         'Profile',
+  [ROUTES.DEVICES]:         'Devices',
+  [ROUTES.QUIZ_HISTORY]:    'Quizzes',
+}
+
+function usePageTitle(): string {
+  const { pathname } = useLocation()
+  if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]
+  if (pathname.startsWith('/portal/subjects/')) return 'Subject'
+  if (pathname.startsWith('/book/')) return 'Book'
+  return 'Portal'
+}
+
+// ── Sidebar link ──────────────────────────────────────────────────────────────
+
+function SidebarLink({
+  to,
+  label,
+  icon: Icon,
+  end,
+  collapsed,
+  onClick,
+}: {
+  to: string
+  label: string
+  icon: React.ElementType
+  end?: boolean
+  collapsed: boolean
+  onClick?: () => void
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+          collapsed ? 'justify-center' : '',
+          isActive
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+        )
+      }
+    >
+      <Icon className="size-4 shrink-0" />
+      {!collapsed && <span>{label}</span>}
+    </NavLink>
+  )
+}
+
+// ── Grouped nav renderer ──────────────────────────────────────────────────────
+
+function NavSections({
+  collapsed,
+  onItemClick,
+}: {
+  collapsed: boolean
+  onItemClick?: () => void
+}) {
+  return (
+    <>
+      {NAV_SECTIONS.map((section, idx) => (
+        <div key={section.label ?? `section-${idx}`}>
+          {idx > 0 && <div className="border-t border-border/50 mt-3 mb-1" />}
+          {section.label && !collapsed && (
+            <p className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {section.label}
+            </p>
+          )}
+          {section.items.map(({ to, label, icon, end }) => (
+            <SidebarLink
+              key={to}
+              to={to}
+              label={label}
+              icon={icon}
+              end={end}
+              collapsed={collapsed}
+              onClick={onItemClick}
+            />
+          ))}
+        </div>
+      ))}
+    </>
+  )
+}
+
+// ── Main layout ───────────────────────────────────────────────────────────────
+
+export function PortalLayout({ children }: { children?: ReactNode }) {
+  const [collapsed, setCollapsed]   = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const { user } = useAuthStore()
+  const logout = useAuthStore((s) => s.logout)
+  const pageTitle = usePageTitle()
+
+  async function handleLogout() {
+    try {
+      await logout()
+    } catch (err) {
+      console.error('[PortalLayout] logout failed:', err)
+    }
+  }
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'S'
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+
+      {/* ── Mobile backdrop ── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Desktop sidebar ── */}
+      <aside
+        className={cn(
+          'hidden md:flex flex-col border-r bg-card transition-all duration-200 shrink-0 h-full',
+          collapsed ? 'w-15' : 'w-60',
+        )}
+      >
+        <SidebarContent
+          collapsed={collapsed}
+          initials={initials}
+          userName={user?.name}
+          onLogout={handleLogout}
+        />
+      </aside>
+
+      {/* ── Mobile slide-in sidebar ── */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 flex flex-col w-64 border-r bg-card transition-transform duration-200 md:hidden',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="size-4 text-primary" />
+            <span className="text-sm font-semibold">Student Portal</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => setMobileOpen(false)}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto min-h-0">
+          <NavSections collapsed={false} onItemClick={() => setMobileOpen(false)} />
+        </nav>
+        <div className="px-3 py-3 border-t space-y-2 shrink-0">
+          <Link
+            to={ROUTES.HOME}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setMobileOpen(false)}
+          >
+            <ChevronLeft className="size-3.5" />
+            Back to site
+          </Link>
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); void handleLogout() }}
+            className="flex items-center gap-2 text-xs text-destructive hover:text-destructive/80 transition-colors"
+          >
+            <LogOut className="size-3.5" />
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Right side: header + content ── */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+
+        {/* ── Header ── */}
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/60 px-4">
+          {/* Mobile: hamburger */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 md:hidden"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu className="size-4" />
+          </Button>
+
+          {/* Desktop: collapse toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 hidden md:flex"
+            onClick={() => setCollapsed((v) => !v)}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <Menu className="size-4" />
+          </Button>
+
+          {/* Page title */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-muted-foreground hidden sm:block">Portal</span>
+            <span className="text-xs text-muted-foreground hidden sm:block">/</span>
+            <h1 className="text-sm font-semibold truncate">{pageTitle}</h1>
+          </div>
+
+          {/* Right: user info */}
+          <div className="ml-auto flex items-center gap-2.5">
+            <span className="text-sm text-muted-foreground hidden lg:block">{user?.name}</span>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground select-none">
+              {initials}
+            </span>
+          </div>
+        </header>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 min-h-0 px-4 py-6 sm:px-6 sm:py-8 overflow-auto">
+          {children ?? <Outlet />}
+        </main>
+      </div>
+    </div>
+  )
+}
+
+// ── Desktop sidebar content (shared between normal and collapsed states) ──────
+
+function SidebarContent({
+  collapsed,
+  initials,
+  userName,
+  onLogout,
+}: {
+  collapsed: boolean
+  initials: string
+  userName?: string
+  onLogout: () => void
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Brand area */}
+      <div
+        className={cn(
+          'flex items-center gap-2 px-4 py-4 border-b shrink-0',
+          collapsed ? 'justify-center px-2' : '',
+        )}
+      >
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <GraduationCap className="size-4" />
+        </span>
+        {!collapsed && (
+          <span className="text-sm font-semibold">Student Portal</span>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 min-h-0 px-2 py-3 space-y-0.5 overflow-y-auto">
+        <NavSections collapsed={collapsed} />
+      </nav>
+
+      {/* User + back to site */}
+      <div className="px-3 py-3 border-t space-y-2 shrink-0">
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 px-1">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary select-none">
+              {initials}
+            </span>
+            <span className="text-xs font-medium truncate">{userName}</span>
+          </div>
+        )}
+        <Link
+          to={ROUTES.HOME}
+          title={collapsed ? 'Back to site' : undefined}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-orange-600',
+            collapsed ? 'justify-center px-2' : 'justify-center',
+          )}
+        >
+          <ChevronLeft className="size-3.5 shrink-0" />
+          {!collapsed && <span>Back to site</span>}
+        </Link>
+        <button
+          type="button"
+          onClick={onLogout}
+          title={collapsed ? 'Sign out' : undefined}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10',
+            collapsed ? 'justify-center px-2' : 'justify-center',
+          )}
+        >
+          <LogOut className="size-3.5 shrink-0" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Hook for RootLayout: is the current location a portal-shell path? ─────────
+
+const PORTAL_SHELL_PATTERNS = [
+  ROUTES.DASHBOARD,
+  ROUTES.QUIZ_HISTORY,
+  ROUTES.SUBSCRIPTION,
+  ROUTES.PROFILE,
+  ROUTES.DEVICES,
+  '/portal/*',
+] as const
+
+export function usePortalShellMatch(): boolean {
+  const matches = [
+    useMatch(PORTAL_SHELL_PATTERNS[0]),
+    useMatch(PORTAL_SHELL_PATTERNS[1]),
+    useMatch(PORTAL_SHELL_PATTERNS[2]),
+    useMatch(PORTAL_SHELL_PATTERNS[3]),
+    useMatch(PORTAL_SHELL_PATTERNS[4]),
+    useMatch(PORTAL_SHELL_PATTERNS[5]),
+  ]
+  return matches.some((m) => m !== null)
+}

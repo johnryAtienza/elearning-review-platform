@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '@/layouts/RootLayout'
+import { PortalLayout } from '@/layouts/PortalLayout'
+import { PortalShellOrPublic } from '@/layouts/PortalShellOrPublic'
 import { AdminLayout } from '@/features/admin/components/AdminLayout'
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute'
 import { ProtectedAdminRoute } from '@/features/auth/components/ProtectedAdminRoute'
@@ -55,8 +57,8 @@ export const router = createBrowserRouter([
       { path: 'courses',          element: <SubjectsPage /> },
       { path: 'course/:courseId', element: <SubjectDetailPage /> },
       { path: 'lesson/:lessonId', element: <LessonPage /> },
-      { path: 'books',            element: <BooksPage /> },
-      { path: 'book/:bookId',     element: <BookDetailPage /> },
+      { path: 'books',            element: <PortalShellOrPublic><BooksPage /></PortalShellOrPublic> },
+      { path: 'book/:bookId',     element: <PortalShellOrPublic><BookDetailPage /></PortalShellOrPublic> },
 
       // Password reset — fully public (user arrives from email without a session)
       { path: 'reset-password',   element: <ResetPasswordPage />   },
@@ -79,12 +81,23 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'dashboard',                element: <DashboardPage />    },
-          { path: 'quizzes',                  element: <QuizHistoryPage />  },
-          { path: 'subscription',             element: <SubscriptionPage /> },
-          { path: 'profile',                  element: <ProfilePage />      },
-          { path: 'profile/devices',          element: <DevicesPage />      },
-          { path: 'book/:bookId/checkout',    element: <BookCheckoutPage /> },
+          // Pages that live inside the portal sidebar shell.
+          {
+            element: <PortalLayout />,
+            children: [
+              { path: 'dashboard',         element: <DashboardPage />    },
+              { path: 'quizzes',           element: <QuizHistoryPage />  },
+              { path: 'subscription',      element: <SubscriptionPage /> },
+              { path: 'profile',           element: <ProfilePage />      },
+              { path: 'profile/devices',   element: <DevicesPage />      },
+              // Phase 1 stub: reuses the existing SubjectsPage so the sidebar
+              // Subjects link works. Phase 2 replaces with PortalSubjectsPage
+              // (and adds /portal/subjects/:subjectId for the subject hub).
+              { path: 'portal/subjects',   element: <SubjectsPage />     },
+            ],
+          },
+          // Protected routes that intentionally stay outside the portal shell.
+          { path: 'book/:bookId/checkout', element: <BookCheckoutPage /> },
         ],
       },
 

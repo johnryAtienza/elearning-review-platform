@@ -1,4 +1,6 @@
 import { ABOUT_SECTIONS } from '@/constants/aboutCopy'
+import { ROUTES } from '@/constants/routes'
+import { CanonicalLink } from '@/components/CanonicalLink'
 
 /**
  * Public "Who we are" page.
@@ -11,6 +13,7 @@ import { ABOUT_SECTIONS } from '@/constants/aboutCopy'
 export function AboutPage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <CanonicalLink path={ROUTES.ABOUT} owner="landing" />
       <header className="mb-10">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-2">
           Who we are

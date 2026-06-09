@@ -9,6 +9,8 @@ import { BookCover } from '@/features/books/components/BookCover'
 import { booksApi } from '@/services/booksApi'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
+import { CanonicalLink } from '@/components/CanonicalLink'
 import { formatPHP } from '@/utils/money'
 import type { Book } from '@/features/books/types'
 
@@ -59,11 +61,18 @@ export function BookDetailPage() {
   }
 
   const outOfStock   = book.stock <= 0
-  const checkoutHref = isAuthenticated ? ROUTES.BOOK_CHECKOUT(book.id) : ROUTES.LOGIN
+  // Checkout lives on the portal subdomain (members-only). Use an absolute URL
+  // so the CTA works whether the page is served from Landing's storefront or
+  // Portal during the transition window. Same-origin nav on Portal becomes a
+  // full-page reload — acceptable for a deliberate checkout click.
+  const checkoutHref = getAbsoluteUrl(
+    isAuthenticated ? ROUTES.BOOK_CHECKOUT(book.id) : ROUTES.LOGIN,
+  )
   const checkoutLabel = isAuthenticated ? 'Buy Now' : 'Log in to buy'
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+      <CanonicalLink path={ROUTES.BOOK(book.id)} owner="landing" />
       <Link
         to={ROUTES.BOOKS}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -118,10 +127,10 @@ export function BookDetailPage() {
             <Button asChild size="lg" disabled={outOfStock}>
               {outOfStock
                 ? <span>Out of stock</span>
-                : <Link to={checkoutHref}>
+                : <a href={checkoutHref}>
                     <ShoppingCart className="size-4 mr-2" />
                     {checkoutLabel}
-                  </Link>}
+                  </a>}
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link to={ROUTES.BOOKS}>

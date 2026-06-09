@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { PlayCircle, FileText, ListChecks, Lock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { cn } from '@/utils/cn'
 import type { Lesson } from '@/features/lessons/types'
 
@@ -49,9 +50,15 @@ interface WeekBlockProps {
   group: WeekGroup
   isSubscribed: boolean
   isAuthenticated: boolean
+  /**
+   * When true, lesson cards render for the public preview funnel on Landing:
+   * unlocked previews route to /preview/lesson/:id; locked lessons cross-origin
+   * to portal /register. Used by Landing's /preview/subject/:id route.
+   */
+  previewMode?: boolean
 }
 
-export function WeekBlock({ group, isSubscribed, isAuthenticated }: WeekBlockProps) {
+export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }: WeekBlockProps) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-bold tracking-wider uppercase text-foreground flex items-center gap-3">
@@ -69,6 +76,7 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated }: WeekBlockPro
             lesson={lesson}
             isSubscribed={isSubscribed}
             isAuthenticated={isAuthenticated}
+            previewMode={previewMode}
           />
         ))}
       </div>
@@ -93,15 +101,17 @@ interface DayCardProps {
   lesson: Lesson
   isSubscribed: boolean
   isAuthenticated: boolean
+  previewMode?: boolean
 }
 
-export function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps) {
+export function DayCard({ lesson, isSubscribed, isAuthenticated, previewMode }: DayCardProps) {
   const isExam    = /\bexam\b/i.test(lesson.title)
   const day       = effectiveDay(lesson)
   const isPreview = lesson.isFreePreview === true
   // Free-preview lessons unlock for everyone — guests, free-tier auth, and
-  // subscribers alike. Premium lessons require a subscription.
-  const unlocked  = isSubscribed || isPreview
+  // subscribers alike. Premium lessons require a subscription. In Landing's
+  // public preview funnel only preview-flagged lessons are actually unlocked.
+  const unlocked  = previewMode ? isPreview : (isSubscribed || isPreview)
 
   const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
@@ -148,11 +158,13 @@ export function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps)
     </ul>
   )
 
-  // Unlocked → real link to the lesson.
+  // Unlocked → real link to the lesson. In preview mode the link points to
+  // Landing's /preview/lesson/:id; otherwise the same-origin lesson route.
   if (unlocked) {
+    const unlockedTo = previewMode ? ROUTES.PREVIEW_LESSON(lesson.id) : ROUTES.LESSON(lesson.id)
     return (
       <Link
-        to={ROUTES.LESSON(lesson.id)}
+        to={unlockedTo}
         className={cn(
           cardBase, sharedFocus,
           'bg-card hover:border-primary/40 hover:bg-card/80',
@@ -162,6 +174,30 @@ export function DayCard({ lesson, isSubscribed, isAuthenticated }: DayCardProps)
         {title}
         {contentTypes}
       </Link>
+    )
+  }
+
+  // Locked → route to enrollment. In preview mode we always land on Landing,
+  // so the target lives on a different origin (portal /register); use a
+  // full-page <a href> via getAbsoluteUrl so the cross-origin hop is correct.
+  if (previewMode) {
+    return (
+      <a
+        href={getAbsoluteUrl(ROUTES.REGISTER)}
+        className={cn(
+          cardBase, sharedFocus,
+          'bg-card/60 border-dashed cursor-pointer',
+          'hover:border-primary/40 hover:bg-card',
+        )}
+        aria-label={`${lesson.title} — Enroll to unlock`}
+      >
+        {header}
+        {title}
+        {contentTypes}
+        <p className="text-[11px] font-semibold text-primary mt-1">
+          Enroll Now to unlock →
+        </p>
+      </a>
     )
   }
 

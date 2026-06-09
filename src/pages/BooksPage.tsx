@@ -7,6 +7,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { BookCover } from '@/features/books/components/BookCover'
 import { booksApi } from '@/services/booksApi'
 import { ROUTES } from '@/constants/routes'
+import { CanonicalLink } from '@/components/CanonicalLink'
 import { formatPHP } from '@/utils/money'
 import type { Book } from '@/features/books/types'
 import { cn } from '@/utils/cn'
@@ -33,6 +34,7 @@ export function BooksPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-6xl space-y-8">
+      <CanonicalLink path={ROUTES.BOOKS} owner="landing" />
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
           Reviewer books

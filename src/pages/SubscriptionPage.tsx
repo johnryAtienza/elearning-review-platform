@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useSubscription } from '@/features/subscription/hooks/useSubscription'
 import { formatPrice } from '@/features/subscription/services/subscriptionService'
 import { ROUTES } from '@/constants/routes'
+import { CanonicalLink } from '@/components/CanonicalLink'
 import { cn } from '@/utils/cn'
 import type { SubscriptionDuration } from '@/features/subscription/types'
 
@@ -45,6 +46,10 @@ export function SubscriptionPage() {
 
   return (
     <section className="container mx-auto px-4 py-14 max-w-4xl space-y-12">
+
+      {/* Portal's /subscription is the upgrade view; Landing's /pricing is the
+          marketing variant. Canonicalize to Landing during the transition. */}
+      <CanonicalLink path={ROUTES.PRICING} owner="landing" />
 
       {/* ── Active subscription banner ── */}
       {isSubscribed && subscription && (

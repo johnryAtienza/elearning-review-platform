@@ -19,6 +19,7 @@ import { useScreenRecordingDetection } from '@/hooks/useScreenRecordingDetection
 import { useQuizStore } from '@/store/quizStore'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { getQuizByLessonId } from '@/features/quiz/services/quizService'
 import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
@@ -29,7 +30,16 @@ import type { Quiz } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
 import config from '@/config'
 
-export function LessonPage() {
+interface LessonPageProps {
+  /**
+   * Render as Landing's public preview funnel. Hard-gates non-preview lessons
+   * (renders a "Preview not available" notice), wires breadcrumb/prev/next
+   * to /preview/* paths, and points "Enroll" CTAs at the portal subdomain.
+   */
+  previewMode?: boolean
+}
+
+export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const { lessonId } = useParams<{ lessonId: string }>()
 
   // ── Per-lesson UI state ──────────────────────────────────────────────────
@@ -216,6 +226,14 @@ export function LessonPage() {
     return <Navigate to={ROUTES.SUBSCRIPTION} replace />
   }
 
+  // Landing's /preview/lesson/:id only serves free-preview lessons. If the
+  // URL points at a premium lesson, render a clear "not available" notice
+  // with a cross-origin enroll CTA — no redirect, so the URL stays canonical
+  // and crawlers don't get a soft-404.
+  if (previewMode && !previewBypass) {
+    return <PreviewNotAvailable subjectId={lesson.courseId} />
+  }
+
   // Effective permissions take is_free_preview into account: preview lessons
   // grant standard-tier limits to every caller (guests included) so the video
   // plays in full. Non-preview lessons follow the caller's tier; guests get
@@ -324,7 +342,7 @@ export function LessonPage() {
         {!isAuthenticated && (
         <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
           <Link
-            to={ROUTES.SUBJECT(lesson.courseId)}
+            to={previewMode ? ROUTES.PREVIEW_SUBJECT(lesson.courseId) : ROUTES.SUBJECT(lesson.courseId)}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <ChevronLeft className="size-4" />
@@ -370,7 +388,13 @@ export function LessonPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-3 pb-2">
               {subject?.title}
             </p>
-            <LessonList lessons={siblings} isSubscribed={isSubscribed} isAdmin={isAdmin} activeLessonId={lesson.id} />
+            <LessonList
+              lessons={siblings}
+              isSubscribed={isSubscribed}
+              isAdmin={isAdmin}
+              activeLessonId={lesson.id}
+              previewMode={previewMode}
+            />
           </div>
         )}
 
@@ -380,12 +404,12 @@ export function LessonPage() {
               in PortalLayout's headerSlot. */}
           {!isAuthenticated && (
             <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <Link to={ROUTES.SUBJECTS} className="hover:text-foreground transition-colors">
-                Subjects
+              <Link to={previewMode ? '/' : ROUTES.SUBJECTS} className="hover:text-foreground transition-colors">
+                {previewMode ? 'Home' : 'Subjects'}
               </Link>
               <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
               <Link
-                to={ROUTES.SUBJECT(lesson.courseId)}
+                to={previewMode ? ROUTES.PREVIEW_SUBJECT(lesson.courseId) : ROUTES.SUBJECT(lesson.courseId)}
                 className="hover:text-foreground transition-colors"
               >
                 {subject?.title ?? 'Subject'}
@@ -405,9 +429,11 @@ export function LessonPage() {
 
           {/* ── Guest CTA — replaces content only for guests on non-preview lessons.
               Guests on free-preview lessons fall through to the normal content
-              view; a non-blocking PreviewConversionBanner is rendered below. ── */}
+              view; a non-blocking PreviewConversionBanner is rendered below.
+              In previewMode the page already short-circuits to PreviewNotAvailable
+              above, so this branch only fires for non-preview Portal guests. ── */}
           {!isAuthenticated && !previewBypass ? (
-            <GuestEnrollCTA lessonId={lesson.id} />
+            <GuestEnrollCTA lessonId={lesson.id} previewMode={previewMode} />
           ) : (
           <>
           {/* Content error (non-blocking) */}
@@ -482,7 +508,11 @@ export function LessonPage() {
 
           {/* ── Preview conversion CTA — non-blocking, never gates playback. ── */}
           {previewBypass && !isSubscribed && (
-            <PreviewConversionBanner isAuthenticated={isAuthenticated} lessonId={lesson.id} />
+            <PreviewConversionBanner
+              isAuthenticated={isAuthenticated}
+              lessonId={lesson.id}
+              previewMode={previewMode}
+            />
           )}
 
           {/* ── Reviewer / Quiz tab panel ── */}
@@ -519,12 +549,40 @@ export function LessonPage() {
           {(() => {
             // Free non-admin users hop to /subscription instead of a locked
             // premium neighbor. Preview neighbors stay reachable directly.
+            // In previewMode (Landing) only flagged previews are "unlocked";
+            // locked neighbors send the visitor cross-origin to portal /register.
             const isNeighborUnlocked = (n: { isFreePreview?: boolean }) =>
-              isSubscribed || isAdmin || n.isFreePreview === true
+              previewMode ? n.isFreePreview === true : (isSubscribed || isAdmin || n.isFreePreview === true)
             const prevLocked = prev ? !isNeighborUnlocked(prev) : false
             const nextLocked = next ? !isNeighborUnlocked(next) : false
-            const prevTo = prev ? (prevLocked ? ROUTES.SUBSCRIPTION : ROUTES.LESSON(prev.id)) : null
-            const nextTo = next ? (nextLocked ? ROUTES.SUBSCRIPTION : ROUTES.LESSON(next.id)) : null
+
+            const unlockedHref = (id: string) =>
+              previewMode ? ROUTES.PREVIEW_LESSON(id) : ROUTES.LESSON(id)
+            const lockedHref = previewMode
+              ? getAbsoluteUrl(ROUTES.REGISTER)
+              : ROUTES.SUBSCRIPTION
+            const backToSubjectTo = previewMode
+              ? ROUTES.PREVIEW_SUBJECT(lesson.courseId)
+              : ROUTES.SUBJECT(lesson.courseId)
+
+            // In previewMode the locked target is cross-origin; render as <a>.
+            const NavLink = ({
+              to,
+              className,
+              children,
+            }: {
+              to: string
+              className?: string
+              children: ReactNode
+            }) => {
+              if (previewMode && /^https?:\/\//.test(to)) {
+                return <a href={to} className={className}>{children}</a>
+              }
+              return <Link to={to} className={className}>{children}</Link>
+            }
+
+            const prevTo = prev ? (prevLocked ? lockedHref : unlockedHref(prev.id)) : null
+            const nextTo = next ? (nextLocked ? lockedHref : unlockedHref(next.id)) : null
 
             return (
               <div className={cn(
@@ -533,26 +591,26 @@ export function LessonPage() {
               )}>
                 {prev && prevTo ? (
                   <Button asChild variant="outline" size="sm" className="max-w-[45%]">
-                    <Link to={prevTo} className="flex items-center gap-1.5">
+                    <NavLink to={prevTo} className="flex items-center gap-1.5">
                       <ChevronLeft className="size-4 shrink-0" />
                       <span className="truncate">{prev.title}</span>
                       {prevLocked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
-                    </Link>
+                    </NavLink>
                   </Button>
                 ) : <div />}
 
                 {next && nextTo ? (
                   <Button asChild size="sm" className="max-w-[45%] ml-auto">
-                    <Link to={nextTo} className="flex items-center gap-1.5">
+                    <NavLink to={nextTo} className="flex items-center gap-1.5">
                       <span className="truncate">{next.title}</span>
                       {nextLocked
                         ? <Lock className="size-3.5 shrink-0" />
                         : <ChevronRight className="size-4 shrink-0" />}
-                    </Link>
+                    </NavLink>
                   </Button>
                 ) : (
                   <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to={ROUTES.SUBJECT(lesson.courseId)}>Back to Subject</Link>
+                    <Link to={backToSubjectTo}>Back to Subject</Link>
                   </Button>
                 )}
               </div>
@@ -579,7 +637,13 @@ export function LessonPage() {
             </div>
           </div>
           <div className="overflow-y-auto flex-1 p-3">
-            <LessonList lessons={siblings} isSubscribed={isSubscribed} isAdmin={isAdmin} activeLessonId={lesson.id} />
+            <LessonList
+              lessons={siblings}
+              isSubscribed={isSubscribed}
+              isAdmin={isAdmin}
+              activeLessonId={lesson.id}
+              previewMode={previewMode}
+            />
           </div>
         </div>
       </aside>
@@ -631,9 +695,35 @@ function getCompletionHint({
 // ── Guest CTA (replaces video/reviewer/quiz for unauthenticated visitors
 //     on non-preview lessons) ────────────────────────────────────────────────
 
-function GuestEnrollCTA({ lessonId }: { lessonId: string }) {
+function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; previewMode?: boolean }) {
   // Preserve the lesson URL so the user lands back here after login/register
   const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
+  // In previewMode the page is hosted on Landing and the auth routes live on
+  // the portal subdomain — use absolute URLs so the cross-origin hop is correct.
+  if (previewMode) {
+    return (
+      <div className="rounded-2xl border bg-card px-6 py-10 flex flex-col items-center text-center gap-4">
+        <div className="rounded-full bg-primary/10 p-4">
+          <Lock className="size-7 text-primary" />
+        </div>
+        <div className="space-y-1.5 max-w-md">
+          <h2 className="text-lg font-semibold">Enroll to unlock this lesson</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            This lesson is part of the Standard plan. Create an account and enroll
+            to watch the video, read the reviewer, and take the quiz.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+          <Button asChild>
+            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={getAbsoluteUrl(ROUTES.LOGIN)}>I already have an account</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="rounded-2xl border bg-card px-6 py-10 flex flex-col items-center text-center gap-4">
       <div className="rounded-full bg-primary/10 p-4">
@@ -658,6 +748,39 @@ function GuestEnrollCTA({ lessonId }: { lessonId: string }) {
   )
 }
 
+// ── Preview-not-available notice ─────────────────────────────────────────────
+//
+// Rendered on Landing's /preview/lesson/:id when the requested lesson is NOT
+// flagged is_free_preview. Stays at the same URL (no redirect) so the
+// canonical link is stable; CTA is a cross-origin hop to portal /register.
+
+function PreviewNotAvailable({ subjectId }: { subjectId: string }) {
+  return (
+    <div className="container mx-auto px-4 py-16 max-w-2xl">
+      <div className="rounded-2xl border bg-card px-6 py-12 flex flex-col items-center text-center gap-5">
+        <div className="rounded-full bg-muted p-4">
+          <Lock className="size-7 text-muted-foreground" />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h1 className="text-xl font-semibold">Preview not available</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            This lesson is part of the Standard plan. Browse the free preview
+            for this subject, or enroll to unlock the full curriculum.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+          <Button asChild>
+            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to={ROUTES.PREVIEW_SUBJECT(subjectId)}>Browse subject preview</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Preview conversion banner (non-blocking; never gates playback) ───────────
 //
 // Shown only on free-preview lessons when the user is not subscribed:
@@ -670,13 +793,32 @@ function GuestEnrollCTA({ lessonId }: { lessonId: string }) {
 function PreviewConversionBanner({
   isAuthenticated,
   lessonId,
+  previewMode = false,
 }: {
   isAuthenticated: boolean
   lessonId: string
+  previewMode?: boolean
 }) {
   const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
 
   if (!isAuthenticated) {
+    // On Landing's /preview/lesson/:id the auth routes live cross-origin;
+    // use absolute portal URL via <a href>.
+    if (previewMode) {
+      return (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex items-start gap-4">
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-sm font-semibold">Enjoying the free preview?</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Enroll an account to save your progress and pick up where you left off.
+            </p>
+          </div>
+          <Button asChild size="sm" className="shrink-0">
+            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+          </Button>
+        </div>
+      )
+    }
     return (
       <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex items-start gap-4">
         <div className="flex-1 min-w-0 space-y-1">

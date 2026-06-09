@@ -39,6 +39,15 @@ export const ROUTES = {
   BOOK:            (id: string) => `/book/${id}`,
   BOOK_CHECKOUT:   (id: string) => `/book/${id}/checkout`,
 
+  // Landing-owned marketing & preview routes (Phase 1 separation).
+  // /pricing is the marketing variant of /subscription (acquisition framing,
+  // no logged-in upgrade banner). /preview/* are anon-accessible entry points
+  // for the free-preview funnel served from the Landing subdomain. Server-side
+  // gating still keys on `lessons.is_free_preview`.
+  PRICING:         '/pricing',
+  PREVIEW_SUBJECT: (id: string) => `/preview/subject/${id}`,
+  PREVIEW_LESSON:  (id: string) => `/preview/lesson/${id}`,
+
   // Admin panel
   ADMIN:                '/admin',
   ADMIN_SUBJECTS:       '/admin/courses',

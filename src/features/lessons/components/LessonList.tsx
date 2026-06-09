@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { PlayCircle, CheckCircle2, Lock } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
 import type { Lesson } from '../types'
 
 interface LessonListProps {
@@ -11,6 +12,11 @@ interface LessonListProps {
   activeLessonId?: string
   /** When true the list is shown to a guest (unauthenticated). Lessons are non-clickable. */
   isGuest?: boolean
+  /**
+   * Public preview funnel on Landing. Unlocked lessons route to
+   * /preview/lesson/:id; locked lessons cross-origin to portal /register.
+   */
+  previewMode?: boolean
 }
 
 function formatDuration(minutes: number): string {
@@ -21,15 +27,17 @@ function formatDuration(minutes: number): string {
   return `${h}h ${m}m`
 }
 
-export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLessonId, isGuest = false }: LessonListProps) {
+export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLessonId, isGuest = false, previewMode = false }: LessonListProps) {
   return (
     <ol className="space-y-1">
       {lessons.map((lesson) => {
         const isActive  = lesson.id === activeLessonId
         const isPreview = lesson.isFreePreview === true
         // Free-preview lessons unlock for everyone (guests too); premium
-        // lessons require a subscription or admin role.
-        const unlocked  = isSubscribed || isAdmin || isPreview
+        // lessons require a subscription or admin role. In Landing's preview
+        // funnel only flagged previews are unlocked — subscribed/admin paths
+        // never reach this code path (they're authenticated → portal).
+        const unlocked  = previewMode ? isPreview : (isSubscribed || isAdmin || isPreview)
 
         const inner = (
           <div
@@ -81,6 +89,31 @@ export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLesso
         // Locked premium lesson → route to enrollment instead of the lesson.
         // Guests on a locked lesson hit /register; authenticated free users
         // hit /subscription. Preview lessons stay reachable directly.
+        // In preview mode we're on Landing — locked lessons must cross-origin
+        // to portal /register (full-page nav via <a href>), and unlocked
+        // links route to Landing's /preview/lesson/:id.
+        if (previewMode) {
+          if (unlocked) {
+            return (
+              <li key={lesson.id}>
+                <Link to={ROUTES.PREVIEW_LESSON(lesson.id)} aria-label={lesson.title}>
+                  {inner}
+                </Link>
+              </li>
+            )
+          }
+          return (
+            <li key={lesson.id}>
+              <a
+                href={getAbsoluteUrl(ROUTES.REGISTER)}
+                aria-label={`${lesson.title} — Enroll to unlock`}
+              >
+                {inner}
+              </a>
+            </li>
+          )
+        }
+
         const lockedTarget = isGuest ? ROUTES.REGISTER : ROUTES.SUBSCRIPTION
         const to = unlocked ? ROUTES.LESSON(lesson.id) : lockedTarget
 

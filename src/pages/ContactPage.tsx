@@ -5,6 +5,8 @@ import {
   CONTACT_INTRO,
   type ContactChannel,
 } from '@/constants/contactInfo'
+import { ROUTES } from '@/constants/routes'
+import { CanonicalLink } from '@/components/CanonicalLink'
 
 /**
  * Public Contact Us page.
@@ -17,6 +19,7 @@ import {
 export function ContactPage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
+      <CanonicalLink path={ROUTES.CONTACT} owner="landing" />
       <header className="space-y-2 text-center sm:text-left">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
           Contact us

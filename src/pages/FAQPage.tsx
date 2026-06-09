@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { FAQ_GROUPS, type FaqItem } from '@/constants/faq'
 import { ROUTES } from '@/constants/routes'
+import { CanonicalLink } from '@/components/CanonicalLink'
 
 /**
  * Public FAQ page.
@@ -13,6 +14,7 @@ import { ROUTES } from '@/constants/routes'
 export function FAQPage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
+      <CanonicalLink path={ROUTES.FAQ} owner="landing" />
       <header className="space-y-2 text-center sm:text-left">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
           FAQ

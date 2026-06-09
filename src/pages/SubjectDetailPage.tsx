@@ -15,13 +15,27 @@ import { subjectApi } from '@/services/subjectApi'
 import { getLessonsBySubject } from '@/features/lessons/services/lessonService'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl } from '@s-class/constants/urls'
 import type { Subject } from '@/features/subjects/types'
 import type { Lesson } from '@/features/lessons/types'
 
-export function SubjectDetailPage() {
-  // The URL param name `courseId` is preserved — URL paths are unchanged
-  // this sprint (the value is the parent subject's id).
-  const { courseId: subjectId } = useParams<{ courseId: string }>()
+interface SubjectDetailPageProps {
+  /**
+   * Render as Landing's public preview funnel. Guests browse the curriculum,
+   * "Watch Free Preview" routes to /preview/lesson/:id (Landing), "Enroll"
+   * CTAs cross-origin to portal /register. Authenticated paths (Save to
+   * Dashboard, Start First Lesson for subscribers) are hidden.
+   */
+  previewMode?: boolean
+}
+
+export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProps = {}) {
+  // Same component is mounted at two URLs:
+  //   • /course/:courseId       (Portal — legacy param name preserved)
+  //   • /preview/subject/:subjectId  (Landing — preview funnel)
+  // Either param is the parent subject's id.
+  const params = useParams<{ courseId?: string; subjectId?: string }>()
+  const subjectId = params.courseId ?? params.subjectId
   const { isAuthenticated, isSubscribed, isAdmin } = useAuthStore()
   const isSaved = useSavedSubjectsStore((s) => subjectId ? s.isSaved(subjectId) : false)
   const toggle  = useSavedSubjectsStore((s) => s.toggle)
@@ -164,7 +178,24 @@ export function SubjectDetailPage() {
 
         {/* Action row */}
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          {!isAdmin && firstLesson && (
+          {previewMode && firstLesson ? (
+            // Landing preview funnel — no auth assumed. "Watch Free Preview"
+            // only when the first lesson is flagged; "Enroll Now" cross-origin
+            // to portal /register.
+            <>
+              {firstLessonIsPreview && (
+                <Button asChild>
+                  <Link to={ROUTES.PREVIEW_LESSON(firstLesson.id)}>
+                    <Play className="size-4 mr-1.5" />
+                    Watch Free Preview
+                  </Link>
+                </Button>
+              )}
+              <Button asChild variant={firstLessonIsPreview ? 'outline' : 'default'}>
+                <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+              </Button>
+            </>
+          ) : !isAdmin && firstLesson && (
             isSubscribed ? (
               <Button asChild>
                 <Link to={ROUTES.LESSON(firstLesson.id)}>
@@ -195,7 +226,7 @@ export function SubjectDetailPage() {
             )
           )}
 
-          {isAuthenticated && !isAdmin && (
+          {!previewMode && isAuthenticated && !isAdmin && (
             <Button
               variant={isSaved ? 'secondary' : 'outline'}
               onClick={handleToggleSave}
@@ -226,6 +257,7 @@ export function SubjectDetailPage() {
                 group={group}
                 isSubscribed={isSubscribed}
                 isAuthenticated={isAuthenticated}
+                previewMode={previewMode}
               />
             ))}
           </div>

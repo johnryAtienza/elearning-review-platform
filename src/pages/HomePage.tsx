@@ -11,6 +11,7 @@ import type { Announcement, WelcomeVideo } from '@/features/home/types'
 import { OFFERINGS, CONTACT_BLURB, type Offering } from '@/constants/offerings'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
+import { CanonicalLink } from '@/components/CanonicalLink'
 import { cn } from '@/utils/cn'
 
 /**
@@ -38,6 +39,8 @@ import { cn } from '@/utils/cn'
 export function HomePage() {
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-6xl">
+
+      <CanonicalLink path={ROUTES.HOME} owner="landing" />
 
       {/* ── Hero (Enroll Now + Log in) ── */}
       <HeroBlock />

@@ -1,11 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  BookOpen,
-  Library,
-  CreditCard,
-  User,
   GraduationCap,
   ChevronLeft,
   Menu,
@@ -16,26 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
-
-// ── Nav items ─────────────────────────────────────────────────────────────────
-
-const NAV_SECTIONS = [
-  {
-    label: 'Learning',
-    items: [
-      { to: ROUTES.DASHBOARD,       label: 'Dashboard', icon: LayoutDashboard, end: true  },
-      { to: ROUTES.PORTAL_SUBJECTS, label: 'Subjects',  icon: BookOpen,        end: false },
-      { to: ROUTES.BOOKS,           label: 'Books',     icon: Library,         end: false },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { to: ROUTES.SUBSCRIPTION, label: 'Subscription', icon: CreditCard, end: false },
-      { to: ROUTES.PROFILE,      label: 'Profile',      icon: User,       end: false },
-    ],
-  },
-] as const
+import { PORTAL_NAV_SECTIONS } from './portalNav'
 
 // ── Route label map for header breadcrumb ────────────────────────────────────
 
@@ -107,7 +83,7 @@ function NavSections({
 }) {
   return (
     <>
-      {NAV_SECTIONS.map((section, idx) => (
+      {PORTAL_NAV_SECTIONS.map((section, idx) => (
         <div key={section.label ?? `section-${idx}`}>
           {idx > 0 && <div className="border-t border-border/50 mt-3 mb-1" />}
           {section.label && !collapsed && (
@@ -142,8 +118,29 @@ type AuthStateSlice = {
 const selectUser   = (s: AuthStateSlice) => s.user
 const selectLogout = (s: AuthStateSlice) => s.logout
 
-export function PortalLayout({ children }: { children?: ReactNode }) {
-  const [collapsed, setCollapsed]   = useState(false)
+interface PortalLayoutProps {
+  children?:         ReactNode
+  /** Initial collapsed state of the desktop sidebar. Default: false (expanded). */
+  defaultCollapsed?: boolean
+  /** Replaces the default "Portal / <pageTitle>" content in the header. */
+  headerSlot?:       ReactNode
+  /** Rendered to the left of the user-name + avatar on the right side of the header. */
+  headerActions?:    ReactNode
+  /** When defined (0–100), renders a thin progress strip at the bottom of the header. */
+  headerProgress?:   number
+  /** Skip the default `<main>` padding so consumers can manage their own layout. */
+  flush?:            boolean
+}
+
+export function PortalLayout({
+  children,
+  defaultCollapsed = false,
+  headerSlot,
+  headerActions,
+  headerProgress,
+  flush = false,
+}: PortalLayoutProps) {
+  const [collapsed, setCollapsed]   = useState(defaultCollapsed)
   const [mobileOpen, setMobileOpen] = useState(false)
   const user      = useAuthStore(selectUser)
   const logout    = useAuthStore(selectLogout)
@@ -235,7 +232,7 @@ export function PortalLayout({ children }: { children?: ReactNode }) {
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
         {/* ── Header ── */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/60 px-4">
+        <header className="relative flex h-14 shrink-0 items-center gap-3 border-b bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/60 px-4">
           {/* Mobile: hamburger */}
           <Button
             variant="ghost"
@@ -257,24 +254,42 @@ export function PortalLayout({ children }: { children?: ReactNode }) {
             <Menu className="size-4" />
           </Button>
 
-          {/* Page title */}
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs text-muted-foreground hidden sm:block">Portal</span>
-            <span className="text-xs text-muted-foreground hidden sm:block">/</span>
-            <h1 className="text-sm font-semibold truncate">{pageTitle}</h1>
-          </div>
+          {/* Center: headerSlot when provided, else default page title */}
+          {headerSlot ? (
+            <div className="flex-1 min-w-0">{headerSlot}</div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs text-muted-foreground hidden sm:block">Portal</span>
+              <span className="text-xs text-muted-foreground hidden sm:block">/</span>
+              <h1 className="text-sm font-semibold truncate">{pageTitle}</h1>
+            </div>
+          )}
 
-          {/* Right: user info */}
+          {/* Right: optional page-level actions + user identity */}
           <div className="ml-auto flex items-center gap-2.5">
+            {headerActions}
             <span className="text-sm text-muted-foreground hidden lg:block">{user?.name}</span>
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground select-none">
               {initials}
             </span>
           </div>
+
+          {/* Optional bottom-edge progress strip (e.g. video watch progress on lesson pages) */}
+          {typeof headerProgress === 'number' && (
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-muted/50 overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${Math.max(0, Math.min(100, headerProgress))}%` }}
+              />
+            </div>
+          )}
         </header>
 
         {/* ── Main content ── */}
-        <main className="flex-1 min-h-0 px-4 py-6 sm:px-6 sm:py-8 overflow-auto">
+        <main className={cn(
+          'flex-1 min-h-0 overflow-auto',
+          flush ? '' : 'px-4 py-6 sm:px-6 sm:py-8',
+        )}>
           {children ?? <Outlet />}
         </main>
       </div>

@@ -58,6 +58,11 @@ function isBooksPath(pathname: string): boolean {
   return pathname === '/books' || pathname.startsWith('/book/')
 }
 
+function isLessonPath(pathname: string): boolean {
+  // Matches /lesson/:lessonId — same surface as useMatch('/lesson/:lessonId').
+  return pathname.startsWith('/lesson/')
+}
+
 export function RootLayout() {
   const { pathname }    = useLocation()
   const isAuthenticated = useAuthIsAuthenticated()
@@ -65,14 +70,22 @@ export function RootLayout() {
   const onAdminRoute  = isAdminPath(pathname)
   const onPortalRoute = isPortalShellPath(pathname)
   const onBooksRoute  = isBooksPath(pathname)
+  const onLessonRoute = isLessonPath(pathname)
 
   // Hide public chrome when:
   //   - inside the admin shell, or
   //   - inside the student portal shell, or
   //   - on /books or /book/:id while signed in (PortalShellOrPublic wraps these
   //     in PortalLayout for authenticated users — without this guard the public
-  //     Navbar would stack on top of the portal sidebar).
-  const hideShell = onAdminRoute || onPortalRoute || (onBooksRoute && isAuthenticated)
+  //     Navbar would stack on top of the portal sidebar), or
+  //   - on /lesson/:id while signed in. The lesson page is intentionally NOT
+  //     wrapped in PortalLayout (video real estate) but it has its own sticky
+  //     top bar + course-content sidebar + breadcrumb — the marketing Navbar
+  //     would just be redundant chrome inside the learning experience.
+  //     Guests still see the Navbar on lessons (free-preview access path).
+  const hideShell = onAdminRoute
+                  || onPortalRoute
+                  || ((onBooksRoute || onLessonRoute) && isAuthenticated)
 
   return (
     <div className="relative min-h-screen flex flex-col">

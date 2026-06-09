@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
 import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
+import { PortalLayout } from '@/layouts/PortalLayout'
 import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
@@ -251,12 +252,76 @@ export function LessonPage() {
     setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
-  return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
+  // ── Branched render: authenticated users render inside PortalLayout (which
+  //    carries the breadcrumb, position counter, video progress strip, and a
+  //    course-content drawer toggle for mobile). Guests render the same
+  //    lesson body inside the existing layout with the existing sticky header
+  //    above it — guest UX byte-identical to today.
+
+  const position = `${data.currentIdx + 1} / ${siblings.length}`
+
+  // Right course-content panel sticky offset differs by chrome above it:
+  //   - authed: inside PortalLayout's overflow-auto main (header is sibling
+  //     of main, not above viewport) → top-0, panel height limited by viewport
+  //     minus PortalLayout header (h-14 = 3.5rem).
+  //   - guest: page-level scroll under public Navbar (h-16 = 4rem).
+  const rightPanelSticky = isAuthenticated
+    ? 'sticky top-0 flex flex-col max-h-[calc(100vh-3.5rem)]'
+    : 'sticky top-16 flex flex-col max-h-[calc(100vh-4rem)]'
+
+  // Breadcrumb destined for PortalLayout's headerSlot (authenticated only).
+  // Segments collapse head-first as the viewport narrows.
+  const headerBreadcrumb = (
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 overflow-hidden">
+      <Link to={ROUTES.DASHBOARD} className="hover:text-foreground transition-colors hidden md:inline">
+        Dashboard
+      </Link>
+      <ChevronRight className="size-3 shrink-0 hidden md:inline" aria-hidden="true" />
+      <Link to={ROUTES.PORTAL_SUBJECTS} className="hover:text-foreground transition-colors hidden sm:inline">
+        Subjects
+      </Link>
+      <ChevronRight className="size-3 shrink-0 hidden sm:inline" aria-hidden="true" />
+      <Link
+        to={ROUTES.PORTAL_SUBJECT(lesson.courseId)}
+        className="hover:text-foreground transition-colors truncate"
+      >
+        {subject?.title ?? 'Subject'}
+      </Link>
+      <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+      <span className="text-foreground truncate" aria-current="page">{lesson.title}</span>
+    </nav>
+  )
+
+  // PortalLayout headerActions: position counter (sm+) and a mobile/tablet
+  // toggle that opens the course-content drawer (right panel is hidden below
+  // lg, so without this button there'd be no way to see the lesson list).
+  const headerActions = (
+    <>
+      <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">{position}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 lg:hidden"
+        onClick={() => setSidebarOpen((v) => !v)}
+        title="Lesson list"
+      >
+        <List className="size-4" />
+      </Button>
+    </>
+  )
+
+  const layout = (
+    <div className={cn(
+      'flex flex-col lg:flex-row',
+      isAuthenticated ? 'min-h-full' : 'min-h-[calc(100vh-4rem)]',
+    )}>
       {/* ── Main content ── */}
       <div className="flex-1 min-w-0">
 
-        {/* Top bar */}
+        {/* Lesson sticky header — guests only. Authed users get equivalent
+            information in PortalLayout's header (breadcrumb + position + a
+            video progress strip rendered via headerProgress). */}
+        {!isAuthenticated && (
         <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
           <Link
             to={ROUTES.SUBJECT(lesson.courseId)}
@@ -277,7 +342,6 @@ export function LessonPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Tier badge */}
             <span className={cn(
               'hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
               isSubscribed
@@ -287,9 +351,7 @@ export function LessonPage() {
               {isSubscribed ? 'Standard' : 'Free'}
             </span>
 
-            <span className="text-xs text-muted-foreground">
-              {data.currentIdx + 1} / {siblings.length}
-            </span>
+            <span className="text-xs text-muted-foreground">{position}</span>
           </div>
 
           <button
@@ -300,6 +362,7 @@ export function LessonPage() {
             <List className="size-5" />
           </button>
         </div>
+        )}
 
         {/* Mobile lesson sidebar overlay */}
         {sidebarOpen && (
@@ -313,32 +376,24 @@ export function LessonPage() {
 
         {/* Content */}
         <div className="px-4 py-8 max-w-3xl mx-auto space-y-8">
-          {/* Breadcrumb — hierarchy context only; "Dashboard" omitted for guests. */}
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            {isAuthenticated && (
-              <>
-                <Link to={ROUTES.DASHBOARD} className="hover:text-foreground transition-colors">
-                  Dashboard
-                </Link>
-                <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
-              </>
-            )}
-            <Link
-              to={isAuthenticated ? ROUTES.PORTAL_SUBJECTS : ROUTES.SUBJECTS}
-              className="hover:text-foreground transition-colors"
-            >
-              Subjects
-            </Link>
-            <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
-            <Link
-              to={isAuthenticated ? ROUTES.PORTAL_SUBJECT(lesson.courseId) : ROUTES.SUBJECT(lesson.courseId)}
-              className="hover:text-foreground transition-colors"
-            >
-              {subject?.title ?? 'Subject'}
-            </Link>
-            <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
-            <span className="text-foreground" aria-current="page">{lesson.title}</span>
-          </nav>
+          {/* Breadcrumb — guests only. Authenticated users get the breadcrumb
+              in PortalLayout's headerSlot. */}
+          {!isAuthenticated && (
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              <Link to={ROUTES.SUBJECTS} className="hover:text-foreground transition-colors">
+                Subjects
+              </Link>
+              <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+              <Link
+                to={ROUTES.SUBJECT(lesson.courseId)}
+                className="hover:text-foreground transition-colors"
+              >
+                {subject?.title ?? 'Subject'}
+              </Link>
+              <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+              <span className="text-foreground" aria-current="page">{lesson.title}</span>
+            </nav>
+          )}
 
           <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
@@ -510,7 +565,7 @@ export function LessonPage() {
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden lg:flex flex-col w-72 shrink-0 border-l bg-card">
-        <div className="sticky top-16 flex flex-col max-h-[calc(100vh-4rem)]">
+        <div className={rightPanelSticky}>
           <div className="border-b px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Course Content
@@ -530,6 +585,22 @@ export function LessonPage() {
       </aside>
     </div>
   )
+
+  // ── Branched return ────────────────────────────────────────────────────────
+  if (isAuthenticated) {
+    return (
+      <PortalLayout
+        defaultCollapsed
+        headerSlot={headerBreadcrumb}
+        headerActions={headerActions}
+        headerProgress={progress}
+        flush
+      >
+        {layout}
+      </PortalLayout>
+    )
+  }
+  return layout
 }
 
 // ── Completion hint ───────────────────────────────────────────────────────────

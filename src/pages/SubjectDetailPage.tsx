@@ -192,7 +192,7 @@ export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProp
                 </Button>
               )}
               <Button asChild variant={firstLessonIsPreview ? 'outline' : 'default'}>
-                <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+                <a href={getAbsoluteUrl(withReturnParam(ROUTES.REGISTER, ROUTES.SUBJECT(subject.id)))}>Enroll Now</a>
               </Button>
             </>
           ) : !isAdmin && firstLesson && (
@@ -265,6 +265,10 @@ export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProp
       )}
     </div>
   )
+}
+
+function withReturnParam(path: string, returnTo: string): string {
+  return `${path}?return=${encodeURIComponent(returnTo)}`
 }
 
 // ── Subject banner ───────────────────────────────────────────────────────────

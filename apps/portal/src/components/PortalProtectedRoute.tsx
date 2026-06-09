@@ -24,7 +24,14 @@ export function PortalProtectedRoute() {
   if (isInitializing) return <PageLoader />
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    const returnTo = `${location.pathname}${location.search}${location.hash}`
+    return (
+      <Navigate
+        to={`/login?return=${encodeURIComponent(returnTo)}`}
+        state={{ from: location }}
+        replace
+      />
+    )
   }
 
   return <Outlet />

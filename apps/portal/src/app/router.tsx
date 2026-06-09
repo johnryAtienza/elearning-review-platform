@@ -24,6 +24,7 @@ import { PortalSubjectHubPage } from '@/pages/PortalSubjectHubPage'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
 import { PortalGuestRoute } from '../components/PortalGuestRoute'
 import { PortalAdminBouncer } from '../components/PortalAdminBouncer'
+import { PreviewBouncer } from '../components/PreviewBouncer'
 
 export const router = createBrowserRouter([
   {
@@ -39,8 +40,26 @@ export const router = createBrowserRouter([
           // mirroring legacy /src router behavior)
           // URL path strings preserved per Phase 4 scope; component files renamed.
           { path: 'courses',          element: <SubjectsPage />       },
-          { path: 'course/:courseId', element: <SubjectDetailPage />  },
-          { path: 'lesson/:lessonId', element: <LessonPage />         },
+          {
+            path: 'course/:courseId',
+            element: <PreviewBouncer kind="subject" />,
+            children: [
+              {
+                element: <PortalProtectedRoute />,
+                children: [{ index: true, element: <SubjectDetailPage /> }],
+              },
+            ],
+          },
+          {
+            path: 'lesson/:lessonId',
+            element: <PreviewBouncer kind="lesson" />,
+            children: [
+              {
+                element: <PortalProtectedRoute />,
+                children: [{ index: true, element: <LessonPage /> }],
+              },
+            ],
+          },
           { path: 'books',            element: <PortalShellOrPublic><BooksPage /></PortalShellOrPublic>           },
           { path: 'book/:bookId',     element: <PortalShellOrPublic><BookDetailPage /></PortalShellOrPublic>      },
 

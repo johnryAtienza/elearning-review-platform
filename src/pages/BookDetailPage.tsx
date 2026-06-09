@@ -65,8 +65,9 @@ export function BookDetailPage() {
   // so the CTA works whether the page is served from Landing's storefront or
   // Portal during the transition window. Same-origin nav on Portal becomes a
   // full-page reload — acceptable for a deliberate checkout click.
+  const checkoutPath = ROUTES.BOOK_CHECKOUT(book.id)
   const checkoutHref = getAbsoluteUrl(
-    isAuthenticated ? ROUTES.BOOK_CHECKOUT(book.id) : ROUTES.LOGIN,
+    isAuthenticated ? checkoutPath : withReturnParam(ROUTES.LOGIN, checkoutPath),
   )
   const checkoutLabel = isAuthenticated ? 'Buy Now' : 'Log in to buy'
 
@@ -149,4 +150,8 @@ export function BookDetailPage() {
       </div>
     </div>
   )
+}
+
+function withReturnParam(path: string, returnTo: string): string {
+  return `${path}?return=${encodeURIComponent(returnTo)}`
 }

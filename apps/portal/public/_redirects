@@ -1,0 +1,10 @@
+/index.html             /index.html  200
+/book/:bookId/checkout  /index.html  200
+/about                  https://s-class.com.ph/about    301
+/contact                https://s-class.com.ph/contact  301
+/faq                    https://s-class.com.ph/faq      301
+/books                  https://s-class.com.ph/books    301
+/book/:bookId           https://s-class.com.ph/book/:bookId  301
+
+# SPA fallback for the remaining portal app routes.
+/*                      /index.html  200

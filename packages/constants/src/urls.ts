@@ -56,12 +56,11 @@ const ADMIN_PREFIXES = [
 ]
 
 const PORTAL_PREFIXES = [
+  '/book/*/checkout',
   '/dashboard',
   '/courses',
   '/course/',
   '/lesson/',
-  '/books',
-  '/book/',
   '/subscription',
   '/profile',
   '/quizzes',
@@ -76,6 +75,9 @@ const PORTAL_PREFIXES = [
 
 function matchesPrefix(path: string, prefixes: string[]): boolean {
   return prefixes.some((p) => {
+    if (p === '/book/*/checkout') {
+      return /^\/book\/[^/?#]+\/checkout(?:[/?#]|$)/.test(path)
+    }
     // Normalize: a trailing slash in the prefix (e.g. '/course/') was
     // intended to signal "parameterized — only matches /course/<sub>", but
     // without this strip the subsequent `p + '/'` check looks for '//'

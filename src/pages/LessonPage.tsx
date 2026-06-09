@@ -559,7 +559,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             const unlockedHref = (id: string) =>
               previewMode ? ROUTES.PREVIEW_LESSON(id) : ROUTES.LESSON(id)
             const lockedHref = previewMode
-              ? getAbsoluteUrl(ROUTES.REGISTER)
+              ? getAbsoluteUrl(withReturnParam(ROUTES.REGISTER, ROUTES.SUBJECT(lesson.courseId)))
               : ROUTES.SUBSCRIPTION
             const backToSubjectTo = previewMode
               ? ROUTES.PREVIEW_SUBJECT(lesson.courseId)
@@ -697,7 +697,8 @@ function getCompletionHint({
 
 function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; previewMode?: boolean }) {
   // Preserve the lesson URL so the user lands back here after login/register
-  const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
+  const loginTo = withReturnParam(ROUTES.LOGIN, ROUTES.LESSON(lessonId))
+  const registerTo = withReturnParam(ROUTES.REGISTER, ROUTES.LESSON(lessonId))
   // In previewMode the page is hosted on Landing and the auth routes live on
   // the portal subdomain — use absolute URLs so the cross-origin hop is correct.
   if (previewMode) {
@@ -715,10 +716,10 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
           <Button asChild>
-            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+            <a href={getAbsoluteUrl(registerTo)}>Enroll Now</a>
           </Button>
           <Button asChild variant="outline">
-            <a href={getAbsoluteUrl(ROUTES.LOGIN)}>I already have an account</a>
+            <a href={getAbsoluteUrl(loginTo)}>I already have an account</a>
           </Button>
         </div>
       </div>
@@ -738,10 +739,10 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
         <Button asChild>
-          <Link to={ROUTES.REGISTER} {...returnState}>Enroll Now</Link>
+          <Link to={registerTo}>Enroll Now</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link to={ROUTES.LOGIN} {...returnState}>I already have an account</Link>
+          <Link to={loginTo}>I already have an account</Link>
         </Button>
       </div>
     </div>
@@ -755,6 +756,8 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
 // canonical link is stable; CTA is a cross-origin hop to portal /register.
 
 function PreviewNotAvailable({ subjectId }: { subjectId: string }) {
+  const registerTo = withReturnParam(ROUTES.REGISTER, ROUTES.SUBJECT(subjectId))
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-2xl">
       <div className="rounded-2xl border bg-card px-6 py-12 flex flex-col items-center text-center gap-5">
@@ -770,7 +773,7 @@ function PreviewNotAvailable({ subjectId }: { subjectId: string }) {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
           <Button asChild>
-            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+            <a href={getAbsoluteUrl(registerTo)}>Enroll Now</a>
           </Button>
           <Button asChild variant="outline">
             <Link to={ROUTES.PREVIEW_SUBJECT(subjectId)}>Browse subject preview</Link>
@@ -799,7 +802,7 @@ function PreviewConversionBanner({
   lessonId: string
   previewMode?: boolean
 }) {
-  const returnState = { state: { from: { pathname: ROUTES.LESSON(lessonId) } } }
+  const registerTo = withReturnParam(ROUTES.REGISTER, ROUTES.LESSON(lessonId))
 
   if (!isAuthenticated) {
     // On Landing's /preview/lesson/:id the auth routes live cross-origin;
@@ -814,7 +817,7 @@ function PreviewConversionBanner({
             </p>
           </div>
           <Button asChild size="sm" className="shrink-0">
-            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+            <a href={getAbsoluteUrl(registerTo)}>Enroll Now</a>
           </Button>
         </div>
       )
@@ -826,12 +829,12 @@ function PreviewConversionBanner({
           <p className="text-xs text-muted-foreground leading-relaxed">
             Enroll an account to save your progress and pick up where you left off.
           </p>
-        </div>
-        <Button asChild size="sm" className="shrink-0">
-          <Link to={ROUTES.REGISTER} {...returnState}>Enroll Now</Link>
-        </Button>
       </div>
-    )
+      <Button asChild size="sm" className="shrink-0">
+        <Link to={registerTo}>Enroll Now</Link>
+      </Button>
+    </div>
+  )
   }
 
   return (
@@ -847,6 +850,10 @@ function PreviewConversionBanner({
       </Button>
     </div>
   )
+}
+
+function withReturnParam(path: string, returnTo: string): string {
+  return `${path}?return=${encodeURIComponent(returnTo)}`
 }
 
 // ── Free tier informational banner ────────────────────────────────────────────

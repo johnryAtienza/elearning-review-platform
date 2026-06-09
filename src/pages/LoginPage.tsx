@@ -11,16 +11,26 @@ import { DeviceLimitModal } from '@/features/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
 import type { UserDevice } from '@/features/devices/types'
 
+type ReturnLocationState = {
+  from?: {
+    pathname?: string
+    search?: string
+    hash?: string
+  }
+}
+
 export function LoginPage() {
   const login                   = useAuthStore((s) => s.login)
   const pendingDeviceLimit      = useAuthStore((s) => s.pendingDeviceLimit)
   const clearPendingDeviceLimit = useAuthStore((s) => s.clearPendingDeviceLimit)
   const navigate = useNavigate()
   const location = useLocation()
-  const explicitFrom = (location.state as { from?: Location })?.from?.pathname
+  const returnParam = safeReturnPath(new URLSearchParams(location.search).get('return'))
+  const stateFrom = getStateReturnPath(location.state)
 
   function postLoginTarget() {
-    if (explicitFrom) return explicitFrom
+    if (returnParam) return returnParam
+    if (stateFrom) return stateFrom
     return useAuthStore.getState().isAdmin ? ROUTES.ADMIN : ROUTES.DASHBOARD
   }
 
@@ -171,11 +181,27 @@ export function LoginPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
-          <Link to={ROUTES.REGISTER} className="font-medium text-primary hover:underline underline-offset-4">
+          <Link to={withReturnParam(ROUTES.REGISTER, returnParam ?? stateFrom)} className="font-medium text-primary hover:underline underline-offset-4">
             Enroll Now
           </Link>
         </p>
       </div>
     </section>
   )
+}
+
+function getStateReturnPath(state: unknown): string | null {
+  const from = (state as ReturnLocationState | null)?.from
+  if (!from?.pathname) return null
+  return safeReturnPath(`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`)
+}
+
+function safeReturnPath(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null
+  return value
+}
+
+function withReturnParam(path: string, returnTo: string | null): string {
+  if (!returnTo) return path
+  return `${path}?return=${encodeURIComponent(returnTo)}`
 }

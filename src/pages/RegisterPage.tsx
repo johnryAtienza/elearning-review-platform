@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, MailCheck, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,14 @@ import { DeviceLimitModal } from '@/features/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
 import type { UserDevice } from '@/features/devices/types'
 
+type ReturnLocationState = {
+  from?: {
+    pathname?: string
+    search?: string
+    hash?: string
+  }
+}
+
 function RequiredMark() {
   return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
 }
@@ -19,6 +27,10 @@ export function RegisterPage() {
   const register            = useAuthStore((s) => s.register)
   const confirmationPending = useAuthStore((s) => s.confirmationPending)
   const navigate            = useNavigate()
+  const location            = useLocation()
+  const returnParam         = safeReturnPath(new URLSearchParams(location.search).get('return'))
+  const stateFrom           = getStateReturnPath(location.state)
+  const postRegisterTarget  = returnParam ?? stateFrom ?? ROUTES.HOME
 
   const [firstName,       setFirstName]       = useState('')
   const [lastName,        setLastName]        = useState('')
@@ -78,7 +90,7 @@ export function RegisterPage() {
     try {
       await register(firstName, lastName, email, password, mobileNumber, school, schoolId)
       if (!useAuthStore.getState().confirmationPending) {
-        navigate(ROUTES.HOME, { replace: true })
+        navigate(postRegisterTarget, { replace: true })
       }
     } catch (err) {
       if (err instanceof DeviceLimitError) {
@@ -111,7 +123,7 @@ export function RegisterPage() {
             </p>
           </div>
           <Button asChild className="w-full">
-            <Link to={ROUTES.LOGIN}>Go to login</Link>
+            <Link to={withReturnParam(ROUTES.LOGIN, returnParam ?? stateFrom)}>Go to login</Link>
           </Button>
         </div>
       </section>
@@ -302,7 +314,7 @@ export function RegisterPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to={ROUTES.LOGIN} className="font-medium text-primary hover:underline underline-offset-4">
+          <Link to={withReturnParam(ROUTES.LOGIN, returnParam ?? stateFrom)} className="font-medium text-primary hover:underline underline-offset-4">
             Log in
           </Link>
         </p>
@@ -336,4 +348,20 @@ function focusFirstInvalid(fields: {
   ]
   const first = order.find((f) => f.invalid)
   if (first) document.getElementById(first.id)?.focus()
+}
+
+function getStateReturnPath(state: unknown): string | null {
+  const from = (state as ReturnLocationState | null)?.from
+  if (!from?.pathname) return null
+  return safeReturnPath(`${from.pathname}${from.search ?? ''}${from.hash ?? ''}`)
+}
+
+function safeReturnPath(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null
+  return value
+}
+
+function withReturnParam(path: string, returnTo: string | null): string {
+  if (!returnTo) return path
+  return `${path}?return=${encodeURIComponent(returnTo)}`
 }

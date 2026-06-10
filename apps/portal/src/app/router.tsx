@@ -1,12 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { RootLayout } from '@/layouts/RootLayout'
 import { PortalLayout } from '@/layouts/PortalLayout'
-import { PortalShellOrPublic } from '@/layouts/PortalShellOrPublic'
 import { SubjectsPage } from '@/pages/SubjectsPage'
 import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
-import { BooksPage } from '@/pages/BooksPage'
-import { BookDetailPage } from '@/pages/BookDetailPage'
 import { BookCheckoutPage } from '@/pages/BookCheckoutPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { QuizHistoryPage } from '@/pages/QuizHistoryPage'
@@ -21,11 +17,33 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { PortalSubjectsPage } from '@/pages/PortalSubjectsPage'
 import { PortalSubjectHubPage } from '@/pages/PortalSubjectHubPage'
+import { PortalRootLayout } from '../layouts/PortalRootLayout'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
 import { PortalGuestRoute } from '../components/PortalGuestRoute'
 import { PortalAdminBouncer } from '../components/PortalAdminBouncer'
 import { PreviewBouncer } from '../components/PreviewBouncer'
 
+/**
+ * Portal is learning-only after Phase 3.
+ *
+ * Removed in Phase 3:
+ *   /, /about, /contact, /faq        — Landing-owned marketing
+ *   /books, /book/:bookId            — Landing-owned storefront
+ *   (RootLayout + PortalShellOrPublic — Landing keeps the shared marketing chrome)
+ *
+ * Still served here:
+ *   Public  → /login, /register, /forgot-password, /reset-password
+ *             /payment-success, /payment-cancel (PayMongo callbacks)
+ *   Auth'd  → /dashboard, /quizzes, /subscription, /profile/*,
+ *             /portal/subjects/*, /courses, /course/:id, /lesson/:id,
+ *             /book/:bookId/checkout
+ *
+ * Guests hitting /, /courses, /course/:id, or /lesson/:id are sent to
+ * /login by PortalProtectedRoute (with the original location preserved
+ * in state). PreviewBouncer sits ahead of /course/:id and /lesson/:id to
+ * forward guests on free-preview targets cross-origin to Landing's
+ * /preview/* routes, so old bookmarks keep working.
+ */
 export const router = createBrowserRouter([
   {
     // Bounces any authenticated admin off portal.* to admin.* before
@@ -34,35 +52,8 @@ export const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: <RootLayout />,
+        element: <PortalRootLayout />,
         children: [
-          // Public browse (free preview enforced inside the components,
-          // mirroring legacy /src router behavior)
-          // URL path strings preserved per Phase 4 scope; component files renamed.
-          { path: 'courses',          element: <SubjectsPage />       },
-          {
-            path: 'course/:courseId',
-            element: <PreviewBouncer kind="subject" />,
-            children: [
-              {
-                element: <PortalProtectedRoute />,
-                children: [{ index: true, element: <SubjectDetailPage /> }],
-              },
-            ],
-          },
-          {
-            path: 'lesson/:lessonId',
-            element: <PreviewBouncer kind="lesson" />,
-            children: [
-              {
-                element: <PortalProtectedRoute />,
-                children: [{ index: true, element: <LessonPage /> }],
-              },
-            ],
-          },
-          { path: 'books',            element: <PortalShellOrPublic><BooksPage /></PortalShellOrPublic>           },
-          { path: 'book/:bookId',     element: <PortalShellOrPublic><BookDetailPage /></PortalShellOrPublic>      },
-
           // Payment result pages — public so users can land here after
           // PayMongo redirects them back, even if the session expired mid-flow.
           { path: 'payment-success',  element: <PaymentSuccessPage /> },
@@ -88,12 +79,45 @@ export const router = createBrowserRouter([
           // session detection via the PASSWORD_RECOVERY auth event.
           { path: 'reset-password', element: <ResetPasswordPage /> },
 
-          // Authenticated portal area
+          // ── Learning routes — authenticated only. ────────────────────
+          // PreviewBouncer sits ahead of /course/:id and /lesson/:id to
+          // forward guests on free-preview targets back to Landing's
+          // /preview/* routes before the auth guard kicks in. Authenticated
+          // users skip the bouncer's async check and fall straight through.
           {
             element: <PortalProtectedRoute />,
             children: [
-              // portal root → dashboard. Keeps existing ROUTES.DASHBOARD
-              // (`/dashboard`) callsites working unchanged.
+              { path: 'courses', element: <SubjectsPage /> },
+            ],
+          },
+          {
+            path: 'course/:courseId',
+            element: <PreviewBouncer kind="subject" />,
+            children: [
+              {
+                element: <PortalProtectedRoute />,
+                children: [{ index: true, element: <SubjectDetailPage /> }],
+              },
+            ],
+          },
+          {
+            path: 'lesson/:lessonId',
+            element: <PreviewBouncer kind="lesson" />,
+            children: [
+              {
+                element: <PortalProtectedRoute />,
+                children: [{ index: true, element: <LessonPage /> }],
+              },
+            ],
+          },
+
+          // ── Authenticated portal area (sidebar shell + checkout). ────
+          {
+            element: <PortalProtectedRoute />,
+            children: [
+              // portal root → dashboard. Guests fall through the guard to
+              // /login (preserving location.from), giving Portal its
+              // LMS-style "the subdomain is the app" entrance.
               { index: true, element: <Navigate to="/dashboard" replace /> },
 
               // Pages that live inside the portal sidebar shell.
@@ -115,8 +139,10 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // Unknown route — back to portal root (which sends to dashboard).
-          // Admin and landing routes live on other subdomains.
+          // Unknown route — back to portal root (authenticated → /dashboard,
+          // guest → /login via PortalProtectedRoute on the index route).
+          // Marketing and storefront paths are 301-redirected to Landing via
+          // apps/portal/public/_redirects before this fallback ever fires.
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

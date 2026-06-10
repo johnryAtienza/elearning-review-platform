@@ -1,5 +1,5 @@
 import type { ElementType } from 'react'
-import { LayoutDashboard, BookOpen, Library, CreditCard, User } from 'lucide-react'
+import { LayoutDashboard, BookOpen, CreditCard, User } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 
 export interface NavItem {
@@ -29,7 +29,6 @@ export const PORTAL_NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { to: ROUTES.DASHBOARD,       label: 'Dashboard', icon: LayoutDashboard, end: true  },
       { to: ROUTES.PORTAL_SUBJECTS, label: 'Subjects',  icon: BookOpen,        end: false },
-      { to: ROUTES.BOOKS,           label: 'Books',     icon: Library,         end: false },
     ],
   },
   {

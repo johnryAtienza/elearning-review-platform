@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { ROUTES } from '@/constants/routes'
 import { EXTERNAL } from '@s-class/constants/urls'
-import { resetPasswordForEmail } from '@/features/auth/services/authService'
+import { resetPasswordForEmail } from '@s-class/api/authService'
 
 export function ForgotPasswordPage() {
   const [email,     setEmail]     = useState('')

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
 import { ROUTES } from '@/constants/routes'
-import { supabase } from '@/services/supabaseClient'
+import { supabase } from '@s-class/api/supabaseClient'
 import { toast } from '@/lib/toast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

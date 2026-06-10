@@ -254,16 +254,32 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
 
 // ── Subjects dropdown (desktop tab) ──────────────────────────────────────────
 
-function SubjectsDropdown({ subjects, loading }: { subjects: Subject[]; loading: boolean }) {
+function SubjectsDropdown({
+  subjects,
+  loading,
+  isAuthenticated,
+}: {
+  subjects: Subject[]
+  loading: boolean
+  isAuthenticated: boolean
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const onCourseRoute = useMatch('/course/:courseId')
+  const onPreviewRoute = useMatch('/preview/subject/:subjectId')
 
   useDismissable(open, () => setOpen(false), ref)
 
   if (!loading && subjects.length === 0) return null
 
-  const isActive = open || onCourseRoute !== null
+  const isActive = open || onCourseRoute !== null || onPreviewRoute !== null
+
+  // Guests browse subjects on Landing's public preview funnel, not Portal's
+  // authenticated /course/:id. Authenticated users keep going to /course/:id
+  // where they can resume an enrolled lesson; PreviewBouncer + RLS handle the
+  // rest. This is the source of truth for "guest discovery stays on Landing".
+  const subjectHref = (id: string) =>
+    isAuthenticated ? ROUTES.SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
   return (
     <div ref={ref} className="relative">
@@ -300,7 +316,7 @@ function SubjectsDropdown({ subjects, loading }: { subjects: Subject[]; loading:
             subjects.map((s) => (
               <SmartLink
                 key={s.id}
-                to={ROUTES.SUBJECT(s.id)}
+                to={subjectHref(s.id)}
                 onClick={() => setOpen(false)}
                 className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
@@ -320,14 +336,20 @@ function MobileSubjectsSection({
   subjects,
   loading,
   onNavigate,
+  isAuthenticated,
 }: {
   subjects: Subject[]
   loading: boolean
   onNavigate: () => void
+  isAuthenticated: boolean
 }) {
   const [open, setOpen] = useState(false)
 
   if (!loading && subjects.length === 0) return null
+
+  // Match SubjectsDropdown (desktop): guests go to Landing /preview/subject/:id.
+  const subjectHref = (id: string) =>
+    isAuthenticated ? ROUTES.SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
   return (
     <div>
@@ -353,7 +375,7 @@ function MobileSubjectsSection({
             subjects.map((s) => (
               <SmartLink
                 key={s.id}
-                to={ROUTES.SUBJECT(s.id)}
+                to={subjectHref(s.id)}
                 onClick={onNavigate}
                 className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
               >
@@ -494,7 +516,7 @@ export function Navbar() {
             <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
             <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
             <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
-            <SubjectsDropdown subjects={subjects} loading={loading} />
+            <SubjectsDropdown subjects={subjects} loading={loading} isAuthenticated={isAuthenticated} />
             <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
             <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
           </div>
@@ -510,6 +532,7 @@ export function Navbar() {
               subjects={subjects}
               loading={loading}
               onNavigate={() => setMobileOpen(false)}
+              isAuthenticated={isAuthenticated}
             />
             <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
             <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>

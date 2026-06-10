@@ -3,6 +3,15 @@ import { ArrowRight, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
+import { getAbsoluteUrl, getCurrentSubdomain, getRouteOwner } from '@s-class/constants/urls'
+
+// Captured at module load (same pattern Navbar uses) so we don't re-detect on
+// every render. SSR-safe (defaults to 'landing').
+const CURRENT_SUBDOMAIN = getCurrentSubdomain()
+
+function isCrossOrigin(to: string): boolean {
+  return getRouteOwner(to) !== CURRENT_SUBDOMAIN
+}
 
 /**
  * Top-of-Home hero. Drives conversion with a primary "Enroll Now" CTA and
@@ -49,17 +58,31 @@ export function HeroBlock() {
 
         <div className="flex flex-wrap gap-3 pt-1">
           <Button asChild size="lg" className="h-12 px-7 text-base">
-            <Link to={primary.to}>
-              {primary.label}
-              <ArrowRight className="size-4 ml-2" />
-            </Link>
+            {isCrossOrigin(primary.to) ? (
+              <a href={getAbsoluteUrl(primary.to)}>
+                {primary.label}
+                <ArrowRight className="size-4 ml-2" />
+              </a>
+            ) : (
+              <Link to={primary.to}>
+                {primary.label}
+                <ArrowRight className="size-4 ml-2" />
+              </Link>
+            )}
           </Button>
           {showLogin && (
             <Button asChild variant="outline" size="lg" className="h-12 px-7 text-base">
-              <Link to={ROUTES.LOGIN}>
-                <LogIn className="size-4 mr-2" />
-                Log in
-              </Link>
+              {isCrossOrigin(ROUTES.LOGIN) ? (
+                <a href={getAbsoluteUrl(ROUTES.LOGIN)}>
+                  <LogIn className="size-4 mr-2" />
+                  Log in
+                </a>
+              ) : (
+                <Link to={ROUTES.LOGIN}>
+                  <LogIn className="size-4 mr-2" />
+                  Log in
+                </Link>
+              )}
             </Button>
           )}
         </div>

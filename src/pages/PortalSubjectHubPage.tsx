@@ -10,8 +10,8 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
-import { getSubjectById } from '@/features/subjects/services/subjectService'
-import { getLessonsBySubject } from '@/features/lessons/services/lessonService'
+import { subjectApi } from '@/services/subjectApi'
+import { lessonApi } from '@/services/lessonApi'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
@@ -24,7 +24,7 @@ import type { Lesson } from '@/features/lessons/types'
  * curriculum below.
  *
  * Reuses:
- *   - getSubjectById, getLessonsBySubject (existing services)
+ *   - subjectApi.getById, lessonApi.getBySubject (existing provider routers)
  *   - useSavedSubjectsStore (existing store, read-only for progress)
  *   - WeekBlock + groupLessonsByWeek (extracted curriculum primitives,
  *     same code path SubjectDetailPage uses)
@@ -77,7 +77,7 @@ export function PortalSubjectHubPage() {
     setLoading(true)
     setError(null)
 
-    Promise.all([getSubjectById(subjectId), getLessonsBySubject(subjectId)])
+    Promise.all([subjectApi.getById(subjectId), lessonApi.getBySubject(subjectId)])
       .then(([s, ls]) => {
         if (cancelled) return
         if (!s) { setNotFound(true) } else { setSubject(s); setLessons(ls) }

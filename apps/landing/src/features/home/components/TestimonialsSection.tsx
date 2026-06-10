@@ -1,5 +1,5 @@
 import { Star } from 'lucide-react'
-import { TESTIMONIALS, type Testimonial } from '@/constants/testimonials'
+import { TESTIMONIALS, type Testimonial } from '../../../constants/testimonials'
 import { cn } from '@/utils/cn'
 
 /**

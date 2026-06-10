@@ -21,7 +21,7 @@ import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
-import { getQuizByLessonId } from '@/features/quiz/services/quizService'
+import { quizApi } from '@/services/quizApi'
 import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
@@ -125,7 +125,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 
     Promise.all([
       getReviewerContent(lessonId),
-      getQuizByLessonId(lessonId),
+      quizApi.getByLesson(lessonId),
       isAuthenticated ? getLessonWatchedStatus(lessonId) : Promise.resolve(false),
     ]).then(([rc, qz, watched]) => {
       setReviewerContent(rc)

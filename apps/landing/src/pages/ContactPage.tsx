@@ -4,7 +4,7 @@ import {
   BUSINESS_HOURS,
   CONTACT_INTRO,
   type ContactChannel,
-} from '@/constants/contactInfo'
+} from '../constants/contactInfo'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
 

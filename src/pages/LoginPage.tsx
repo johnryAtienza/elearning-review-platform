@@ -7,7 +7,7 @@ import { FormAlert } from '@/components/ui/ErrorMessage'
 import { useAuthStore } from '@/store/authStore'
 import { ApiError } from '@/services/ApiError'
 import { DeviceLimitError } from '@/services/devicesApi'
-import { DeviceLimitModal } from '@/features/auth/components/DeviceLimitModal'
+import { DeviceLimitModal } from '@s-class/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
 import type { UserDevice } from '@/features/devices/types'
 

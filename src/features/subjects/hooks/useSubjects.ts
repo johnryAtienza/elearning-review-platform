@@ -17,7 +17,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { getAllSubjects } from '../services/subjectService'
+import { subjectApi } from '@/services/subjectApi'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { Subject, SortOption, DurationFilter } from '../types'
 
@@ -169,7 +169,7 @@ export function useSubjects(): UseSubjectsResult {
     setLoading(true)
     setError(null)
 
-    getAllSubjects()
+    subjectApi.getAll()
       .then((data) => { if (!cancelled) setSubjects(data) })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load subjects.')

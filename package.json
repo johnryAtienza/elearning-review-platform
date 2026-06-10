@@ -8,10 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "type-check": "npm run type-check --workspaces --if-present && tsc -b",
+    "dev": "npm run dev:all",
     "dev:landing": "npm run dev --workspace=@s-class/landing",
     "dev:portal": "npm run dev --workspace=@s-class/portal",
     "dev:admin": "npm run dev --workspace=@s-class/admin",

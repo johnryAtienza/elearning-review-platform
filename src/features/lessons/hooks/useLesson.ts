@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getLessonById, getLessonsBySubject } from '../services/lessonService'
-import { getSubjectById } from '@/features/subjects/services/subjectService'
+import { lessonApi } from '@/services/lessonApi'
+import { subjectApi } from '@/services/subjectApi'
 import type { Lesson } from '../types'
 import type { Subject } from '@/features/subjects/types'
 
@@ -36,7 +36,7 @@ export function useLesson(lessonId: string): UseLessonResult {
 
     async function load() {
       try {
-        const lesson = await getLessonById(lessonId)
+        const lesson = await lessonApi.getById(lessonId)
 
         if (!lesson) {
           if (!cancelled) { setNotFound(true); setLoading(false) }
@@ -46,8 +46,8 @@ export function useLesson(lessonId: string): UseLessonResult {
         // Lesson.courseId field name is preserved (bridge field); value is the
         // parent subject's id. See plan §6.7 follow-up notes.
         const [subject, siblings] = await Promise.all([
-          getSubjectById(lesson.courseId),
-          getLessonsBySubject(lesson.courseId),
+          subjectApi.getById(lesson.courseId),
+          lessonApi.getBySubject(lesson.courseId),
         ])
 
         if (cancelled) return

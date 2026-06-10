@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { FAQ_GROUPS, type FaqItem } from '@/constants/faq'
+import { FAQ_GROUPS, type FaqItem } from '../constants/faq'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
 

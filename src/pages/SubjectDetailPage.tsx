@@ -10,9 +10,8 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import { useAuthStore } from '@/store/authStore'
 import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
-import { getSubjectById } from '@/features/subjects/services/subjectService'
 import { subjectApi } from '@/services/subjectApi'
-import { getLessonsBySubject } from '@/features/lessons/services/lessonService'
+import { lessonApi } from '@/services/lessonApi'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
@@ -71,8 +70,8 @@ export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProp
     setLoading(true)
     setError(null)
 
-    const fetchSubject = isAdmin ? subjectApi.getByIdAdmin(subjectId) : getSubjectById(subjectId)
-    Promise.all([fetchSubject, getLessonsBySubject(subjectId)])
+    const fetchSubject = isAdmin ? subjectApi.getByIdAdmin(subjectId) : subjectApi.getById(subjectId)
+    Promise.all([fetchSubject, lessonApi.getBySubject(subjectId)])
       .then(([s, ls]) => {
         if (cancelled) return
         if (!s) { setNotFound(true) } else { setSubject(s); setLessons(ls) }

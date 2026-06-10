@@ -1,4 +1,4 @@
-import { ABOUT_SECTIONS } from '@/constants/aboutCopy'
+import { ABOUT_SECTIONS } from '../constants/aboutCopy'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
 

@@ -1,11 +1,14 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { RootLayout } from '@/layouts/RootLayout'
-import { HomePage } from '@/pages/HomePage'
-import { AboutPage } from '@/pages/AboutPage'
-import { ContactPage } from '@/pages/ContactPage'
-import { FAQPage } from '@/pages/FAQPage'
-import { BooksPage } from '@/pages/BooksPage'
-import { BookDetailPage } from '@/pages/BookDetailPage'
+import { RootLayout } from '../layouts/RootLayout'
+import { HomePage } from '../pages/HomePage'
+import { AboutPage } from '../pages/AboutPage'
+import { ContactPage } from '../pages/ContactPage'
+import { FAQPage } from '../pages/FAQPage'
+import { BooksPage } from '../pages/BooksPage'
+import { BookDetailPage } from '../pages/BookDetailPage'
+// SubscriptionPage, SubjectDetailPage, LessonPage are intentionally shared
+// (Decision B2 — see Phase 4 plan). They stay in /src/pages/ and are
+// imported via the @/ alias which resolves to the repo root /src.
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'

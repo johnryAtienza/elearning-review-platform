@@ -76,11 +76,12 @@ DB `tsvector`/GIN/trigram indexes being ready. Doesn't scale past a few hundred
 subjects. **Fix:** move to `textSearch()`.
 
 ### M6 — Documentation drift
-`README.md` is still the Vite template; `DOCUMENTATION.md` ("PayMongo planned",
-"no password reset", Vite 6, single-app structure) and `CLAUDE.md`/`ARCHITECTURE.md`
-("legacy app on 5173", root `npm run build`) are partly stale. This `docs/`
-knowledge base supersedes them. **Fix:** replace root `README.md`, add a banner to
-the stale docs pointing here.
+The root `README.md` has been **replaced** with a project entry point that links
+into this `docs/` knowledge base. Still partly stale: `DOCUMENTATION.md` ("PayMongo
+planned", "no password reset", Vite 6, single-app structure) and
+`CLAUDE.md`/`ARCHITECTURE.md` ("legacy app on 5173", root `npm run build`). This
+`docs/` knowledge base supersedes them. **Fix:** add a banner to those remaining
+stale docs pointing here, or reconcile them.
 
 ### M7 — Edge Function CORS `*`
 All functions send `Access-Control-Allow-Origin: *`. Mitigated by JWT/ownership

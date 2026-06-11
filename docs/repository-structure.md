@@ -37,7 +37,7 @@ elearning-review-platform/
 ├── DOCUMENTATION.md       # Exhaustive but partly STALE reference (April 2026)
 ├── CLAUDE.md              # Implementation notes for AI agents (partly stale on commands)
 ├── CLOUDFLARE_PAGES.md    # Per-app Pages deployment checklist
-├── README.md              # ⚠️ still the default Vite template — ignore
+├── README.md              # Project entry point — overview + links into docs/
 ├── components.json        # shadcn config
 ├── eslint.config.js       # flat ESLint config
 ├── tsconfig*.json         # project-reference TS config

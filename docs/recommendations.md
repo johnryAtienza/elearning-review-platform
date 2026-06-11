@@ -11,7 +11,7 @@ Ranked by **impact ÷ effort**. Each maps to evidence in
 | 1 | **Lock down `subscriptions` (and re-audit payment) RLS to service-role-only writes** | 🔴 Critical (revenue/access integrity) | S | [security #1](security.md), TD H2 |
 | 2 | **Capture a canonical schema baseline** (`pg_dump --schema-only`) and reconcile migrations | 🔴 High (reproducibility/onboarding) | M | TD H1/H3 |
 | 3 | **Stand up a separate staging Supabase project + R2 bucket** | 🔴 High (don't test on prod) | M | [env](environments.md), [security #4](security.md) |
-| 4 | **Replace root `README.md`; banner the stale docs to point at `docs/`** | 🟠 Med (every new dev hits this) | S | TD M6 |
+| 4 | **Banner/reconcile the remaining stale root docs** (`DOCUMENTATION.md`, `CLAUDE.md`, `ARCHITECTURE.md`) to point at `docs/` — *root `README.md` already replaced ✅* | 🟠 Med (every new dev hits this) | S | TD M6 |
 | 5 | **Lazy-load heavy media components + Portal/Landing routes** | 🟠 Med (first-load perf) | S–M | [perf](performance.md) |
 | 6 | **Restrict Edge Function CORS to known origins** | 🟠 Med (attack surface) | S | [security #3](security.md) |
 | 7 | **Finish the package migration: codemod `src/services|store` shims, delete duplicate `src/components/ui`** | 🟠 Med (clarity) | M | TD M2/M3 |
@@ -53,7 +53,8 @@ Ranked by **impact ÷ effort**. Each maps to evidence in
   to restore integrity.
 
 ### Developer experience
-- **#4 fix the docs** (root README + stale-doc banners).
+- **#4 fix the docs** — root README replaced ✅; add stale-doc banners to
+  `DOCUMENTATION.md` / `CLAUDE.md` / `ARCHITECTURE.md`.
 - **Adopt the canonical DB baseline** so `supabase db reset` produces a working DB.
 - **Add a test setup** (Vitest + Testing Library) even if starting with a handful
   of tests around RLS/edge auth and the pricing/`extend_subscription` math.

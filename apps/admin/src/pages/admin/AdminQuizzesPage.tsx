@@ -6,18 +6,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { QuizModal } from '@/features/admin/components/QuizModal'
+import { QuizModal } from '../../features/admin/components/QuizModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminQuizzes,
   getAdminQuizFull,
   deleteAdminQuiz,
   type AdminQuiz,
   type AdminQuizFull,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 
 // ── Column layout ─────────────────────────────────────────────────────────────

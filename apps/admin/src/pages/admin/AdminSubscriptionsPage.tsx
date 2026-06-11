@@ -8,12 +8,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   AdminTableHeader, ADMIN_ROW_BASE, filterTabClass, LoadError, formatAdminDate,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminSubscriptions,
   setSubscriptionActive,
   type AdminSubscription,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 

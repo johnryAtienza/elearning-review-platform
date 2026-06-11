@@ -2,17 +2,17 @@ import { useState, useRef, useEffect } from 'react'
 import { X, Upload, ImageIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { uploadToStorage } from '@/services/storageClient'
-import { storagePaths } from '@/services/storagePaths'
+import { uploadToStorage } from '@s-class/api/storageClient'
+import { storagePaths } from '@s-class/api/storagePaths'
 import {
   createSubject,
   updateSubject,
   type AdminSubject,
-} from '@/services/admin.service'
-import { getAllCourses } from '@/services/coursesApi'
+} from '@s-class/api/admin.service'
+import { getAllCourses } from '@s-class/api/coursesApi'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
-import type { Course } from '@/features/courses/types'
+import type { Course } from '../../../features/courses/types'
 
 interface SubjectModalProps {
   /** null = create mode, non-null = edit mode */

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   updateOrderStatus,
   cancelOrderAndRestock,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { formatPHP } from '@/utils/money'
 import { cn } from '@/utils/cn'
 import type { BookOrder, OrderStatus } from '@/features/books/types'

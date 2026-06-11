@@ -2,13 +2,13 @@ import { useState, useRef } from 'react'
 import { X, Upload, ImageIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { uploadToStorage } from '@/services/storageClient'
-import { storagePaths } from '@/services/storagePaths'
+import { uploadToStorage } from '@s-class/api/storageClient'
+import { storagePaths } from '@s-class/api/storagePaths'
 import {
   createAdminWelcomeVideo,
   updateAdminWelcomeVideo,
   type AdminWelcomeVideo,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
 

@@ -3,17 +3,17 @@ import { PlayCircle, Eye, EyeOff, Loader2, Pencil, Trash2, Plus, ImageIcon } fro
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { WelcomeVideoModal } from '@/features/admin/components/WelcomeVideoModal'
+import { WelcomeVideoModal } from '../../features/admin/components/WelcomeVideoModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminWelcomeVideos,
   setWelcomeVideoEnabled,
   deleteAdminWelcomeVideo,
   type AdminWelcomeVideo,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 
 const GRID_COLS = 'grid-cols-[3rem_1fr_5rem_5rem_9rem]'

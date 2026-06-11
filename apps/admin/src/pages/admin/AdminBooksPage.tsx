@@ -6,17 +6,17 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { BookModal } from '@/features/admin/components/BookModal'
+import { BookModal } from '../../features/admin/components/BookModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminBooks,
   setBookStatus,
   deleteAdminBook,
   type AdminBook,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 import { formatPHP } from '@/utils/money'
 

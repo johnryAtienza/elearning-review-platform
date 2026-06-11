@@ -3,12 +3,12 @@ import { Package, Loader2, ExternalLink, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { OrderDetailModal, StatusBadge } from '@/features/admin/components/OrderDetailModal'
+import { OrderDetailModal, StatusBadge } from '../../features/admin/components/OrderDetailModal'
 import {
   AdminTableHeader, EmptyState, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
-import { getAdminOrders } from '@/services/admin.service'
+} from '../../features/admin/components/AdminTable'
+import { getAdminOrders } from '@s-class/api/admin.service'
 import { formatPHP } from '@/utils/money'
 import type { BookOrder, OrderStatus } from '@/features/books/types'
 

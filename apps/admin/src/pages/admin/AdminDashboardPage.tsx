@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, BookMarked, Users, CreditCard, ArrowRight, TrendingUp, GraduationCap, CheckCircle2 } from 'lucide-react'
-import { StatCard } from '@/features/admin/components/StatCard'
-import { getAdminStats, type AdminStats } from '@/services/admin.service'
+import { StatCard } from '../../features/admin/components/StatCard'
+import { getAdminStats, type AdminStats } from '@s-class/api/admin.service'
 import { ROUTES } from '@/constants/routes'
 import { AdminDashboardSkeleton } from './AdminDashboardSkeleton'
 

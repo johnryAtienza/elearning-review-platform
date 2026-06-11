@@ -7,18 +7,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { SubjectModal } from '@/features/admin/components/SubjectModal'
+import { SubjectModal } from '../../features/admin/components/SubjectModal'
 import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminSubjects,
   setSubjectPublished,
   deleteSubject,
   type AdminSubject,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 import { ROUTES } from '@/constants/routes'
 

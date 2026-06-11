@@ -3,15 +3,15 @@ import { Plus, Pencil, Trash2, Loader2, Tag, Search, X, ChevronUp, ChevronDown }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tip, LoadError } from '@/features/admin/components/AdminTable'
+import { Tip, LoadError } from '../../features/admin/components/AdminTable'
 import {
   getCoursesWithCount,
   createCourse,
   updateCourse,
   deleteCourse,
   nameToSlug,
-} from '@/services/coursesApi'
-import type { Course } from '@/features/courses/types'
+} from '@s-class/api/coursesApi'
+import type { Course } from '../../features/courses/types'
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 

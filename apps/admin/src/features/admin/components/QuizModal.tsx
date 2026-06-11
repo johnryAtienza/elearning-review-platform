@@ -5,8 +5,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { uploadToStorage } from '@/services/storageClient'
-import { storagePaths } from '@/services/storagePaths'
+import { uploadToStorage } from '@s-class/api/storageClient'
+import { storagePaths } from '@s-class/api/storagePaths'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
 import { MathText } from '@/components/MathText'
@@ -18,7 +18,7 @@ import {
   upsertQuizQuestion,
   type AdminQuizFull,
   type AdminQuizOption,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 
 // ── Draft types ───────────────────────────────────────────────────────────────
 

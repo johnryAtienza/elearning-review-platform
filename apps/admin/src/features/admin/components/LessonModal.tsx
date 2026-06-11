@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { uploadToStorage, type ProgressCallback } from '@/services/storageClient'
-import { storagePaths } from '@/services/storagePaths'
+import { uploadToStorage, type ProgressCallback } from '@s-class/api/storageClient'
+import { storagePaths } from '@s-class/api/storagePaths'
 import {
   createAdminLesson,
   updateAdminLesson,
@@ -11,7 +11,7 @@ import {
   getMaxLessonOrderInSubject,
   type AdminLesson,
   type SubjectOption,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
 

@@ -3,17 +3,17 @@ import { Bell, Eye, EyeOff, Loader2, Pencil, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AnnouncementModal } from '@/features/admin/components/AnnouncementModal'
+import { AnnouncementModal } from '../../features/admin/components/AnnouncementModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
   type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminAnnouncements,
   setAnnouncementEnabled,
   deleteAdminAnnouncement,
   type AdminAnnouncement,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 
 const GRID_COLS = 'grid-cols-[1fr_8rem_5rem_5rem_9rem]'

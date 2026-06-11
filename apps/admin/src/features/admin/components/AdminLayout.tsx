@@ -19,7 +19,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@s-class/auth/authStore'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 

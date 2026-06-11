@@ -6,18 +6,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LessonModal } from '@/features/admin/components/LessonModal'
+import { LessonModal } from '../../features/admin/components/LessonModal'
 import {
   AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
   filterTabClass, Tip, LoadError, type ColConfig,
-} from '@/features/admin/components/AdminTable'
+} from '../../features/admin/components/AdminTable'
 import {
   getAdminLessons,
   deleteAdminLesson,
   getSubjectsForSelect,
   type AdminLesson,
   type SubjectOption,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 import { toast } from '@/lib/toast'
 
 // ── Column layout ─────────────────────────────────────────────────────────────

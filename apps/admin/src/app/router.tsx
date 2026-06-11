@@ -1,23 +1,23 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { AdminLayout } from '@/features/admin/components/AdminLayout'
+import { AdminLayout } from '../features/admin/components/AdminLayout'
 import { PageLoader } from '@s-class/ui/PageLoader'
 import { AdminProtectedRoute } from '../components/AdminProtectedRoute'
 import { AdminGuestRoute } from '../components/AdminGuestRoute'
 import { AdminLoginPage } from '../pages/AdminLoginPage'
 
 // Lazy-load admin pages — matches the legacy router's lazy pattern.
-const AdminDashboardPage     = lazy(() => import('@/pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
-const AdminSubjectsPage      = lazy(() => import('@/pages/admin/AdminSubjectsPage').then(m => ({ default: m.AdminSubjectsPage })))
-const AdminLessonsPage       = lazy(() => import('@/pages/admin/AdminLessonsPage').then(m => ({ default: m.AdminLessonsPage })))
-const AdminQuizzesPage       = lazy(() => import('@/pages/admin/AdminQuizzesPage').then(m => ({ default: m.AdminQuizzesPage })))
-const AdminUsersPage         = lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
-const AdminSubscriptionsPage = lazy(() => import('@/pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
-const AdminCoursesPage       = lazy(() => import('@/pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
-const AdminBooksPage         = lazy(() => import('@/pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
-const AdminOrdersPage        = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
-const AdminAnnouncementsPage = lazy(() => import('@/pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
-const AdminWelcomeVideosPage = lazy(() => import('@/pages/admin/AdminWelcomeVideosPage').then(m => ({ default: m.AdminWelcomeVideosPage })))
+const AdminDashboardPage     = lazy(() => import('../pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
+const AdminSubjectsPage      = lazy(() => import('../pages/admin/AdminSubjectsPage').then(m => ({ default: m.AdminSubjectsPage })))
+const AdminLessonsPage       = lazy(() => import('../pages/admin/AdminLessonsPage').then(m => ({ default: m.AdminLessonsPage })))
+const AdminQuizzesPage       = lazy(() => import('../pages/admin/AdminQuizzesPage').then(m => ({ default: m.AdminQuizzesPage })))
+const AdminUsersPage         = lazy(() => import('../pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
+const AdminSubscriptionsPage = lazy(() => import('../pages/admin/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })))
+const AdminCoursesPage       = lazy(() => import('../pages/admin/AdminCoursesPage').then(m => ({ default: m.AdminCoursesPage })))
+const AdminBooksPage         = lazy(() => import('../pages/admin/AdminBooksPage').then(m => ({ default: m.AdminBooksPage })))
+const AdminOrdersPage        = lazy(() => import('../pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
+const AdminAnnouncementsPage = lazy(() => import('../pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
+const AdminWelcomeVideosPage = lazy(() => import('../pages/admin/AdminWelcomeVideosPage').then(m => ({ default: m.AdminWelcomeVideosPage })))
 
 /**
  * Admin subdomain routes.

@@ -6,7 +6,7 @@ import {
   createAdminAnnouncement,
   updateAdminAnnouncement,
   type AdminAnnouncement,
-} from '@/services/admin.service'
+} from '@s-class/api/admin.service'
 
 interface AnnouncementModalProps {
   /** null = create mode, non-null = edit mode */

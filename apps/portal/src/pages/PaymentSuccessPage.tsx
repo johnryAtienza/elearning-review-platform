@@ -3,9 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Check, Loader2, ShieldCheck, X, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants/routes'
-import { subscriptionApi } from '@/services/subscriptionApi'
-import { booksApi } from '@/services/booksApi'
-import { useAuthStore } from '@/store/authStore'
+import { subscriptionApi } from '@s-class/api/subscriptionApi'
+import { booksApi } from '@s-class/api/booksApi'
+import { useAuthStore } from '@s-class/auth/authStore'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

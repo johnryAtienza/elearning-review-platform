@@ -9,7 +9,7 @@ import { ApiError } from '@s-class/api/ApiError'
 import { DeviceLimitError } from '@s-class/api/devicesApi'
 import { DeviceLimitModal } from '@s-class/auth/components/DeviceLimitModal'
 import { ROUTES } from '@/constants/routes'
-import type { UserDevice } from '@/features/devices/types'
+import type { UserDevice } from '@s-class/types/devices'
 
 type ReturnLocationState = {
   from?: {

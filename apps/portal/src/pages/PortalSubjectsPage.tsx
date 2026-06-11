@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SubjectCard } from '@/features/subjects/components/SubjectCard'
 import { SavedSubjectCard } from '@/features/subjects/components/SavedSubjectCard'
 import { useSubjects } from '@/features/subjects/hooks/useSubjects'
-import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
+import { useSavedSubjectsStore } from '@s-class/auth/savedSubjectsStore'
 import { ROUTES } from '@/constants/routes'
 
 /**

@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { Award, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useQuizHistoryStore } from '@/store/quizHistoryStore'
+import { useQuizHistoryStore } from '@s-class/auth/quizHistoryStore'
 import { ROUTES } from '@/constants/routes'
-import type { QuizAttempt } from '@/services/quizResultsApi'
+import type { QuizAttempt } from '@s-class/api/quizResultsApi'
 
 export function QuizHistoryPage() {
   const { attempts, loading, initialized, fetch } = useQuizHistoryStore()

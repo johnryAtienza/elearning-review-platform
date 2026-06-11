@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, SlidersHorizontal, X, Loader2, ChevronDown, BookOpen, SearchX } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@s-class/auth/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SubjectList } from '@/features/subjects/components/SubjectList'
@@ -9,7 +9,7 @@ import { SubjectCard } from '@/features/subjects/components/SubjectCard'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { useSubjects } from '@/features/subjects/hooks/useSubjects'
 import { cn } from '@/utils/cn'
-import { SubjectsPageSkeleton } from '@/pages/SubjectsPageSkeleton'
+import { SubjectsPageSkeleton } from './SubjectsPageSkeleton'
 import type { Subject, SortOption, DurationFilter } from '@/features/subjects/types'
 
 // ── Label maps ────────────────────────────────────────────────────────────────

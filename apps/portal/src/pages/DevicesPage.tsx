@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
-import { listMyDevices, revokeDevice } from '@/services/devicesApi'
-import { getDeviceIdentity } from '@/features/devices/services/fingerprint'
+import { listMyDevices, revokeDevice } from '@s-class/api/devicesApi'
+import { getDeviceIdentity } from '@s-class/api/fingerprint'
 import { ROUTES } from '@/constants/routes'
 import { toast } from '@/lib/toast'
 import { cn } from '@/utils/cn'
-import type { UserDevice } from '@/features/devices/types'
+import type { UserDevice } from '@s-class/types/devices'
 
 /**
  * /profile/devices — Phase G device management page.

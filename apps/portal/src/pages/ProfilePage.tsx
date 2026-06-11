@@ -4,8 +4,8 @@ import { Check, Loader2, X, MonitorSmartphone, ChevronRight } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
-import { useAuthStore } from '@/store/authStore'
-import { getProfile, updateProfile, updatePassword } from '@/features/auth/services/profileService'
+import { useAuthStore } from '@s-class/auth/authStore'
+import { getProfile, updateProfile, updatePassword } from '@s-class/api/profileService'
 import { toast } from '@/lib/toast'
 import { ROUTES } from '@/constants/routes'
 

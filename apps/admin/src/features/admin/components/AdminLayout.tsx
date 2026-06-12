@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   BookOpen,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@s-class/auth/authStore'
+import { EXTERNAL } from '@s-class/constants/urls'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
@@ -227,14 +228,13 @@ export function AdminLayout() {
           <NavSections collapsed={false} onItemClick={() => setMobileOpen(false)} />
         </nav>
         <div className="px-3 py-3 border-t space-y-2 shrink-0">
-          <Link
-            to={ROUTES.HOME}
+          <a
+            href={EXTERNAL.portal()}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setMobileOpen(false)}
           >
             <ChevronLeft className="size-3.5" />
             Back to site
-          </Link>
+          </a>
           <button
             type="button"
             onClick={() => { setMobileOpen(false); void handleLogout() }}
@@ -342,8 +342,8 @@ function SidebarContent({
             <span className="text-xs font-medium truncate">{userName}</span>
           </div>
         )}
-        <Link
-          to={ROUTES.HOME}
+        <a
+          href={EXTERNAL.portal()}
           title={collapsed ? 'Back to site' : undefined}
           className={cn(
             'flex w-full items-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-orange-600',
@@ -352,7 +352,7 @@ function SidebarContent({
         >
           <ChevronLeft className="size-3.5 shrink-0" />
           {!collapsed && <span>Back to site</span>}
-        </Link>
+        </a>
         <button
           type="button"
           onClick={onLogout}

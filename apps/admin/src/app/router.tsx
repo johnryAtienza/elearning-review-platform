@@ -19,6 +19,11 @@ const AdminOrdersPage        = lazy(() => import('../pages/admin/AdminOrdersPage
 const AdminAnnouncementsPage = lazy(() => import('../pages/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
 const AdminWelcomeVideosPage = lazy(() => import('../pages/admin/AdminWelcomeVideosPage').then(m => ({ default: m.AdminWelcomeVideosPage })))
 
+// Subject preview — the shared SubjectDetailPage (repo-root src/, same one Landing
+// renders). Hosted same-origin on admin.* so an authenticated admin can preview
+// published or draft subjects; its admin branch loads drafts and shows a banner.
+const SubjectPreviewPage = lazy(() => import('@/pages/SubjectDetailPage').then(m => ({ default: m.SubjectDetailPage })))
+
 /**
  * Admin subdomain routes.
  *
@@ -67,6 +72,19 @@ export const router = createBrowserRouter([
           { path: 'announcements',  element: <AdminAnnouncementsPage /> },
           { path: 'welcome-videos', element: <AdminWelcomeVideosPage /> },
         ],
+      },
+
+      // Full-page subject preview — outside AdminLayout (no admin chrome), opened
+      // in a new tab from the Subjects list. Param is named :courseId because
+      // SubjectDetailPage reads params.courseId ?? params.subjectId. No previewMode
+      // so the admin branch (getByIdAdmin + Draft Preview banner) is used.
+      {
+        path: '/admin/courses/:courseId/preview',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <SubjectPreviewPage />
+          </Suspense>
+        ),
       },
     ],
   },

@@ -51,6 +51,9 @@ export const ROUTES = {
   // Admin panel
   ADMIN:                '/admin',
   ADMIN_SUBJECTS:       '/admin/courses',
+  // Admin-hosted subject preview — renders SubjectDetailPage same-origin on
+  // admin.* so an authenticated admin can view published OR draft subjects.
+  ADMIN_SUBJECT_PREVIEW: (id: string) => `/admin/courses/${id}/preview`,
   ADMIN_LESSONS:        '/admin/lessons',
   ADMIN_QUIZZES:        '/admin/quizzes',
   ADMIN_USERS:          '/admin/users',

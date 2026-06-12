@@ -16,6 +16,8 @@ interface QuizQuestionRow {
   options: { text: string; image_url: string | null }[]
   correct_answer: number
   order: number
+  answer_text: string | null
+  answer_image_url: string | null
 }
 
 function toQuizQuestion(row: QuizQuestionRow): QuizQuestion {
@@ -27,7 +29,9 @@ function toQuizQuestion(row: QuizQuestionRow): QuizQuestion {
       text:     o.text ?? '',
       imageUrl: o.image_url ?? null,
     })),
-    correctAnswer: row.correct_answer,
+    correctAnswer:    row.correct_answer,
+    answerText:       row.answer_text ?? null,
+    answerImageUrl:   row.answer_image_url ?? null,
   }
 }
 
@@ -45,7 +49,7 @@ export async function getQuizByLessonId(lessonId: string): Promise<Quiz | undefi
 
   const { data: questionsData, error: questionsError } = await supabase
     .from('quiz_questions')
-    .select('id, question_text, question_image_url, options, correct_answer, order')
+    .select('id, question_text, question_image_url, options, correct_answer, order, answer_text, answer_image_url')
     .eq('quiz_id', quiz.id)
     .order('order', { ascending: true })
 

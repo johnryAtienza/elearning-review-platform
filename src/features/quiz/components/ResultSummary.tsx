@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { ImageIcon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import type { QuizQuestion } from '@/features/quiz/types'
@@ -14,6 +16,7 @@ interface ResultSummaryProps {
 export function ResultSummary({ questions, answers, result, onRetry }: ResultSummaryProps) {
   const pct = Math.round((result.score / result.total) * 100)
   const passed = pct >= PASSING_SCORE_PCT
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
 
   return (
     <div className="space-y-6">
@@ -115,6 +118,35 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
                   )
                 })}
               </ul>
+
+              {/* Answer explanation (text and/or image) */}
+              {(q.answerText || q.answerImageUrl) && (
+                <div className="mt-1 rounded-md border border-border/60 bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Explanation
+                  </p>
+                  {q.answerText && (
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <MathText text={q.answerText} />
+                    </div>
+                  )}
+                  {q.answerImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLightbox({
+                          src: q.answerImageUrl!,
+                          alt: `Answer explanation for question ${qi + 1}`,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                    >
+                      <ImageIcon className="size-4" />
+                      View answer image
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
           )
         })}
@@ -123,6 +155,54 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
       <Button variant="outline" onClick={onRetry} className="w-full">
         Retry Quiz
       </Button>
+
+      {lightbox && (
+        <ImageLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── ImageLightbox ─────────────────────────────────────────────────────────────
+// Full-screen popup for viewing an answer explanation image. Closes on the X
+// button, a backdrop click, or the Escape key.
+
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-100 flex items-center justify-center p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Answer image"
+    >
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-4 top-4 z-10 flex size-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+      >
+        <X className="size-5" />
+      </button>
+      <img
+        src={src}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 max-h-[90vh] max-w-full rounded-lg bg-white object-contain shadow-xl"
+      />
     </div>
   )
 }

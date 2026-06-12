@@ -10,6 +10,10 @@ export interface QuizQuestion {
   questionImageUrl?: string | null
   choices: QuizChoice[]
   correctAnswer: number
+  /** Optional answer explanation, shown to students after submission. */
+  answerText?: string | null
+  /** Optional explanation image (public URL), shown after submission. */
+  answerImageUrl?: string | null
 }
 
 export interface Quiz {

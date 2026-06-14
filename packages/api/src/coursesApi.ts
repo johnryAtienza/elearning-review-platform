@@ -8,7 +8,7 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
-import type { Course } from '@s-class/types/courses'
+import type { Course, CourseStatus } from '@s-class/types/courses'
 
 // ── Raw DB row ─────────────────────────────────────────────────────────────────
 
@@ -17,9 +17,21 @@ interface CourseRow {
   name: string
   slug: string
   description: string | null
+  status: CourseStatus | null
   created_at: string
   /** Reverse-FK count of subjects assigned to this course. */
   subjects?: { count: number }[]
+}
+
+function toAppCourse(row: CourseRow): Course {
+  return {
+    id:          row.id,
+    name:        row.name,
+    slug:        row.slug,
+    description: row.description,
+    status:      row.status ?? 'published',
+    createdAt:   row.created_at,
+  }
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -28,36 +40,39 @@ interface CourseRow {
 export async function getAllCourses(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, name, slug, description, created_at')
+    .select('id, name, slug, description, status, created_at')
     .order('name')
 
   if (error) throw new ApiError(500, 'COURSES_FETCH_FAILED', error.message)
 
-  return (data as CourseRow[]).map((row) => ({
-    id:          row.id,
-    name:        row.name,
-    slug:        row.slug,
-    description: row.description,
-    createdAt:   row.created_at,
-  }))
+  return (data as CourseRow[]).map(toAppCourse)
+}
+
+/** Fetch courses visible in public navigation and marketing surfaces. */
+export async function getPublishedCourses(): Promise<Course[]> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id, name, slug, description, status, created_at')
+    .eq('status', 'published')
+    .order('name')
+
+  if (error) throw new ApiError(500, 'COURSES_FETCH_FAILED', error.message)
+
+  return (data as CourseRow[]).map(toAppCourse)
 }
 
 /** Fetch all courses including the number of subjects assigned to each. */
 export async function getCoursesWithCount(): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, name, slug, description, created_at, subjects:subjects(count)')
+    .select('id, name, slug, description, status, created_at, subjects:subjects(count)')
     .order('name')
 
   if (error) throw new ApiError(500, 'COURSES_FETCH_FAILED', error.message)
 
   return (data as CourseRow[]).map((row) => ({
-    id:           row.id,
-    name:         row.name,
-    slug:         row.slug,
-    description:  row.description,
+    ...toAppCourse(row),
     subjectCount: row.subjects?.[0]?.count ?? 0,
-    createdAt:    row.created_at,
   }))
 }
 
@@ -66,6 +81,7 @@ export async function createCourse(data: {
   name: string
   slug: string
   description?: string
+  status?: CourseStatus
 }): Promise<Course> {
   const { data: row, error } = await supabase
     .from('courses')
@@ -73,25 +89,26 @@ export async function createCourse(data: {
       name:        data.name.trim(),
       slug:        data.slug.trim(),
       description: data.description?.trim() || null,
+      status:      data.status ?? 'draft',
     })
-    .select('id, name, slug, description, created_at')
+    .select('id, name, slug, description, status, created_at')
     .single()
 
   if (error) throw new ApiError(500, 'COURSE_CREATE_FAILED', error.message)
 
-  const r = row as CourseRow
-  return { id: r.id, name: r.name, slug: r.slug, description: r.description, createdAt: r.created_at }
+  return toAppCourse(row as CourseRow)
 }
 
-/** Update name, slug, and/or description of an existing course. */
+/** Update name, slug, description, and/or status of an existing course. */
 export async function updateCourse(
   id: string,
-  data: Partial<{ name: string; slug: string; description: string }>,
+  data: Partial<{ name: string; slug: string; description: string; status: CourseStatus }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
   if (data.name        !== undefined) update.name        = data.name.trim()
   if (data.slug        !== undefined) update.slug        = data.slug.trim()
   if (data.description !== undefined) update.description = data.description?.trim() || null
+  if (data.status      !== undefined) update.status      = data.status
 
   const { error } = await supabase
     .from('courses')

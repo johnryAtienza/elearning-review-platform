@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Loader2, Tag, Search, X, ChevronUp, ChevronDown }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Tip, LoadError } from '../../features/admin/components/AdminTable'
 import {
   getCoursesWithCount,
@@ -11,7 +12,7 @@ import {
   deleteCourse,
   nameToSlug,
 } from '@s-class/api/coursesApi'
-import type { Course } from '../../features/courses/types'
+import type { Course, CourseStatus } from '../../features/courses/types'
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ export function AdminCoursesPage() {
               <SortHeader label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Slug</th>
               <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
+              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
               <SortHeader label="Subjects" col="subjectCount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-right" />
               <th className="px-4 py-3" />
             </tr>
@@ -146,13 +148,14 @@ export function AdminCoursesPage() {
                   <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                   <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-4 w-48" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-5 w-20 mx-auto" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-7 w-16 ml-auto" /></td>
                 </tr>
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-16 text-center">
+                <td colSpan={6} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Tag className="size-8 opacity-40" />
                     <p className="font-medium">
@@ -174,6 +177,9 @@ export function AdminCoursesPage() {
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.slug}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-muted-foreground max-w-xs truncate">
                     {c.description ?? <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <CourseStatusBadge status={c.status} />
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.subjectCount ?? 0}</td>
                   <td className="px-4 py-3">
@@ -245,6 +251,12 @@ export function AdminCoursesPage() {
   )
 }
 
+function CourseStatusBadge({ status }: { status: CourseStatus }) {
+  if (status === 'published') return <Badge variant="success">Published</Badge>
+  if (status === 'archived') return <Badge variant="outline">Archived</Badge>
+  return <Badge variant="secondary">Draft</Badge>
+}
+
 // ── Sort header ───────────────────────────────────────────────────────────────
 
 function SortHeader({
@@ -290,6 +302,7 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
   const [name,        setName]        = useState(course?.name        ?? '')
   const [slug,        setSlug]        = useState(course?.slug        ?? '')
   const [description, setDescription] = useState(course?.description ?? '')
+  const [status,      setStatus]      = useState<CourseStatus>(course?.status ?? 'draft')
   const [slugEdited,  setSlugEdited]  = useState(isEdit)
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
@@ -324,13 +337,15 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
           name:        name.trim(),
           slug:        slug.trim(),
           description: description.trim() || undefined,
+          status,
         })
-        onSaved({ ...course, name: name.trim(), slug: slug.trim(), description: description.trim() || null })
+        onSaved({ ...course, name: name.trim(), slug: slug.trim(), description: description.trim() || null, status })
       } else {
         const created = await createCourse({
           name:        name.trim(),
           slug:        slug.trim(),
           description: description.trim() || undefined,
+          status,
         })
         onSaved(created)
       }
@@ -406,6 +421,22 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
               disabled={saving}
               className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
+          </div>
+
+          {/* Status */}
+          <div className="space-y-1.5">
+            <label htmlFor="course-status" className="text-sm font-medium">Status</label>
+            <select
+              id="course-status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as CourseStatus)}
+              disabled={saving}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="draft">Draft — hidden from public navigation</option>
+              <option value="published">Published — visible in public navigation</option>
+              <option value="archived">Archived — hidden, retained for records</option>
+            </select>
           </div>
 
           {/* Edge case note */}

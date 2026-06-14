@@ -19,6 +19,7 @@ import {
   User,
   X,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,7 +28,9 @@ import { LogoutModal } from '@/components/LogoutModal'
 import { useAuthStore } from '@s-class/auth/authStore'
 import { ROUTES } from '@/constants/routes'
 import { subjectApi } from '@/services/subjectApi'
+import { getPublishedCourses } from '@s-class/api/coursesApi'
 import type { Subject } from '@/features/subjects/types'
+import type { Course } from '@s-class/types/courses'
 import { cn } from '@/utils/cn'
 import {
   getAbsoluteUrl,
@@ -39,6 +42,8 @@ import {
 // Cached so we only fetch once per full page load even if the Navbar re-mounts.
 let subjectsCache: Subject[] | null = null
 let subjectsPromise: Promise<Subject[]> | null = null
+let coursesCache: Course[] | null = null
+let coursesPromise: Promise<Course[]> | null = null
 
 function fetchPublishedSubjects(): Promise<Subject[]> {
   if (subjectsCache) return Promise.resolve(subjectsCache)
@@ -56,6 +61,62 @@ function fetchPublishedSubjects(): Promise<Subject[]> {
       throw err
     })
   return subjectsPromise
+}
+
+function fetchPublishedCourses(): Promise<Course[]> {
+  if (coursesCache) return Promise.resolve(coursesCache)
+  if (coursesPromise) return coursesPromise
+  coursesPromise = getPublishedCourses()
+    .then((all: Course[]) => {
+      const published = all.filter((c: Course) => c.status === 'published')
+      coursesCache = published
+      return published
+    })
+    .catch((err: unknown) => {
+      // Don't cache failures — let the next navigation try again.
+      coursesPromise = null
+      throw err
+    })
+  return coursesPromise
+}
+
+const MECHANICAL_ENGINEERING_SUBJECTS = [
+  'Engineering Mathematics',
+  'Machine Design',
+  'Power and Industrial Plant Engineering',
+] as const
+
+type CourseNavChild = {
+  title: string
+  subject?: Subject
+}
+
+function normalizeCourseNavTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function buildMechanicalEngineeringChildren(subjects: Subject[]): CourseNavChild[] {
+  const subjectsByTitle = new Map(
+    subjects.map((subject) => [normalizeCourseNavTitle(subject.title), subject]),
+  )
+
+  return MECHANICAL_ENGINEERING_SUBJECTS.map((title) => ({
+    title,
+    subject: subjectsByTitle.get(normalizeCourseNavTitle(title)),
+  }))
+}
+
+function findPublishedCourse(courses: Course[], name: string): Course | undefined {
+  const normalizedName = normalizeCourseNavTitle(name)
+  return courses.find(
+    (course) =>
+      course.status === 'published' &&
+      normalizeCourseNavTitle(course.name) === normalizedName,
+  )
 }
 
 // ── Smart link components ────────────────────────────────────────────────────
@@ -296,13 +357,15 @@ function ProfileDropdown({ name, email, showStudentItems, onLogout }: ProfileDro
   )
 }
 
-// ── Subjects dropdown (desktop tab) ──────────────────────────────────────────
+// ── Courses dropdown (desktop tab) ───────────────────────────────────────────
 
-function SubjectsDropdown({
+function CoursesDropdown({
+  courses,
   subjects,
   loading,
   isAuthenticated,
 }: {
+  courses: Course[]
   subjects: Subject[]
   loading: boolean
   isAuthenticated: boolean
@@ -314,9 +377,13 @@ function SubjectsDropdown({
 
   useDismissable(open, () => setOpen(false), ref)
 
-  if (!loading && subjects.length === 0) return null
-
   const isActive = open || onCourseRoute !== null || onPreviewRoute !== null
+  const mechanicalEngineeringChildren = buildMechanicalEngineeringChildren(subjects)
+  const mechanicalEngineeringCourse = findPublishedCourse(courses, 'Mechanical Engineering')
+  const masterPlumberCourse = findPublishedCourse(courses, 'Master Plumber')
+  const hasPublishedCourses = mechanicalEngineeringCourse !== undefined || masterPlumberCourse !== undefined
+
+  if (!loading && !hasPublishedCourses) return null
 
   // Guests browse subjects on Landing's public preview funnel. Authenticated
   // users go into the same-origin student portal where they can resume
@@ -325,7 +392,12 @@ function SubjectsDropdown({
     isAuthenticated ? ROUTES.PORTAL_SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="true"
@@ -338,7 +410,7 @@ function SubjectsDropdown({
             : 'text-muted-foreground hover:text-foreground hover:bg-primary/15 border-transparent',
         )}
       >
-        Subjects
+        Courses
         <ChevronDown
           className={cn('size-3.5 transition-transform duration-150', open && 'rotate-180')}
         />
@@ -347,7 +419,7 @@ function SubjectsDropdown({
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full mt-1 min-w-56 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute left-0 top-full mt-1 w-80 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
         >
           {loading ? (
             <div aria-busy="true" aria-live="polite" className="space-y-1.5 p-2">
@@ -356,16 +428,55 @@ function SubjectsDropdown({
               <Skeleton className="h-6 w-36" />
             </div>
           ) : (
-            subjects.map((s) => (
-              <SmartLink
-                key={s.id}
-                to={subjectHref(s.id)}
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
-              >
-                {s.title}
-              </SmartLink>
-            ))
+            <div className="py-1">
+              {mechanicalEngineeringCourse && (
+                <>
+                  <div className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold text-foreground">
+                    <span>Mechanical Engineering</span>
+                    <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+                  </div>
+
+                  <div className="ml-3 border-l border-border pl-3 pb-1 space-y-0.5">
+                    {mechanicalEngineeringChildren.map((child) =>
+                      child.subject ? (
+                        <SmartLink
+                          key={child.title}
+                          to={subjectHref(child.subject.id)}
+                          onClick={() => setOpen(false)}
+                          className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
+                        >
+                          {child.title}
+                        </SmartLink>
+                      ) : (
+                        <span
+                          key={child.title}
+                          role="menuitem"
+                          aria-disabled="true"
+                          className="block cursor-not-allowed rounded-md px-3 py-2 text-sm text-muted-foreground/60"
+                        >
+                          {child.title}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                </>
+              )}
+
+              {mechanicalEngineeringCourse && masterPlumberCourse && (
+                <div className="my-1 border-t border-border" />
+              )}
+
+              {masterPlumberCourse && (
+                <span
+                  role="menuitem"
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-2 text-sm text-muted-foreground/60"
+                >
+                  <span>Master Plumber</span>
+                  <span className="text-xs">Coming soon</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -373,24 +484,31 @@ function SubjectsDropdown({
   )
 }
 
-// ── Subjects section (mobile, collapsible) ───────────────────────────────────
+// ── Courses section (mobile, collapsible) ────────────────────────────────────
 
-function MobileSubjectsSection({
+function MobileCoursesSection({
+  courses,
   subjects,
   loading,
   onNavigate,
   isAuthenticated,
 }: {
+  courses: Course[]
   subjects: Subject[]
   loading: boolean
   onNavigate: () => void
   isAuthenticated: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const [mechanicalOpen, setMechanicalOpen] = useState(true)
+  const mechanicalEngineeringChildren = buildMechanicalEngineeringChildren(subjects)
+  const mechanicalEngineeringCourse = findPublishedCourse(courses, 'Mechanical Engineering')
+  const masterPlumberCourse = findPublishedCourse(courses, 'Master Plumber')
+  const hasPublishedCourses = mechanicalEngineeringCourse !== undefined || masterPlumberCourse !== undefined
 
-  if (!loading && subjects.length === 0) return null
+  if (!loading && !hasPublishedCourses) return null
 
-  // Match SubjectsDropdown (desktop): guests go to Landing /preview/subject/:id.
+  // Match CoursesDropdown (desktop): guests go to Landing /preview/subject/:id.
   const subjectHref = (id: string) =>
     isAuthenticated ? ROUTES.PORTAL_SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
@@ -401,7 +519,7 @@ function MobileSubjectsSection({
         aria-expanded={open}
         className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
       >
-        <span>Subjects</span>
+        <span>Courses</span>
         <ChevronDown
           className={cn('size-4 transition-transform duration-150', open && 'rotate-180')}
         />
@@ -415,16 +533,57 @@ function MobileSubjectsSection({
               <Skeleton className="h-5 w-28" />
             </div>
           ) : (
-            subjects.map((s) => (
-              <SmartLink
-                key={s.id}
-                to={subjectHref(s.id)}
-                onClick={onNavigate}
-                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
-              >
-                {s.title}
-              </SmartLink>
-            ))
+            <>
+              {mechanicalEngineeringCourse && (
+                <>
+                  <button
+                    onClick={() => setMechanicalOpen((v) => !v)}
+                    aria-expanded={mechanicalOpen}
+                    className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-sm font-medium text-foreground hover:bg-primary/15 transition-colors"
+                  >
+                    <span>Mechanical Engineering</span>
+                    <ChevronDown
+                      className={cn('size-4 transition-transform duration-150', mechanicalOpen && 'rotate-180')}
+                    />
+                  </button>
+
+                  {mechanicalOpen && (
+                    <div className="ml-3 border-l border-border pl-3 space-y-0.5">
+                      {mechanicalEngineeringChildren.map((child) =>
+                        child.subject ? (
+                          <SmartLink
+                            key={child.title}
+                            to={subjectHref(child.subject.id)}
+                            onClick={onNavigate}
+                            className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-primary/15 hover:text-foreground transition-colors"
+                          >
+                            {child.title}
+                          </SmartLink>
+                        ) : (
+                          <span
+                            key={child.title}
+                            aria-disabled="true"
+                            className="block cursor-not-allowed rounded-md px-3 py-1.5 text-sm text-muted-foreground/60"
+                          >
+                            {child.title}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {masterPlumberCourse && (
+                <span
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-1.5 text-sm text-muted-foreground/60"
+                >
+                  <span>Master Plumber</span>
+                  <span className="text-xs">Coming soon</span>
+                </span>
+              )}
+            </>
           )}
         </div>
       )}
@@ -435,10 +594,12 @@ function MobileSubjectsSection({
 // ── Desktop nav rows ─────────────────────────────────────────────────────────
 
 function PublicNavTabs({
+  courses,
   subjects,
   loading,
   isAuthenticated,
 }: {
+  courses: Course[]
   subjects: Subject[]
   loading: boolean
   isAuthenticated: boolean
@@ -448,7 +609,7 @@ function PublicNavTabs({
       <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
       <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
       <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
-      <SubjectsDropdown subjects={subjects} loading={loading} isAuthenticated={isAuthenticated} />
+      <CoursesDropdown courses={courses} subjects={subjects} loading={loading} isAuthenticated={isAuthenticated} />
       <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
       <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
     </>
@@ -501,16 +662,18 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [subjects, setSubjects] = useState<Subject[]>(() => subjectsCache ?? [])
-  const [loading, setLoading] = useState<boolean>(() => subjectsCache === null)
+  const [courses, setCourses] = useState<Course[]>(() => coursesCache ?? [])
+  const [loading, setLoading] = useState<boolean>(() => subjectsCache === null || coursesCache === null)
 
-  // Fetch the published subject list once for the dynamic tabs.
+  // Fetch the published subject and course lists once for the dynamic tabs.
   useEffect(() => {
-    if (subjectsCache) return
+    if (subjectsCache && coursesCache) return
     let cancelled = false
-    fetchPublishedSubjects()
-      .then((list) => {
+    Promise.all([fetchPublishedSubjects(), fetchPublishedCourses()])
+      .then(([subjectList, courseList]) => {
         if (!cancelled) {
-          setSubjects(list)
+          setSubjects(subjectList)
+          setCourses(courseList)
           setLoading(false)
         }
       })
@@ -624,6 +787,7 @@ export function Navbar() {
               <PortalNavTabs />
             ) : (
               <PublicNavTabs
+                courses={courses}
                 subjects={subjects}
                 loading={loading}
                 isAuthenticated={isAuthenticated}
@@ -655,7 +819,8 @@ export function Navbar() {
                 <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
                 <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
                 <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
-                <MobileSubjectsSection
+                <MobileCoursesSection
+                  courses={courses}
                   subjects={subjects}
                   loading={loading}
                   onNavigate={() => setMobileOpen(false)}

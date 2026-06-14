@@ -22,16 +22,16 @@ interface SubjectDetailPageProps {
   /**
    * Render as Landing's public preview funnel. Guests browse the curriculum,
    * "Watch Free Preview" routes to /preview/lesson/:id (Landing), "Enroll"
-   * CTAs cross-origin to portal /register. Authenticated paths (Save to
+   * CTAs link to /register. Authenticated paths (Save to
    * Dashboard, Start First Lesson for subscribers) are hidden.
    */
   previewMode?: boolean
 }
 
 export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProps = {}) {
-  // Same component is mounted at two URLs:
-  //   • /course/:courseId       (Portal — legacy param name preserved)
-  //   • /preview/subject/:subjectId  (Landing — preview funnel)
+  // Same component can be mounted at legacy or preview URLs:
+  //   • /course/:courseId            (legacy redirect compatibility)
+  //   • /preview/subject/:subjectId  (Landing preview funnel)
   // Either param is the parent subject's id.
   const params = useParams<{ courseId?: string; subjectId?: string }>()
   const subjectId = params.courseId ?? params.subjectId
@@ -179,8 +179,8 @@ export function SubjectDetailPage({ previewMode = false }: SubjectDetailPageProp
         <div className="flex flex-wrap items-center gap-3 pt-1">
           {previewMode && firstLesson ? (
             // Landing preview funnel — no auth assumed. "Watch Free Preview"
-            // only when the first lesson is flagged; "Enroll Now" cross-origin
-            // to portal /register.
+            // only when the first lesson is flagged; "Enroll Now" links to
+            // same-origin /register.
             <>
               {firstLessonIsPreview && (
                 <Button asChild>

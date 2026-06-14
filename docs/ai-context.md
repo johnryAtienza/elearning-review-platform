@@ -50,7 +50,7 @@ public images proxied via Cloudflare Pages Functions; payments via **PayMongo**.
   provider/service directly.
 - **Routes:** import paths from `ROUTES` (`@s-class/constants/routes`); never
   hardcode `'/lesson/'+id`.
-- **Cross-subdomain links:** `EXTERNAL.portal()/admin()/landing()`,
+- **Cross-origin links:** `EXTERNAL.portal()/admin()/landing()`,
   `getAbsoluteUrl(path)` from `@s-class/constants/urls`. Never build from
   `window.location.origin`.
 - **Env:** read only via `@s-class/config` (`config.*`); never `import.meta.env`
@@ -96,7 +96,7 @@ public images proxied via Cloudflare Pages Functions; payments via **PayMongo**.
 | `subscriptions` / `payments` / `book_orders` / `user_devices` write paths | money & access integrity; service-role only |
 | `extend_subscription` carryover logic | billing correctness (stack vs. fresh) |
 | RLS policies (`is_admin`, `is_active_subscriber`, `is_free_preview`) | the authorization core |
-| Route ownership / `urls.ts` prefixes | cross-subdomain routing correctness |
+| Route ownership / `urls.ts` prefixes | cross-origin routing correctness |
 | The Course↔Subject naming + legacy URL strings | "fixing" either breaks routing/queries |
 
 ## Where to look next

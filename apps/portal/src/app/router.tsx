@@ -1,11 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { SubjectsPage } from '../pages/SubjectsPage'
-import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
+import { SubscriptionPage } from '@/pages/SubscriptionPage'
+import { ROUTES } from '@/constants/routes'
 import { BookCheckoutPage } from '../pages/BookCheckoutPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { QuizHistoryPage } from '../pages/QuizHistoryPage'
-import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { DevicesPage } from '../pages/DevicesPage'
 import { PaymentSuccessPage } from '../pages/PaymentSuccessPage'
@@ -20,32 +19,26 @@ import { PortalRootLayout } from '../layouts/PortalRootLayout'
 import { PortalProtectedRoute } from '../components/PortalProtectedRoute'
 import { PortalGuestRoute } from '../components/PortalGuestRoute'
 import { PortalAdminBouncer } from '../components/PortalAdminBouncer'
-import { PreviewBouncer } from '../components/PreviewBouncer'
+import {
+  LegacyBookCheckoutRedirect,
+  LegacyLessonRedirect,
+  LegacySubjectRedirect,
+  RedirectPreservingLocation,
+} from '@/components/LegacyPortalRedirects'
 
 /**
- * Portal is learning-only after Phase 3.
+ * Portal route tree.
  *
- * Removed in Phase 3:
- *   /, /about, /contact, /faq        — Landing-owned marketing
- *   /books, /book/:bookId            — Landing-owned storefront
- *   (RootLayout + PortalShellOrPublic — Landing keeps the shared marketing chrome)
+ * Normal student access now runs same-origin from the landing app:
+ *   s-class.com.ph/login
+ *   s-class.com.ph/portal
  *
- * Still served here:
- *   Public  → /login, /register, /forgot-password, /reset-password
- *             /payment-success, /payment-cancel (PayMongo callbacks)
- *   Auth'd  → /dashboard, /quizzes, /subscription, /profile/*,
- *             /portal/subjects/*, /courses, /course/:id, /lesson/:id,
- *             /book/:bookId/checkout
- *
- * Guests hitting /, /courses, /course/:id, or /lesson/:id are sent to
- * /login by PortalProtectedRoute (with the original location preserved
- * in state). PreviewBouncer sits ahead of /course/:id and /lesson/:id to
- * forward guests on free-preview targets cross-origin to Landing's
- * /preview/* routes, so old bookmarks keep working.
+ * This standalone app keeps the same paths for local development and for any
+ * temporary legacy deployment while links move to the apex origin.
  */
 export const router = createBrowserRouter([
   {
-    // Bounces any authenticated admin off portal.* to admin.* before
+    // Bounces any authenticated admin off student portal routes before
     // rendering the page tree below. Students and guests fall through.
     element: <PortalAdminBouncer />,
     children: [
@@ -53,14 +46,6 @@ export const router = createBrowserRouter([
         path: '/',
         element: <PortalRootLayout />,
         children: [
-          // Payment result pages — public so users can land here after
-          // PayMongo redirects them back, even if the session expired mid-flow.
-          { path: 'payment-success',  element: <PaymentSuccessPage /> },
-          { path: 'payment-cancel',   element: <PaymentCancelPage />  },
-
-          // Same-origin auth flows — reuse legacy pages via @ alias.
-          // Wrapped in PortalGuestRoute so already-signed-in students get
-          // sent to /dashboard instead of rendering the login form again.
           {
             element: <PortalGuestRoute />,
             children: [
@@ -70,70 +55,56 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // reset-password lives OUTSIDE PortalGuestRoute: the Supabase
-          // recovery flow (/auth/v1/verify?type=recovery → redirect_to)
-          // always creates an active session before this page loads, so
-          // the guard would otherwise bounce the user to /dashboard before
-          // they can set a new password. ResetPasswordPage handles its own
-          // session detection via the PASSWORD_RECOVERY auth event.
+          // Supabase recovery creates a session before rendering this route;
+          // ResetPasswordPage handles the PASSWORD_RECOVERY event itself.
           { path: 'reset-password', element: <ResetPasswordPage /> },
 
-          // ── Learning routes — authenticated only. ────────────────────
-          // PreviewBouncer sits ahead of /course/:id and /lesson/:id to
-          // forward guests on free-preview targets back to Landing's
-          // /preview/* routes before the auth guard kicks in. Authenticated
-          // users skip the bouncer's async check and fall straight through.
           {
-            element: <PortalProtectedRoute />,
+            path: 'portal',
             children: [
-              { path: 'courses', element: <SubjectsPage /> },
-            ],
-          },
-          {
-            path: 'course/:courseId',
-            element: <PreviewBouncer kind="subject" />,
-            children: [
+              // Payment result pages stay public so PayMongo can land here
+              // even if the user's browser session has expired.
+              { path: 'payment-success', element: <PaymentSuccessPage /> },
+              { path: 'payment-cancel',  element: <PaymentCancelPage />  },
+
               {
                 element: <PortalProtectedRoute />,
-                children: [{ index: true, element: <SubjectDetailPage /> }],
-              },
-            ],
-          },
-          {
-            path: 'lesson/:lessonId',
-            element: <PreviewBouncer kind="lesson" />,
-            children: [
-              {
-                element: <PortalProtectedRoute />,
-                children: [{ index: true, element: <LessonPage /> }],
+                children: [
+                  { index: true, element: <Navigate to={ROUTES.DASHBOARD} replace /> },
+
+                  { path: 'dashboard',             element: <DashboardPage />        },
+                  { path: 'subjects',              element: <PortalSubjectsPage />   },
+                  { path: 'subjects/:subjectId',   element: <PortalSubjectHubPage /> },
+                  { path: 'lessons/:lessonId',     element: <LessonPage />           },
+                  { path: 'quiz-history',          element: <QuizHistoryPage />      },
+                  { path: 'subscription',          element: <SubscriptionPage />     },
+                  { path: 'profile',               element: <ProfilePage />          },
+                  { path: 'profile/devices',       element: <DevicesPage />          },
+                  { path: 'book/:bookId/checkout', element: <BookCheckoutPage />     },
+                ],
               },
             ],
           },
 
-          // ── Authenticated portal area. ────────────────────────────────
+          // Compatibility redirects for pre-/portal student URLs.
           {
             element: <PortalProtectedRoute />,
             children: [
-              // portal root → dashboard. Guests fall through the guard to
-              // /login (preserving location.from), giving Portal its
-              // LMS-style "the subdomain is the app" entrance.
-              { index: true, element: <Navigate to="/dashboard" replace /> },
-
-              { path: 'dashboard',                  element: <DashboardPage />        },
-              { path: 'quizzes',                    element: <QuizHistoryPage />      },
-              { path: 'subscription',               element: <SubscriptionPage />     },
-              { path: 'profile',                    element: <ProfilePage />          },
-              { path: 'profile/devices',            element: <DevicesPage />          },
-              { path: 'portal/subjects',            element: <PortalSubjectsPage />   },
-              { path: 'portal/subjects/:subjectId', element: <PortalSubjectHubPage /> },
-              { path: 'book/:bookId/checkout', element: <BookCheckoutPage /> },
+              { index: true, element: <Navigate to={ROUTES.DASHBOARD} replace /> },
             ],
           },
+          { path: 'dashboard',        element: <RedirectPreservingLocation to={ROUTES.DASHBOARD} />       },
+          { path: 'quizzes',          element: <RedirectPreservingLocation to={ROUTES.QUIZ_HISTORY} />    },
+          { path: 'subscription',     element: <RedirectPreservingLocation to={ROUTES.SUBSCRIPTION} />    },
+          { path: 'profile',          element: <RedirectPreservingLocation to={ROUTES.PROFILE} />         },
+          { path: 'profile/devices',  element: <RedirectPreservingLocation to={ROUTES.DEVICES} />         },
+          { path: 'courses',          element: <RedirectPreservingLocation to={ROUTES.PORTAL_SUBJECTS} /> },
+          { path: 'course/:courseId', element: <LegacySubjectRedirect />                                  },
+          { path: 'lesson/:lessonId', element: <LegacyLessonRedirect />                                   },
+          { path: 'payment-success',  element: <RedirectPreservingLocation to={ROUTES.PAYMENT_SUCCESS} /> },
+          { path: 'payment-cancel',   element: <RedirectPreservingLocation to={ROUTES.PAYMENT_CANCEL} />  },
+          { path: 'book/:bookId/checkout', element: <LegacyBookCheckoutRedirect />                        },
 
-          // Unknown route — back to portal root (authenticated → /dashboard,
-          // guest → /login via PortalProtectedRoute on the index route).
-          // Marketing and storefront paths are 301-redirected to Landing via
-          // apps/portal/public/_redirects before this fallback ever fires.
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Link,
   NavLink,
+  useLocation,
   useMatch,
   useNavigate,
   type NavLinkProps,
@@ -23,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogoutModal } from '@/components/LogoutModal'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '@s-class/auth/authStore'
 import { ROUTES } from '@/constants/routes'
 import { subjectApi } from '@/services/subjectApi'
 import type { Subject } from '@/features/subjects/types'
@@ -59,9 +60,9 @@ function fetchPublishedSubjects(): Promise<Subject[]> {
 
 // ── Smart link components ────────────────────────────────────────────────────
 //
-// On the route's owning subdomain → react-router <Link>/<NavLink> (no reload).
-// On any other subdomain → full-page <a href> to the absolute cross-origin URL.
-// The current subdomain is detected once at module load via the hostname.
+// On the route's owning origin -> react-router <Link>/<NavLink> (no reload).
+// On any other origin -> full-page <a href> to the absolute cross-origin URL.
+// The current origin is detected once at module load.
 
 const CURRENT_SUBDOMAIN = getCurrentSubdomain()
 
@@ -308,7 +309,7 @@ function SubjectsDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const onCourseRoute = useMatch('/course/:courseId')
+  const onCourseRoute = useMatch('/portal/subjects/:subjectId')
   const onPreviewRoute = useMatch('/preview/subject/:subjectId')
 
   useDismissable(open, () => setOpen(false), ref)
@@ -317,12 +318,11 @@ function SubjectsDropdown({
 
   const isActive = open || onCourseRoute !== null || onPreviewRoute !== null
 
-  // Guests browse subjects on Landing's public preview funnel, not Portal's
-  // authenticated /course/:id. Authenticated users keep going to /course/:id
-  // where they can resume an enrolled lesson; PreviewBouncer + RLS handle the
-  // rest. This is the source of truth for "guest discovery stays on Landing".
+  // Guests browse subjects on Landing's public preview funnel. Authenticated
+  // users go into the same-origin student portal where they can resume
+  // learning; route guards + RLS handle access to protected content.
   const subjectHref = (id: string) =>
-    isAuthenticated ? ROUTES.SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
+    isAuthenticated ? ROUTES.PORTAL_SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
   return (
     <div ref={ref} className="relative">
@@ -392,7 +392,7 @@ function MobileSubjectsSection({
 
   // Match SubjectsDropdown (desktop): guests go to Landing /preview/subject/:id.
   const subjectHref = (id: string) =>
-    isAuthenticated ? ROUTES.SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
+    isAuthenticated ? ROUTES.PORTAL_SUBJECT(id) : ROUTES.PREVIEW_SUBJECT(id)
 
   return (
     <div>
@@ -465,12 +465,39 @@ function PortalNavTabs() {
   )
 }
 
+function DesktopAuthActionsLoading() {
+  return (
+    <div
+      className="flex items-center justify-end gap-3"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <span className="sr-only">Checking sign-in status</span>
+      <Skeleton className="h-8 w-24 rounded-md" />
+      <Skeleton className="h-8 w-24 rounded-md" />
+      <Skeleton className="size-8 rounded-full" />
+    </div>
+  )
+}
+
+function MobileAuthActionsLoading() {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Checking sign-in status</span>
+      <Skeleton className="h-9 w-full rounded-md" />
+      <Skeleton className="h-9 w-full rounded-md" />
+    </div>
+  )
+}
+
 // ── Shared website Navbar ────────────────────────────────────────────────────
 
 export function Navbar() {
-  const { isAuthenticated, isSubscribed, isAdmin, user, logout } = useAuthStore()
+  const { isAuthenticated, isSubscribed, isAdmin, isInitializing, user, logout } = useAuthStore()
+  const { pathname } = useLocation()
   const onAdminRoute = useMatch('/admin/*') !== null
-  const showPortalNav = CURRENT_SUBDOMAIN === 'portal' && isAuthenticated && !isAdmin
+  const onPortalRoute = pathname === ROUTES.PORTAL || pathname.startsWith(`${ROUTES.PORTAL}/`)
+  const showPortalNav = !isInitializing && onPortalRoute && isAuthenticated && !isAdmin
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [subjects, setSubjects] = useState<Subject[]>(() => subjectsCache ?? [])
@@ -531,14 +558,16 @@ export function Navbar() {
           </SmartLink>
 
           {/* Desktop utility / auth */}
-          <div className="hidden md:flex items-center gap-3">
-            {isAuthenticated ? (
+          <div className="hidden md:flex min-w-[16rem] lg:min-w-[20rem] items-center justify-end gap-3">
+            {isInitializing ? (
+              <DesktopAuthActionsLoading />
+            ) : isAuthenticated ? (
               <>
                 {!isAdmin && !showPortalNav && (
                   <SmartNavLink to={ROUTES.DASHBOARD} className={utilityLinkClass}>
                     <span className="inline-flex items-center gap-1.5">
                       <LayoutDashboard className="size-4" />
-                      Dashboard
+                      My Learning
                     </span>
                   </SmartNavLink>
                 )}
@@ -553,7 +582,7 @@ export function Navbar() {
                 {isSubscribed && <Badge variant="pro">Standard</Badge>}
                 {!isSubscribed && !isAdmin && (
                   <Button asChild variant="outline" size="sm">
-                    <SmartLink to={ROUTES.SUBSCRIPTION}>Upgrade</SmartLink>
+                    <SmartLink to={ROUTES.SUBSCRIPTION}>Upgrade Now</SmartLink>
                   </Button>
                 )}
                 {user && (
@@ -635,13 +664,13 @@ export function Navbar() {
                 <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
                 <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
 
-                {isAuthenticated && (
+                {!isInitializing && isAuthenticated && (
                   <>
                     <div className="pt-2 mt-2 border-t" />
                     {!isAdmin && (
                       <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>
                         <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
-                        Dashboard
+                        My Learning
                       </MobileNavLink>
                     )}
                     {isAdmin && (
@@ -656,7 +685,9 @@ export function Navbar() {
             )}
 
             <div className="pt-3 border-t mt-3 space-y-2">
-              {isAuthenticated ? (
+              {isInitializing ? (
+                <MobileAuthActionsLoading />
+              ) : isAuthenticated ? (
                 <>
                   <div className="flex items-center gap-2 py-1">
                     {user && <UserAvatar name={user.name} />}
@@ -668,7 +699,7 @@ export function Navbar() {
                   </div>
                   {!isSubscribed && !isAdmin && (
                     <Button asChild className="w-full" size="sm">
-                      <SmartLink to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade to Standard</SmartLink>
+                      <SmartLink to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>Upgrade Now</SmartLink>
                     </Button>
                   )}
                   <Button asChild variant="outline" className="w-full" size="sm">

@@ -2,16 +2,16 @@ import { useEffect } from 'react'
 import { HOSTS, getCurrentSubdomain, type Subdomain } from '@s-class/constants/urls'
 
 interface CanonicalLinkProps {
-  /** Path under the owner subdomain that should be considered canonical. */
+  /** Path under the owner origin that should be considered canonical. */
   path: string
-  /** Which subdomain owns the canonical URL. */
+  /** Which origin owns the canonical URL. */
   owner: Subdomain
 }
 
 /**
- * Emit `<link rel="canonical">` so crawlers prefer the owner subdomain's copy
+ * Emit `<link rel="canonical">` so crawlers prefer the owner origin's copy
  * of a page that is temporarily served from multiple origins during the
- * Landing/Portal migration. Self-canonical (same subdomain as the owner)
+ * Landing/Portal migration. Self-canonical (same origin as the owner)
  * silently no-ops to avoid noisy headers.
  *
  * Imperative DOM mutation rather than React 19's hoisted `<link>` so we can

@@ -20,7 +20,7 @@ import type { Lesson } from '@/features/lessons/types'
 
 /**
  * Authenticated subject hub. Companion to the public SubjectDetailPage
- * (/course/:courseId), with student progress and curriculum actions.
+ * (/portal/subjects/:subjectId), with student progress and curriculum actions.
  *
  * Reuses:
  *   - subjectApi.getById, lessonApi.getBySubject (existing provider routers)

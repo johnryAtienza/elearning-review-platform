@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import { useSavedSubjectsStore } from '@/store/savedCoursesStore'
 import { useAuthStore } from '@/store/authStore'
+import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import type { Subject } from '../types'
 
@@ -35,7 +36,7 @@ export function SubjectCard({ subject, to }: SubjectCardProps) {
 
   return (
     <Link
-      to={to ?? `/course/${subject.id}`}
+      to={to ?? ROUTES.SUBJECT(subject.id)}
       className="group relative flex flex-col rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       {/* Thumbnail */}

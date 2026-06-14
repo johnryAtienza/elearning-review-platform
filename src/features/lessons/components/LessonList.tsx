@@ -14,7 +14,7 @@ interface LessonListProps {
   isGuest?: boolean
   /**
    * Public preview funnel on Landing. Unlocked lessons route to
-   * /preview/lesson/:id; locked lessons cross-origin to portal /register.
+   * /preview/lesson/:id; locked lessons link to /register.
    */
   previewMode?: boolean
 }
@@ -88,10 +88,9 @@ export function LessonList({ lessons, isSubscribed, isAdmin = false, activeLesso
 
         // Locked premium lesson → route to enrollment instead of the lesson.
         // Guests on a locked lesson hit /register; authenticated free users
-        // hit /subscription. Preview lessons stay reachable directly.
-        // In preview mode we're on Landing — locked lessons must cross-origin
-        // to portal /register (full-page nav via <a href>), and unlocked
-        // links route to Landing's /preview/lesson/:id.
+        // hit /portal/subscription. Preview lessons stay reachable directly.
+        // In preview mode, locked lessons link to /register and unlocked links
+        // route to Landing's /preview/lesson/:id.
         if (previewMode) {
           if (unlocked) {
             return (

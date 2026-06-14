@@ -1,8 +1,12 @@
 # ADR 0004 — Monorepo split into three subdomain apps + shared packages
 
-**Status:** Accepted, in progress (Phase 1–5) · **Evidence:** git history
+**Status:** Partially superseded for student routing (2026-06-14) · **Evidence:** git history
 ("Phase 3/4a–4d"), `apps/{landing,portal,admin}`, `packages/@s-class/*`,
 `@s-class/constants/urls.ts`, `ARCHITECTURE.md`, `CLOUDFLARE_PAGES.md`.
+
+Update: the app-shell split remains, but normal student access no longer uses
+`portal.s-class.com.ph`. Landing, auth, and the student portal now share
+`s-class.com.ph` with the portal mounted at `/portal`. Admin remains separate.
 
 ## Context
 The product had grown into one SPA mixing public marketing, authenticated

@@ -30,10 +30,7 @@ export function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      // Anchor on portal explicitly — /reset-password is portal-owned. Using
-      // window.location.origin would break if this form ever loads from a
-      // different subdomain (e.g. admin) or in local dev where the origin
-      // differs per app.
+      // Anchor password recovery on the same-origin student/auth host.
       const redirectTo = `${EXTERNAL.portal()}${ROUTES.RESET_PASSWORD}`
       await resetPasswordForEmail(email.trim(), redirectTo)
     } catch {

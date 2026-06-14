@@ -1,10 +1,26 @@
-/index.html             /index.html  200
-/book/:bookId/checkout  /index.html  200
-/about                  https://s-class.com.ph/about    301
-/contact                https://s-class.com.ph/contact  301
-/faq                    https://s-class.com.ph/faq      301
-/books                  https://s-class.com.ph/books    301
-/book/:bookId           https://s-class.com.ph/book/:bookId  301
+/login                    https://s-class.com.ph/login  301
+/register                 https://s-class.com.ph/register  301
+/forgot-password          https://s-class.com.ph/forgot-password  301
+/reset-password           https://s-class.com.ph/reset-password  301
 
-# SPA fallback for the remaining portal app routes.
-/*                      /index.html  200
+/portal/*                 https://s-class.com.ph/portal/:splat  301
+/dashboard                https://s-class.com.ph/portal/dashboard  301
+/quizzes                  https://s-class.com.ph/portal/quiz-history  301
+/subscription             https://s-class.com.ph/portal/subscription  301
+/profile/devices          https://s-class.com.ph/portal/profile/devices  301
+/profile                  https://s-class.com.ph/portal/profile  301
+/courses                  https://s-class.com.ph/portal/subjects  301
+/course/:courseId         https://s-class.com.ph/portal/subjects/:courseId  301
+/lesson/:lessonId         https://s-class.com.ph/portal/lessons/:lessonId  301
+/payment-success          https://s-class.com.ph/portal/payment-success  301
+/payment-cancel           https://s-class.com.ph/portal/payment-cancel  301
+/book/:bookId/checkout    https://s-class.com.ph/portal/book/:bookId/checkout  301
+
+/about                    https://s-class.com.ph/about  301
+/contact                  https://s-class.com.ph/contact  301
+/faq                      https://s-class.com.ph/faq  301
+/books                    https://s-class.com.ph/books  301
+/book/:bookId             https://s-class.com.ph/book/:bookId  301
+
+# Keep the legacy portal project from being a separate student entry point.
+/*                        https://s-class.com.ph/portal  301

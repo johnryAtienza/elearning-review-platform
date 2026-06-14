@@ -8,6 +8,7 @@ import { SubjectList } from '@/features/subjects/components/SubjectList'
 import { SubjectCard } from '@/features/subjects/components/SubjectCard'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { useSubjects } from '@/features/subjects/hooks/useSubjects'
+import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { SubjectsPageSkeleton } from './SubjectsPageSkeleton'
 import type { Subject, SortOption, DurationFilter } from '@/features/subjects/types'
@@ -90,7 +91,7 @@ export function SubjectsPage() {
         </div>
         {!isSubscribed && !isAdmin && (
           <Button asChild size="sm">
-            <Link to={isAuthenticated ? '/subscription' : '/register'}>
+            <Link to={isAuthenticated ? ROUTES.SUBSCRIPTION : ROUTES.REGISTER}>
               {isAuthenticated ? 'Upgrade to Standard' : 'Enroll Now'}
             </Link>
           </Button>

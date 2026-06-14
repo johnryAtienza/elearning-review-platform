@@ -8,9 +8,9 @@ resolve to `local` (`import.meta.env.DEV`); otherwise `VITE_APP_ENV` decides.
 
 | | Local | Staging | Production |
 |---|---|---|---|
-| **Apps** | 3 Vite dev servers | 3 Pages preview projects | 3 Pages projects |
-| **Landing** | `localhost:5174` | `*.s-class-landing.pages.dev` | `s-class.com.ph` |
-| **Portal** | `localhost:5175` | `*.s-class-portal.pages.dev` | `portal.s-class.com.ph` |
+| **Apps** | 3 Vite dev servers | Pages preview projects | Pages projects |
+| **Landing** | `localhost:5174` | `*.s-class-landing.pages.dev` | `s-class.com.ph` (`/`, `/login`, `/portal`) |
+| **Portal** | `localhost:5175` | `*.s-class-portal.pages.dev` | local/legacy redirect compatibility |
 | **Admin** | `localhost:5176` | `*.s-class-admin.pages.dev` | `admin.s-class.com.ph` |
 | **`VITE_APP_ENV`** | (ignored; DEV) | `staging` | `production` |
 | **Supabase** | shared project `dgnpiexszwsjrqfeefmd` (or local `supabase start`) | **same shared project** | same shared project |
@@ -29,11 +29,11 @@ flowchart LR
   GH["GitHub: main"] -->|push| CF
   subgraph CF["Cloudflare Pages (3 projects)"]
     PL["s-class-landing<br/>build: npm i && npm run build:landing<br/>out: apps/landing/dist"]
-    PP["s-class-portal<br/>build:portal → apps/portal/dist"]
+    PP["s-class-portal<br/>build:portal → apps/portal/dist<br/>legacy redirects/local parity"]
     PA["s-class-admin<br/>build:admin → apps/admin/dist"]
   end
-  PL --> D1["s-class.com.ph"]
-  PP --> D2["portal.s-class.com.ph"]
+  PL --> D1["s-class.com.ph<br/>/ + /login + /portal"]
+  PP --> D2["legacy portal redirects"]
   PA --> D3["admin.s-class.com.ph"]
 ```
 
@@ -44,7 +44,7 @@ Node 20+ required (Vite 8). Full dashboard checklist: `CLOUDFLARE_PAGES.md`.
 ## Environment variables
 
 `.env` is git-ignored; `.env.example` is the template; `.env.development`
-(committed) sets local subdomain URLs. `@s-class/config` is the **only** sanctioned
+(committed) sets local app URLs. `@s-class/config` is the **only** sanctioned
 reader of `import.meta.env`.
 
 ### Browser vars (`VITE_*` — bundled into the client)
@@ -54,15 +54,16 @@ reader of `import.meta.env`.
 | `VITE_USE_MOCK` | bypass network, use mock data | optional |
 | `VITE_API_BASE_URL` | REST base URL | REST mode only |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Supabase project + public anon key | supabase mode |
-| `VITE_LANDING_URL` / `VITE_PORTAL_URL` / `VITE_ADMIN_URL` | cross-subdomain links | **required in PROD** (build throws if missing) |
+| `VITE_LANDING_URL` / `VITE_ADMIN_URL` | cross-origin links | **required in PROD** (build throws if missing) |
+| `VITE_PORTAL_URL` | deprecated | optional; student portal uses `VITE_LANDING_URL` under `/portal` |
 | `VITE_APP_ENV` | `staging`\|`production` | prod/staging |
 | `VITE_SUBSCRIPTION_BASE_PRICE` / `VITE_SUBSCRIPTION_CURRENCY` | pricing display | always |
 | `VITE_FREE_VIDEO_PREVIEW_SECONDS` / `VITE_FREE_PDF_MAX_PAGES` | free-tier caps | always |
 | `VITE_CONTENT_PROTECTION_ENABLED` + `VITE_PROTECTION_*` | content-protection toggles | optional (default on) |
 | `VITE_FIREBASE_*` | Firebase (stub provider) | never (no impl) |
 
-> `urls.ts` **throws at module load in PROD** if any of the three subdomain URLs
-> is missing — a guard against shipping cross-links that point at the wrong env.
+> `urls.ts` **throws at module load in PROD** if the landing or admin URL is
+> missing — a guard against shipping cross-origin links that point at the wrong env.
 
 ### Server secrets (NEVER `VITE_*`)
 Set on Supabase via `supabase secrets set` (Edge Functions) or as Cloudflare
@@ -92,12 +93,13 @@ flowchart LR
 ```
 
 - **Branch pushes** auto-deploy preview URLs used as staging (set
-  `VITE_APP_ENV=staging` + matching `*.pages.dev` subdomain URLs in the Preview env).
+  `VITE_APP_ENV=staging` + matching landing/admin `*.pages.dev` URLs in the
+  Preview env).
 - **Merge to `main`** → production deploy of all three.
 - **Post-deploy:** add prod URLs to Supabase Auth (Site URL + Redirect URLs) and
   R2 CORS; `supabase functions deploy`; `supabase db push`.
-- **Domain swap** is done last, one subdomain at a time (admin → portal → apex),
-  with one-click rollback to the legacy project (`CLOUDFLARE_PAGES.md`).
+- **Domain swap** keeps admin separate and points the apex at the landing build,
+  which now serves `/portal` as well (`CLOUDFLARE_PAGES.md`).
 
 ## Local development
 ```bash
@@ -108,5 +110,5 @@ npm run dev:landing    # :5174
 npm run dev:portal     # :5175
 npm run dev:admin      # :5176
 ```
-`.env.development` already points the three URLs at localhost ports. To run fully
+`.env.development` already points landing/admin URLs at localhost ports. To run fully
 offline: `VITE_USE_MOCK=true` + `VITE_AUTH_PROVIDER=mock`.

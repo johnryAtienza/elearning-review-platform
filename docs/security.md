@@ -7,9 +7,9 @@
 
 ## Authentication
 - **Supabase Auth**, email/password, JWT sessions in `localStorage` **per origin**.
-- All student auth happens on **`portal.*`** (landing redirects auth routes there)
-  so the session lands on the origin that uses it. Admin has its own same-origin
-  `/login`. This avoids "logged in on landing, invisible to portal".
+- Student auth happens on **`s-class.com.ph/login`** and the student portal lives
+  under **`s-class.com.ph/portal`**, so landing and portal routes share the same
+  Supabase localStorage session. Admin has its own separate same-origin `/login`.
 - **Session bootstrap** (`authStore.initialize`) restores the session before route
   guards run (prevents flash-redirect; also prevents a guard from acting on a
   half-known auth state).

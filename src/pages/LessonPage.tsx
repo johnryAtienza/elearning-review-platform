@@ -33,7 +33,7 @@ interface LessonPageProps {
   /**
    * Render as Landing's public preview funnel. Hard-gates non-preview lessons
    * (renders a "Preview not available" notice), wires breadcrumb/prev/next
-   * to /preview/* paths, and points "Enroll" CTAs at the portal subdomain.
+   * to /preview/* paths, and points "Enroll" CTAs at same-origin auth.
    */
   previewMode?: boolean
 }
@@ -77,7 +77,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 
   useContentProtection(protectionActive && config.protection.blockDevTools)
 
-  const handleSuspiciousCapture = useCallback((_count: number) => {
+  const handleSuspiciousCapture = useCallback(() => {
     // Extend here: POST to an analytics endpoint to log capture attempts
   }, [])
 
@@ -671,8 +671,8 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
   // Preserve the lesson URL so the user lands back here after login/register
   const loginTo = withReturnParam(ROUTES.LOGIN, ROUTES.LESSON(lessonId))
   const registerTo = withReturnParam(ROUTES.REGISTER, ROUTES.LESSON(lessonId))
-  // In previewMode the page is hosted on Landing and the auth routes live on
-  // the portal subdomain — use absolute URLs so the cross-origin hop is correct.
+  // In previewMode the page is hosted on Landing and auth routes live on the
+  // same origin; absolute URLs keep this safe in local/preview deployments.
   if (previewMode) {
     return (
       <div className="rounded-2xl border bg-card px-6 py-10 flex flex-col items-center text-center gap-4">

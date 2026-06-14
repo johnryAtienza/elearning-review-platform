@@ -29,7 +29,7 @@ function usePageTitle(): string {
   const { pathname } = useLocation()
   if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]
   if (pathname.startsWith('/portal/subjects/')) return 'Subject'
-  if (pathname.startsWith('/book/')) return 'Book'
+  if (pathname.startsWith('/portal/book/')) return 'Book'
   return 'Portal'
 }
 
@@ -369,4 +369,3 @@ function SidebarContent({
     </div>
   )
 }
-

@@ -66,8 +66,8 @@ noted improvement opportunity — see [recommendations.md](recommendations.md).
 |---|---|---|
 | **Hosting** | Cloudflare Pages | Static SPA hosting + colocated Pages Functions. Target: 3 projects (`s-class-landing/-portal/-admin`) — see `CLOUDFLARE_PAGES.md`. |
 | **CDN** | Cloudflare (Pages + R2) | Public assets proxied through Pages Functions with `cache-control: max-age=86400, s-maxage=604800`. A dedicated `cdn.s-class.com.ph` is a planned consolidation. |
-| **DNS / domains** | Cloudflare | Apex `s-class.com.ph` (landing) + `portal.`/`admin.` subdomains. |
-| **SPA routing** | Pages `_redirects` | `apps/portal/public/_redirects` does SPA fallback + 301s of marketing paths to landing. The `/index.html 200` first line dodges Cloudflare's redirect-loop detector. |
+| **DNS / domains** | Cloudflare | Apex `s-class.com.ph` serves landing + `/login` + `/portal`; `admin.s-class.com.ph` remains separate. |
+| **SPA routing** | Pages `_redirects` | `apps/portal/public/_redirects` keeps legacy portal deployments redirecting into `s-class.com.ph/portal`. The `/index.html 200` first line dodges Cloudflare's redirect-loop detector. |
 | **Build/deploy trigger** | Pages git integration | Auto-deploy on push to `main`; branch pushes get `*.pages.dev` preview URLs used as staging. |
 | **Monitoring** | *(none configured)* | No error tracker (Sentry), analytics, or uptime monitor found in the repo. Edge Functions use `console.*`; Supabase/Cloudflare dashboards are the only observability. See [recommendations.md](recommendations.md). |
 | **CI/CD** | *(none in-repo)* | No `.github/workflows`, no pipeline config. "CI" is effectively Cloudflare Pages' build step (`tsc --noEmit && vite build`). |

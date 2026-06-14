@@ -19,16 +19,18 @@ Cloudflare.
 
 ## Architecture overview
 
-Three independently deployed React apps share one source tree and a Supabase
-backend, with media on Cloudflare R2.
+Three React apps share one source tree and a Supabase backend, with media on
+Cloudflare R2. Student-facing production traffic now shares the apex origin:
+landing and auth live at `s-class.com.ph/`, while the portal lives under
+`s-class.com.ph/portal`. Admin remains separate at `admin.s-class.com.ph`.
 
 ```mermaid
 flowchart TD
   Browser["Browser"]
 
   subgraph Pages["Cloudflare Pages (3 projects)"]
-    Landing["Landing App<br/>s-class.com.ph"]
-    Portal["Portal App<br/>portal.s-class.com.ph"]
+    Landing["Landing App<br/>s-class.com.ph<br/>/ + /login + /portal"]
+    Portal["Portal App<br/>legacy/local parity"]
     Admin["Admin App<br/>admin.s-class.com.ph"]
   end
 
@@ -57,8 +59,8 @@ See [`docs/overview.md`](docs/overview.md) and
 
 ## Repository structure
 
-This is an **npm-workspaces monorepo** mid-migration from a single SPA into three
-subdomain apps plus shared packages.
+This is an **npm-workspaces monorepo** mid-migration from a single SPA into
+separate app shells plus shared packages.
 
 | Path | What it is |
 |---|---|
@@ -77,8 +79,8 @@ Full map: [`docs/repository-structure.md`](docs/repository-structure.md).
 
 | App | Subdomain | Purpose |
 |---|---|---|
-| **Landing** (`apps/landing`) | `s-class.com.ph` | Public marketing, FAQ/About/Contact, book storefront (browse), pricing, and the `/preview/*` free-lesson funnel. Auth routes redirect to the portal. |
-| **Portal** (`apps/portal`) | `portal.s-class.com.ph` | Authenticated learning: dashboard, subjects, lessons, quizzes, subscription, profile, device management, book checkout, and PayMongo callbacks. |
+| **Landing** (`apps/landing`) | `s-class.com.ph` | Public marketing, FAQ/About/Contact, book storefront (browse), pricing, `/preview/*`, shared `/login`, and same-origin `/portal/*` student routes. |
+| **Portal** (`apps/portal`) | local/legacy parity | Authenticated learning route tree for local development and temporary legacy redirect compatibility. Normal student access is `s-class.com.ph/portal`. |
 | **Admin** (`apps/admin`) | `admin.s-class.com.ph` | Role-gated CRUD for subjects, lessons, quizzes, books, orders, users, subscriptions, and homepage CMS. |
 
 Architecture detail: [`docs/frontend-architecture.md`](docs/frontend-architecture.md)
@@ -141,7 +143,7 @@ npm run type-check     # tsc -b + per-workspace type-check
 
 > **Run fully offline:** set `VITE_USE_MOCK=true` and `VITE_AUTH_PROVIDER=mock`
 > to use local mock data with no backend. Env template: `.env.example`
-> (`.env.development` already wires local subdomain URLs).
+> (`.env.development` already wires local app URLs).
 >
 > ℹ️ There is **no test runner** configured, and **no** root `build` / `preview`
 > script. Use the per-app commands above.
@@ -154,7 +156,7 @@ npm run type-check     # tsc -b + per-workspace type-check
 |---|---|---|
 | **Development** | 3 Vite dev servers (`localhost:5174/5175/5176`) | shared Supabase project (or local `supabase start`) |
 | **Staging** | Cloudflare Pages preview builds (`*.pages.dev`) | **same shared** Supabase project + R2 bucket |
-| **Production** | 3 Cloudflare Pages projects → the three subdomains | same shared Supabase project + R2 bucket |
+| **Production** | Landing/portal on `s-class.com.ph`, admin on `admin.s-class.com.ph` | same shared Supabase project + R2 bucket |
 
 Details, env vars, and the release flow:
 [`docs/environments.md`](docs/environments.md) (and `CLOUDFLARE_PAGES.md`).
@@ -169,7 +171,7 @@ If you are an AI coding assistant (Claude Code, Codex, ChatGPT, etc.):
    making any architectural change. It is the condensed, high-signal map of this
    repo and lists the areas that must not be modified without caution.
 2. Follow the conventions there: import the `*Api.ts` facade (never a provider),
-   use `ROUTES` for paths, `@s-class/constants/urls` for cross-subdomain links,
+   use `ROUTES` for paths, `@s-class/constants/urls` for cross-origin links,
    and read env only via `@s-class/config`.
 3. When in doubt about *why* something is the way it is, check
    [`docs/adr/`](docs/adr/README.md).

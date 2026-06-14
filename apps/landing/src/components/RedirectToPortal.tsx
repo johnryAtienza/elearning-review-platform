@@ -3,17 +3,15 @@ import { EXTERNAL } from '@s-class/constants/urls'
 import { PageLoader } from '@s-class/ui/PageLoader'
 
 interface RedirectToPortalProps {
-  /** Path under the portal origin to send the user to (must start with /) */
+  /** Same-origin student/auth path to send the user to (must start with /) */
   path: string
 }
 
 /**
- * Cross-origin redirect helper.
+ * Legacy redirect helper.
  *
- * Used on landing for the legacy /login, /register, /forgot-password,
- * /reset-password routes — instead of rendering a form (which would create
- * a session on the landing origin that portal can't see), we hand off
- * directly to portal where the auth form actually lives.
+ * The landing router now renders auth and /portal routes directly. This remains
+ * as a small compatibility helper for any old import during the transition.
  *
  * Preserves the current query string + hash so things like password-reset
  * tokens (`/reset-password#access_token=...`) survive the hop.

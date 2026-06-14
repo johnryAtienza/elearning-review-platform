@@ -21,7 +21,7 @@ function isCrossOrigin(to: string): boolean {
  * Auth-aware:
  *   - Guest          → "Enroll Now" → /register   + "Log in" → /login
  *   - Free authed    → "Enroll Now" → /subscription          (no Log in)
- *   - Subscribed     → "Continue Learning" → /dashboard      (no Log in)
+ *   - Subscribed     → "Continue Learning" → /portal/dashboard (no Log in)
  *   - Admin          → "Go to Admin" → /admin                (no Log in)
  */
 export function HeroBlock() {

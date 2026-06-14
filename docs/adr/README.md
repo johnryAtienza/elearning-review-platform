@@ -10,7 +10,7 @@ evidence. Format: Context · Decision · Consequences · Status.
 | [0001](0001-react-spa.md) | React 19 + Vite SPA (TypeScript) | Accepted |
 | [0002](0002-supabase-backend.md) | Supabase as the backend (Postgres + Auth + RLS + Edge Functions) | Accepted |
 | [0003](0003-cloudflare-pages-r2.md) | Cloudflare Pages hosting + R2 storage | Accepted |
-| [0004](0004-monorepo-subdomain-split.md) | Monorepo split into three subdomain apps + shared packages | Accepted, in progress |
+| [0004](0004-monorepo-subdomain-split.md) | Monorepo split into three subdomain apps + shared packages | Partially superseded for student routing |
 | [0005](0005-provider-routed-service-layer.md) | Provider-routed service layer (mock/REST/Supabase) | Accepted |
 | [0006](0006-rls-security-boundary.md) | RLS (+ Edge Functions) as the security boundary | Accepted |
 | [0007](0007-course-subject-rename.md) | Rename to Course→Subject hierarchy, keep legacy URLs | Accepted |

@@ -10,11 +10,9 @@ import { PageLoader } from '@s-class/ui/PageLoader'
  *  - not authenticated              → Navigate to /login (same-origin)
  *  - authenticated                  → <Outlet />
  *
- * Uses same-origin <Navigate> for the unauth case because, under separate-
- * sessions-per-subdomain, cross-domain bouncing to landing/login would
- * never give portal.* its own session. Each subdomain owns its own login
- * flow — portal's /login, /forgot-password, /reset-password reuse the
- * legacy pages via the existing Vite `@` alias.
+ * Uses same-origin <Navigate> for the unauth case so /portal deep links keep
+ * their return target and the existing Supabase localStorage session source
+ * remains the single source of truth.
  */
 export function PortalProtectedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)

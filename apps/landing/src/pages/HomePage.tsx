@@ -81,9 +81,6 @@ export function HomePage() {
           </div>
         </div>
         <Button asChild size="lg" variant="outline" className="shrink-0">
-          {/* /register is portal-owned — cross-origin <a> so this goes directly
-              to portal in every env, rather than hopping through landing's
-              RedirectToPortal route. */}
           <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
         </Button>
       </section>

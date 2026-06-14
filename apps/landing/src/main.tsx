@@ -7,7 +7,7 @@ import { router } from './app/router'
 import '@/index.css'
 
 // Restore any persisted auth session before the router renders.
-// On landing, a logged-in user gets bounced to portal.* by LandingGuestRoute.
+// Landing and /portal share this same Supabase session source.
 useAuthStore.getState().initialize()
 
 createRoot(document.getElementById('root')!).render(

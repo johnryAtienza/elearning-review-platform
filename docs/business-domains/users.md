@@ -16,7 +16,7 @@ registration, login, password recovery, profile data, and the admin role.
 ### Registration
 ```mermaid
 sequenceDiagram
-  participant U as User (portal /register)
+  participant U as User (/register)
   participant AS as authStore
   participant SB as Supabase Auth
   participant TR as handle_new_user trigger
@@ -31,7 +31,7 @@ sequenceDiagram
 ```
 
 ### Login / logout / session restore
-- Login on `portal.*` (`signInWithPassword`) → JWT in localStorage →
+- Login on `s-class.com.ph/login` (`signInWithPassword`) → JWT in localStorage →
   `syncSubscription` + `savedSubjects.fetch` + `quizHistory.fetch` +
   `registerCurrentDevice`. Admins are bounced to `admin.*` by `PortalAdminBouncer`.
 - `initialize()` restores the session on every app boot **before** routing.
@@ -51,9 +51,9 @@ patches the in-memory user without a refetch.
 - **Admin is server-only.** `role='admin'` lives in `auth.users.app_metadata` and
   can be set just by SQL/dashboard (`supabase/seed/create_admin.sql`). The client
   cannot escalate. `profiles.role` is a mirror kept by the trigger.
-- **Sessions are per-origin.** All student auth happens on `portal.*`; landing
-  redirects auth routes there; admin has its own same-origin `/login`. A session
-  on the wrong origin is invisible to the right app.
+- **Sessions are per-origin.** Student auth and the student portal both live on
+  `s-class.com.ph` (`/login`, `/portal/*`), so the landing navbar and portal see
+  the same Supabase session. Admin has its own same-origin `/login`.
 - **One profile per user**, trigger-created — never insert into `profiles` directly.
 - **Email confirmation** may gate first login (`confirmationPending`). *No
   "resend confirmation" UI exists yet* (improvement).

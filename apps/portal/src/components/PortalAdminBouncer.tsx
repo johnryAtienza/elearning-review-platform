@@ -7,9 +7,9 @@ import { PageLoader } from '@s-class/ui/PageLoader'
 /**
  * Wraps the entire portal route tree.
  *
- * Admins have no place on portal.* — their canonical home is admin.*.
- * If a logged-in admin lands on any portal URL (login, dashboard, /courses,
- * deep link, etc.) bounce them cross-domain to the admin app.
+ * Admins have no place in the student portal — their canonical home is
+ * admin.*. If a logged-in admin lands on any student URL (login, /portal,
+ * deep link, etc.) bounce them cross-origin to the admin app.
  *
  * A future "View as Student" / impersonation flow would opt out of this
  * by carrying an explicit flag and is intentionally not handled here.

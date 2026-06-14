@@ -44,9 +44,9 @@ packages; the GitHub repository is named `elearning-review-platform`.
 flowchart TD
   Browser["Browser"]
 
-  subgraph Frontends["Cloudflare Pages — 3 apps"]
-    Landing["apps/landing<br/>marketing + free preview<br/>s-class.com.ph"]
-    Portal["apps/portal<br/>student portal<br/>portal.s-class.com.ph"]
+  subgraph Frontends["Cloudflare Pages apps"]
+    Landing["apps/landing<br/>marketing + auth + /portal<br/>s-class.com.ph"]
+    Portal["apps/portal<br/>student portal parity<br/>local/legacy redirects"]
     Admin["apps/admin<br/>admin console<br/>admin.s-class.com.ph"]
   end
 
@@ -84,22 +84,23 @@ flowchart TD
 3. **Signed-URL content protection.** Premium media URLs are never in client-readable
    tables/views; the `get-signed-urls` Edge Function is the only path to R2 for
    premium content. See [adr/0008-signed-url-content-protection.md](adr/0008-signed-url-content-protection.md).
-4. **Subdomain split monorepo.** Three independently deployed Cloudflare Pages
-   projects share one source tree and one Supabase backend. See
+4. **Split app-shell monorepo.** Separate Cloudflare Pages app shells share one
+   source tree and one Supabase backend. Student routes are now same-origin
+   under `s-class.com.ph/portal`; admin stays separate. See
    [adr/0004-monorepo-subdomain-split.md](adr/0004-monorepo-subdomain-split.md).
 
 ## Major modules
 
 | Module | Lives in | Responsibility |
 |---|---|---|
-| **Landing app** | `apps/landing` | Public marketing, book storefront (browse), pricing, `/preview/*` funnel. Hands auth off to portal. |
-| **Portal app** | `apps/portal` | Authenticated learning: dashboard, subjects, lessons, quizzes, subscription, profile, devices, book checkout. |
+| **Landing app** | `apps/landing` | Public marketing, book storefront (browse), pricing, `/preview/*`, shared auth, and `/portal/*` student routes. |
+| **Portal app** | `apps/portal` | Same student route tree for local development and temporary legacy redirect compatibility. |
 | **Admin app** | `apps/admin` | Role-gated CRUD for subjects/lessons/quizzes/books/orders/users/CMS. |
 | **Shared `src/*`** | `src/` | Cross-app pages (`LessonPage`, `SubjectDetailPage`, `SubscriptionPage`), feature components/hooks, portal layout. |
 | **`@s-class/api`** | `packages/api` | Browser-safe data layer: Supabase/REST clients, provider routers, services, mocks. |
 | **`@s-class/auth`** | `packages/auth` | Zustand auth/saved-subjects/quiz-history stores + route guards. |
 | **`@s-class/config`** | `packages/config` | Single sanctioned reader of `import.meta.env`. |
-| **`@s-class/constants`** | `packages/constants` | Route strings + cross-subdomain URL helpers. |
+| **`@s-class/constants`** | `packages/constants` | Route strings + cross-origin URL helpers. |
 | **`@s-class/types`** | `packages/types` | Shared domain TypeScript types. |
 | **`@s-class/ui`** | `packages/ui` | Primitive UI components + `cn()`. |
 | **Edge Functions** | `supabase/functions` | 11 Deno functions for payments, signed URLs, devices, uploads. |

@@ -14,11 +14,11 @@ import { ROUTES } from '@/constants/routes'
  *   1. My Subjects  — saved subjects with progress (SavedSubjectCard)
  *   2. All Subjects — full catalog (SubjectCard)
  *
- * Both card types are reused from /courses but routed into the portal
+ * Both card types are reused from the subject catalog but routed into the portal
  * hub (/portal/subjects/:id) via their `to` override, so clicking a card
  * keeps the user inside the student learning area.
  *
- * Filtering is intentionally minimal vs. /courses (single search box).
+ * Filtering is intentionally minimal vs. the legacy subject catalog (single search box).
  * The marketing-style course/duration/sort affordances stay on the
  * public subjects page where conversion-oriented browsing matters.
  */

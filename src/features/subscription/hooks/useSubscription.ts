@@ -12,7 +12,7 @@ export function useSubscription() {
 
   /**
    * Create a PayMongo Checkout Session and redirect the user to PayMongo's
-   * payment page. After payment, PayMongo redirects to /payment-success.
+   * payment page. After payment, PayMongo redirects to /portal/payment-success.
    * The browser navigates away — no further state updates happen here.
    */
   async function checkout(): Promise<void> {

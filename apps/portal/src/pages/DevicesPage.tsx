@@ -13,7 +13,7 @@ import { cn } from '@/utils/cn'
 import type { UserDevice } from '@s-class/types/devices'
 
 /**
- * /profile/devices — Phase G device management page.
+ * /portal/profile/devices — Phase G device management page.
  *
  * Shows the current user's active devices (and recently-revoked ones for
  * context). Lets the user sign out any device, including from the current

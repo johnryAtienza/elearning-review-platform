@@ -12,7 +12,7 @@ This repository implements a subscription-based eLearning review platform. It se
 - Supabase-backed auth, data, edge functions, and payment workflows,
 - Cloudflare R2-backed media storage.
 
-The codebase is in the middle of a monorepo/subdomain split. The active direction is `apps/*` plus shared `packages/*`, while much of the feature UI still lives in the root `src/*` tree and is reused through Vite aliases.
+The codebase is in the middle of a monorepo/app-shell split. The active direction is `apps/*` plus shared `packages/*`, while much of the feature UI still lives in the root `src/*` tree and is reused through Vite aliases. Landing and the student portal now share one browser origin; admin remains separate.
 
 ## High-Level Shape
 
@@ -20,8 +20,8 @@ The codebase is in the middle of a monorepo/subdomain split. The active directio
 flowchart TD
   Browser["Browser"]
 
-  Landing["apps/landing\nmarketing + free preview"]
-  Portal["apps/portal\nstudent portal"]
+  Landing["apps/landing\nmarketing + auth + /portal"]
+  Portal["apps/portal\nstudent portal parity"]
   Admin["apps/admin\nadmin console"]
 
   Src["root src/*\npages, layouts, features"]
@@ -58,8 +58,8 @@ flowchart TD
 
 | App | Path | Dev port | Responsibility |
 | --- | --- | --- | --- |
-| Landing | `apps/landing` | `5174` | Public marketing pages, public book browsing, pricing, and `/preview/*` lesson funnel. Auth routes redirect to portal so sessions are created on the portal origin. |
-| Portal | `apps/portal` | `5175` | Student-facing authenticated app: dashboard, subject hub, lessons, books checkout, subscriptions, profile, device management, quiz history. |
+| Landing | `apps/landing` | `5174` | Public marketing pages, public book browsing, pricing, `/preview/*`, shared auth routes, and the same-origin `/portal/*` student portal. |
+| Portal | `apps/portal` | `5175` | Student-facing route tree for local development and temporary legacy redirect compatibility. Normal production student access is served by `apps/landing` under `/portal`. |
 | Admin | `apps/admin` | `5176` | Same-origin admin login and guarded `/admin/*` content operations. Non-admin users are bounced to portal. |
 | Legacy root app | `src/app/router.tsx` | `5173` | Historical single-SPA router. Still buildable and useful for compatibility, but comments indicate active runtime routing now lives in the per-app routers. |
 
@@ -72,7 +72,7 @@ All three apps use Vite and point `@/*` at the root `src/*` directory. This lets
 | `@s-class/api` | Browser-safe data/service layer. Owns Supabase client, REST client, token service, storage helpers, provider-routed domain APIs, and mock data. |
 | `@s-class/auth` | Zustand auth store, saved subject store, quiz history store, auth hooks, and shared route guards. |
 | `@s-class/config` | Central runtime config from `import.meta.env`. Component and service code should import config here instead of reading env vars directly. |
-| `@s-class/constants` | Route constants and cross-subdomain URL helpers. Owns route ownership decisions for landing, portal, and admin. |
+| `@s-class/constants` | Route constants and cross-origin URL helpers. Owns route ownership decisions for landing/portal and admin. |
 | `@s-class/types` | Shared domain TypeScript types for auth, courses, subjects, lessons, quiz, books, subscription, devices, and home content. |
 | `@s-class/ui` | Shared primitive UI components and `cn()` utility. |
 
@@ -88,7 +88,7 @@ app router -> layout/route guard -> page -> feature component/hook -> domain API
 
 Important frontend directories:
 
-- `apps/*/src/app/router.tsx`: per-subdomain route ownership.
+- `apps/*/src/app/router.tsx`: per-app route ownership.
 - `apps/*/src/components`: app-specific route guards and redirect helpers.
 - `src/pages`: route-level screens reused by the split apps.
 - `src/layouts`: public root shell, portal shell, admin shell, navbar, navigation definitions.
@@ -214,20 +214,21 @@ Free-preview lessons are explicitly marked server-side with `lessons.is_free_pre
 
 Every app calls `useAuthStore.getState().initialize()` before rendering `RouterProvider`. Route guards depend on `isInitializing` to avoid redirecting before Supabase session restoration completes.
 
-Route ownership is split by subdomain:
+Route ownership is split by origin:
 
-- Landing owns marketing and preview routes.
-- Portal owns student auth, dashboard, learning, checkout, and account routes.
-- Admin owns `/login` and `/admin/*`.
+- Landing owns marketing, preview, shared auth, and `/portal/*` student routes.
+- Portal mirrors the student route tree for local development and legacy redirect compatibility.
+- Admin owns its separate `/login` and `/admin/*`.
 
-Cross-domain navigation should use `@s-class/constants/urls` helpers and full-page navigation. Same-origin navigation can use React Router links.
+Cross-origin navigation should use `@s-class/constants/urls` helpers and full-page navigation. Same-origin navigation can use React Router links.
 
 ## Deployment Model
 
-The intended production deployment is three Cloudflare Pages projects:
+The intended production deployment keeps admin separate while serving student
+traffic from the apex origin:
 
-- `s-class-landing` -> `apps/landing/dist` -> `s-class.com.ph`
-- `s-class-portal` -> `apps/portal/dist` -> `portal.s-class.com.ph`
+- `s-class-landing` -> `apps/landing/dist` -> `s-class.com.ph` (`/`, `/login`, `/portal/*`)
+- `s-class-portal` -> `apps/portal/dist` -> local/legacy redirect compatibility
 - `s-class-admin` -> `apps/admin/dist` -> `admin.s-class.com.ph`
 
 Each project builds from the monorepo root so npm workspaces resolve correctly. Runtime browser env vars are `VITE_*`; server secrets are configured in Supabase or Cloudflare bindings.

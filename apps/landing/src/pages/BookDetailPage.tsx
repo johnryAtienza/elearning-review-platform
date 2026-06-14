@@ -61,10 +61,7 @@ export function BookDetailPage() {
   }
 
   const outOfStock   = book.stock <= 0
-  // Checkout lives on the portal subdomain (members-only). Use an absolute URL
-  // so the CTA works whether the page is served from Landing's storefront or
-  // Portal during the transition window. Same-origin nav on Portal becomes a
-  // full-page reload — acceptable for a deliberate checkout click.
+  // Checkout is a protected student portal route under the same origin.
   const checkoutPath = ROUTES.BOOK_CHECKOUT(book.id)
   const checkoutHref = getAbsoluteUrl(
     isAuthenticated ? checkoutPath : withReturnParam(ROUTES.LOGIN, checkoutPath),

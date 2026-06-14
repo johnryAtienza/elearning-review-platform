@@ -1,21 +1,22 @@
 # 3. Repository Structure
 
 This repo is an **npm-workspaces monorepo** mid-migration from a single SPA into
-three subdomain apps plus shared packages.
+separate app shells plus shared packages. Student-facing production routes share
+the apex origin; admin remains on its own subdomain.
 
 ## Top-level map
 
 ```text
 elearning-review-platform/
-├── apps/                  # Runnable Vite apps (one per subdomain) — the deploy units
-│   ├── landing/           #   marketing + free preview      → s-class.com.ph
-│   ├── portal/            #   authenticated student app     → portal.s-class.com.ph
+├── apps/                  # Runnable Vite apps / deploy units
+│   ├── landing/           #   marketing + auth + /portal    → s-class.com.ph
+│   ├── portal/            #   student portal parity         → local/legacy redirects
 │   └── admin/             #   admin console                 → admin.s-class.com.ph
 ├── packages/              # Shared workspace libraries (@s-class/*), source-only
 │   ├── api/               #   data layer: clients, provider routers, services, mocks
 │   ├── auth/              #   Zustand stores + route guards
 │   ├── config/            #   the only reader of import.meta.env
-│   ├── constants/         #   route strings + cross-subdomain URL helpers
+│   ├── constants/         #   route strings + cross-origin URL helpers
 │   ├── types/             #   shared domain TypeScript types
 │   └── ui/                #   primitive UI components + cn()
 ├── src/                   # Shared SOURCE LIBRARY (NOT a runnable app) — used via @ alias
@@ -95,7 +96,7 @@ from shared `src/pages` via `@`.
 ### `apps/landing` (public marketing + preview)
 ```text
 apps/landing/src/
-├── app/router.tsx              # public routes; auth routes redirect to portal
+├── app/router.tsx              # public routes + /login + /portal/*
 ├── layouts/{RootLayout,Navbar}.tsx
 ├── pages/                      # HomePage, About, Contact, FAQ, Books, BookDetail
 ├── features/home/              # hero, testimonials (marketing blocks)
@@ -104,10 +105,11 @@ apps/landing/src/
 apps/landing/functions/         # Pages Functions copy (thumbnails/avatars/quizzes/covers + _lib)
 ```
 Owns: `/`, `/about`, `/contact`, `/faq`, `/books`, `/book/:id`, `/pricing`,
-`/preview/subject/:id`, `/preview/lesson/:id`. Reuses `SubscriptionPage`,
-`SubjectDetailPage`, `LessonPage` from `src/pages` (preview mode).
+`/preview/subject/:id`, `/preview/lesson/:id`, `/login`, `/register`,
+`/forgot-password`, `/reset-password`, and `/portal/*`. Reuses
+`SubscriptionPage`, `SubjectDetailPage`, `LessonPage` from `src/pages`.
 
-### `apps/portal` (authenticated learning)
+### `apps/portal` (student portal parity)
 ```text
 apps/portal/src/
 ├── app/router.tsx              # learning-only routes; guards + bouncers
@@ -118,8 +120,9 @@ apps/portal/src/
                                 #   Subjects, PortalSubject(s)/Hub, QuizHistory,
                                 #   Profile, Devices, BookCheckout, Payment{Success,Cancel}
 ```
-Owns auth flows + all authenticated learning + book checkout + PayMongo callbacks.
-Reuses `LessonPage`, `SubjectDetailPage`, `SubscriptionPage`, `PortalLayout` from `src`.
+Mirrors auth flows + authenticated learning + book checkout + PayMongo callbacks
+for local development and temporary legacy redirect compatibility. Normal
+student production access is under `s-class.com.ph/portal`.
 
 ### `apps/admin` (role-gated console)
 ```text

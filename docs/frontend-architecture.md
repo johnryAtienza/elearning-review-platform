@@ -21,9 +21,9 @@ main.tsx
 ## Routing architecture
 
 Each app declares its own routes once with `createBrowserRouter` in
-`apps/<app>/src/app/router.tsx`. **Route ownership is split by subdomain** and
-encoded in `@s-class/constants/urls` (`getRouteOwner`, `PORTAL_PREFIXES`,
-`ADMIN_PREFIXES`).
+`apps/<app>/src/app/router.tsx`. **Student-facing route ownership is same-origin
+under the landing app** and encoded in `@s-class/constants/urls`
+(`getRouteOwner`, `ADMIN_PREFIXES`).
 
 ```mermaid
 flowchart LR
@@ -32,15 +32,13 @@ flowchart LR
     l1["/  /about /contact /faq"]
     l2["/books /book/:id /pricing"]
     l3["/preview/subject/:id<br/>/preview/lesson/:id"]
-    l4["/login /register /forgot /reset<br/>→ redirect to portal"]
+    l4["/login /register /forgot-password /reset-password"]
+    l5["/portal/dashboard /portal/subjects/*<br/>/portal/lessons/:id /portal/quiz-history"]
+    l6["/portal/subscription /portal/profile<br/>/portal/book/:id/checkout /portal/payment-*"]
   end
-  subgraph portal["portal (portal.s-class.com.ph)"]
+  subgraph portal["portal app"]
     direction TB
-    p1["/login /register /forgot /reset"]
-    p2["/dashboard /quizzes /subscription<br/>/profile /profile/devices"]
-    p3["/courses /course/:id /lesson/:id"]
-    p4["/portal/subjects/*  /book/:id/checkout"]
-    p5["/payment-success /payment-cancel"]
+    p1["same /portal route tree for local/legacy parity"]
   end
   subgraph admin["admin (admin.s-class.com.ph)"]
     direction TB
@@ -50,24 +48,22 @@ flowchart LR
   end
 ```
 
-**Legacy URL caveat (critical):** route *constant names* use the new vocabulary
-but *path strings* are legacy. In particular:
-- `/courses` → **lists Subjects** (`SubjectsPage`)
-- `/course/:id` → **Subject detail**
+**Legacy URL caveat (critical):** old student URLs (`/dashboard`, `/courses`,
+`/course/:id`, `/lesson/:id`, `/quizzes`, etc.) redirect into `/portal/*`.
+Admin legacy names remain:
 - `/admin/courses` → `AdminSubjectsPage` (manages **Subjects**)
 - `/admin/categories` → `AdminCoursesPage` (manages parent **Courses**)
 
 Always import paths from `ROUTES` (`@s-class/constants/routes`); never hardcode.
 
-### Cross-subdomain navigation
+### Cross-origin navigation
 
-Same-origin links use react-router `<Link>`. **Cross-origin** links (e.g. portal
-→ landing, post-login redirects, PayMongo success URLs, Supabase `redirectTo`)
-must be **full-page navigations** built from `@s-class/constants/urls`:
-`EXTERNAL.portal()`, `EXTERNAL.loginPage()`, `getAbsoluteUrl(path)`. Never build
-URLs from `window.location.origin` — it assumes you're already on the right
-subdomain. In local dev all three share `localhost` and differ only by port, so
-`getCurrentSubdomain()` compares full origins.
+Same-origin links use react-router `<Link>`. **Cross-origin** links, including
+admin handoffs, PayMongo success URLs, and Supabase `redirectTo`, must be
+full-page navigations built from `@s-class/constants/urls`:
+`EXTERNAL.portal()`, `EXTERNAL.loginPage()`, `getAbsoluteUrl(path)`. Student
+portal helpers now resolve to the landing origin plus `/portal/*`; admin remains
+separate.
 
 ## Route guards & session bootstrap
 
@@ -78,9 +74,9 @@ The same conceptual guards exist per app, named per app:
 |---|---|---|
 | `ProtectedRoute` / `PortalProtectedRoute` / `AdminProtectedRoute` | `@s-class/auth` + per-app | Require a session; else redirect to login (preserving `location.from`). Admin variant also requires `role==='admin'`. |
 | `GuestRoute` / `PortalGuestRoute` / `AdminGuestRoute` | `@s-class/auth` + per-app | Kick already-authenticated users to their home (`/dashboard`, `/admin`). |
-| `PortalAdminBouncer` | portal | Sends authenticated **admins** off portal → `admin.*`. |
+| `PortalAdminBouncer` | portal/student routes | Sends authenticated **admins** off student routes → `admin.*`. |
 | `AdminGuestRoute` | admin | Sends authenticated **non-admins** off admin → portal. |
-| `PreviewBouncer` | portal | Sits ahead of `/course/:id` and `/lesson/:id`; forwards **guests** on free-preview targets cross-origin to landing's `/preview/*` (keeps old bookmarks working). |
+| `PreviewBouncer` | portal app legacy parity | Sits ahead of old `/course/:id` and `/lesson/:id`; forwards **guests** on free-preview targets to landing's `/preview/*` (keeps old bookmarks working). |
 
 **The bootstrap rule that prevents the "flash to /login on refresh" bug:** every
 app calls `useAuthStore.getState().initialize()` **before** rendering

@@ -14,7 +14,7 @@ cd elearning-review-platform
 # Install once at the ROOT — workspaces hoist deps for all apps/packages
 npm install
 
-# Env: .env.development (committed) already wires local subdomain URLs.
+# Env: .env.development (committed) already wires local app URLs.
 # For Supabase mode, ensure VITE_SUPABASE_URL / _ANON_KEY are set (see .env.example).
 cp .env.example .env   # then edit as needed
 
@@ -66,7 +66,7 @@ supabase start                    # local stack (Docker)
 2. **Find the layer.** UI → `apps/*` or `src/features|pages`; data → `@s-class/api`
    facade; types → `@s-class/types`; routes → `@s-class/constants/routes`.
 3. **Respect the patterns:** import the `*Api.ts` facade (never a provider);
-   import paths from `ROUTES`; cross-subdomain links via `@s-class/constants/urls`;
+   import paths from `ROUTES`; cross-origin links via `@s-class/constants/urls`;
    read env only through `@s-class/config`; merge classes with `cn()`.
 4. **Type-check + lint** before pushing (`tsc -b`, `npm run lint`).
 5. **DB change?** add a **timestamped** migration
@@ -110,10 +110,10 @@ R2 CORS, `supabase functions deploy`, `supabase db push`. See
 |---|---|---|
 | "module not found" on Pages build | install ran in app subdir, not root | build command must start with `npm install` at root |
 | Build fails on Pages, ok locally | Node 18 default on Pages | set `NODE_VERSION=20+` |
-| PROD build throws "Missing required env var: VITE_*_URL" | subdomain URL unset | set `VITE_LANDING_URL/PORTAL_URL/ADMIN_URL` per project |
+| PROD build throws "Missing required env var: VITE_*_URL" | public origin URL unset | set `VITE_LANDING_URL` and `VITE_ADMIN_URL` |
 | Cross-app link 404s / wrong origin | hardcoded URL or `window.location.origin` | use `EXTERNAL.*` / `getAbsoluteUrl` from `@s-class/constants/urls` |
 | Image `/thumbnails/...` returns 500 | R2 binding missing | add `R2_BUCKET` binding to the Pages project |
-| Logged in on landing, portal says guest | session is per-origin | auth must happen on `portal.*` (landing redirects there) |
+| Logged in on landing, portal says guest | route served from wrong origin or stale build | normal student access must use `s-class.com.ph/login` and `s-class.com.ph/portal` |
 | Premium video won't play for a paid user | subscription not synced | `authStore.syncSubscription()` after subscribe; check `subscriptions.expires_at` |
 | Infinite redirect to /login on portal | guest hitting protected route w/o same-origin login | ensure portal `/login` exists (it does post-Phase-4); check `PortalProtectedRoute` |
 | Flash of /login on refresh | bypassing `isInitializing` | never render routes before `authStore.initialize()` resolves |

@@ -102,13 +102,12 @@ sequenceDiagram
   schoolId) into `raw_user_meta_data`; the `handle_new_user` trigger creates the
   `profiles` row. If email confirmation is on, `confirmationPending=true`.
 - **Password reset** exists: `ForgotPasswordPage` → `resetPasswordForEmail` with a
-  cross-subdomain `redirectTo`; `ResetPasswordPage` handles the `PASSWORD_RECOVERY`
+  same-origin student `redirectTo`; `ResetPasswordPage` handles the `PASSWORD_RECOVERY`
   event (deliberately outside `PortalGuestRoute`). *(This contradicts
   `DOCUMENTATION.md` "no password reset" — the flow now exists.)*
 - **Sessions** persist in `localStorage` **per origin**. This is why all auth
-  happens on `portal.*` (landing redirects there) and admin has its own
-  same-origin `/login` — a session created on landing wouldn't be visible to
-  portal.
+  happens on `s-class.com.ph/login` and student routes live under `/portal` on
+  the same origin. Admin has its own same-origin `/login`.
 
 ## Authorization model
 

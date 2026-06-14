@@ -75,7 +75,7 @@ flowchart TD
 Dashed = logical (RLS function) dependency, not an FK. Full FK list:
 [database/relationships.md](database/relationships.md).
 
-## Route map (by owning subdomain)
+## Route map (by owning origin)
 
 | Owner | Path | Page | Guard |
 |---|---|---|---|
@@ -85,15 +85,14 @@ Dashed = logical (RLS function) dependency, not an FK. Full FK list:
 | landing | `/pricing` | SubscriptionPage (marketing) | — |
 | landing | `/preview/subject/:id` | SubjectDetailPage (preview) | — |
 | landing | `/preview/lesson/:id` | LessonPage (preview) | — |
-| landing | `/login` `/register` `/forgot` `/reset` | → redirect to portal | — |
-| portal | `/login` `/register` `/forgot-password` | auth pages | GuestRoute |
-| portal | `/reset-password` | ResetPasswordPage | (no guest guard — recovery session) |
-| portal | `/` | → `/dashboard` | Protected |
-| portal | `/dashboard` `/quizzes` `/subscription` `/profile` `/profile/devices` | portal shell pages | Protected |
-| portal | `/portal/subjects` `/portal/subjects/:id` | subject hub | Protected |
-| portal | `/courses` `/course/:id` `/lesson/:id` | learning (Subjects/lessons) | PreviewBouncer → Protected |
-| portal | `/book/:id/checkout` | checkout | Protected |
-| portal | `/payment-success` `/payment-cancel` | PayMongo callbacks | public |
+| landing | `/login` `/register` `/forgot-password` | auth pages | PortalGuestRoute |
+| landing | `/reset-password` | ResetPasswordPage | (no guest guard — recovery session) |
+| landing | `/portal` | → `/portal/dashboard` | Protected |
+| landing | `/portal/dashboard` `/portal/quiz-history` `/portal/subscription` `/portal/profile` `/portal/profile/devices` | portal shell pages | Protected |
+| landing | `/portal/subjects` `/portal/subjects/:id` | subject hub | Protected |
+| landing | `/portal/lessons/:id` | lesson | Protected |
+| landing | `/portal/book/:id/checkout` | checkout | Protected |
+| landing | `/portal/payment-success` `/portal/payment-cancel` | PayMongo callbacks | public |
 | admin | `/login` | AdminLoginPage | AdminGuestRoute |
 | admin | `/admin` | dashboard | AdminProtectedRoute |
 | admin | `/admin/courses` | **AdminSubjectsPage** (manages Subjects) | AdminProtected |
@@ -130,7 +129,7 @@ The most-depended-on / highest-fan-in modules (changing these ripples widely):
 |---|---|
 | `@s-class/auth/authStore` | every app boots it; orchestrates subscription/devices/saved/quiz stores |
 | `@s-class/config` | sole env reader; imported transitively by everything |
-| `@s-class/constants` (routes + urls) | every navigation + cross-subdomain link |
+| `@s-class/constants` (routes + urls) | every navigation + cross-origin link |
 | `@s-class/api` (`supabaseClient`, facades) | all data access |
 | `src/pages/LessonPage` | shared by landing (preview) + portal; 889 lines |
 | `packages/api/src/admin.service.ts` | single entry for all admin writes; 1266 lines |

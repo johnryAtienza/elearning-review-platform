@@ -126,8 +126,7 @@ export function BookCheckoutPage() {
         notes:      address.notes?.trim() || undefined,
       }
 
-      // Payment success/cancel routes are portal-owned — anchor on portal
-      // so PayMongo redirects back to the right subdomain in every env.
+      // Payment success/cancel routes live under the same-origin student portal.
       const portalOrigin = EXTERNAL.portal()
       const successUrl = `${portalOrigin}${ROUTES.PAYMENT_SUCCESS}?session_id={CHECKOUT_SESSION_ID}&kind=book`
       const cancelUrl  = `${portalOrigin}${ROUTES.PAYMENT_CANCEL}`

@@ -1,6 +1,9 @@
 # Cloudflare Pages — per-app deployment setup
 
-This is the dashboard checklist for migrating from the legacy single Pages project to **three separate Pages projects**, one per subdomain. Created during Phase 4 of the monorepo split.
+This is the dashboard checklist for the app-shell Cloudflare Pages setup. Landing
+and the student portal now share `s-class.com.ph` (`/`, `/login`, `/portal`);
+admin remains separate at `admin.s-class.com.ph`. The `s-class-portal` project is
+kept only for local parity and temporary legacy redirects.
 
 You'll do these steps in the Cloudflare dashboard. The repo is already prepped (per-app `vite.config.ts`, `functions/`, `_redirects`).
 
@@ -31,8 +34,7 @@ You'll do these steps in the Cloudflare dashboard. The repo is already prepped (
 | `VITE_SUPABASE_URL` | `https://dgnpiexszwsjrqfeefmd.supabase.co` | Same as legacy `.env` |
 | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_-TYQ1TxvAMODJsxJ-75k9g_vderW1et` | Same as legacy `.env` |
 | `VITE_AUTH_PROVIDER` | `supabase` | |
-| `VITE_LANDING_URL` | `https://s-class.com.ph` | For cross-domain redirects |
-| `VITE_PORTAL_URL` | `https://portal.s-class.com.ph` | |
+| `VITE_LANDING_URL` | `https://s-class.com.ph` | Landing, auth, and same-origin student portal |
 | `VITE_ADMIN_URL` | `https://admin.s-class.com.ph` | |
 | `VITE_APP_ENV` | `production` | Surfaced as `config.appEnv`. Set to `staging` on Preview environments. |
 
@@ -41,7 +43,7 @@ Set these in **Settings → Environment variables → Production** (and copy to 
 **Preview / staging env vars**: in **Settings → Environment variables → Preview**, override:
 
 - `VITE_APP_ENV=staging`
-- `VITE_LANDING_URL` / `VITE_PORTAL_URL` / `VITE_ADMIN_URL` → the matching `*.pages.dev` URLs for that project (e.g. `https://my-branch.s-class-landing.pages.dev`). This keeps a branch's three apps wired to each other instead of cross-linking into production.
+- `VITE_LANDING_URL` / `VITE_ADMIN_URL` → the matching `*.pages.dev` URLs for that branch (for example, `https://my-branch.s-class-landing.pages.dev`). The student portal uses `VITE_LANDING_URL` under `/portal`; `VITE_PORTAL_URL` is deprecated.
 
 ### R2 binding (set on every project — for Pages Functions)
 
@@ -69,24 +71,25 @@ Without this, image URLs like `/covers/book-abc.webp` will 500.
 After first deploy, verify on `https://s-class-landing.pages.dev`:
 - Home page loads with logo + content
 - `/about`, `/contact`, `/faq` render
-- `/login` form submits successfully (creates session on `s-class-landing.pages.dev` origin)
+- `/login` form submits successfully
+- `/portal` redirects authenticated students to `/portal/dashboard`
+- guest access to `/portal/dashboard` redirects to `/login`
 
 ---
 
-## Project 2: `s-class-portal`
+## Project 2: `s-class-portal` (legacy redirect compatibility)
 
 | Field | Value |
 |---|---|
 | Project name | `s-class-portal` |
 | Build command | `npm install && npm run build:portal` |
 | Build output directory | `apps/portal/dist` |
-| Custom domains (after first deploy) | `portal.s-class.com.ph` |
+| Custom domains (after first deploy) | none for normal student access |
 
 After first deploy, verify on `https://s-class-portal.pages.dev`:
-- `/` redirects to `/dashboard`
-- Unauth: currently redirects to landing's `/login` (cross-origin) — **this will create an infinite redirect in production** once portal is on its own subdomain. **Fix this before the domain swap** by adding a same-origin portal `/login` (deferred follow-up flagged in the plan).
-- `/courses`, `/lesson/:id` browse works (public)
-- After login (whichever flow we settle on), `/dashboard`, `/profile`, `/subscription` render
+- `/portal` and `/portal/dashboard` render the same route tree for local/preview parity
+- old paths like `/dashboard`, `/quizzes`, `/courses`, `/course/:id`, `/lesson/:id`, and `/subscription` redirect into `/portal/*`
+- if `portal.s-class.com.ph` is temporarily retained, configure it only as a redirecting legacy hostname to `https://s-class.com.ph/portal`
 
 ---
 
@@ -110,9 +113,11 @@ After first deploy, verify on `https://s-class-admin.pages.dev`:
 
 ## Custom domain swap (do LAST, one at a time)
 
-The legacy Pages project owns `s-class.com.ph`, `portal.s-class.com.ph`, `admin.s-class.com.ph` right now (per Phase 0). To swap:
+The legacy Pages project may still own `s-class.com.ph`, `portal.s-class.com.ph`,
+and `admin.s-class.com.ph` from the earlier subdomain split. Normal student
+traffic should end up on the apex origin, not the portal subdomain.
 
-### Order: admin → portal → landing (apex last)
+### Order: admin → landing
 
 For each new project:
 1. Open the new project in Pages dashboard → **Custom domains** → **Set up a custom domain**
@@ -125,9 +130,12 @@ For each new project:
 
 ### Why this order
 
-Admin is the lowest-traffic, easiest to verify. Portal is mid-risk (real users). Apex is highest-stakes (marketing + SEO) — do it last after you're confident in the pattern.
+Admin is the lowest-traffic, easiest to verify. Apex is highest-stakes because it
+now serves marketing, auth, and `/portal` student routes.
 
-After the apex swap, the legacy Pages project has no custom domains and can be decommissioned (per Phase 5 cleanup).
+After the apex swap, keep `portal.s-class.com.ph` only if you need a temporary
+301 compatibility hostname. It should redirect to `https://s-class.com.ph/portal`,
+not serve normal student sessions.
 
 ---
 

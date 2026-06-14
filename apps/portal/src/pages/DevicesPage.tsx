@@ -68,7 +68,7 @@ export function DevicesPage() {
   const inactive = devices.filter((d) => !d.isActive).slice(0, 10)
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-2xl space-y-8">
+    <div className="container mx-auto px-4 py-12 max-w-2xl space-y-8">
       <Link
         to={ROUTES.PROFILE}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -127,7 +127,7 @@ export function DevicesPage() {
           </h2>
           <ul className="space-y-2 opacity-70">
             {inactive.map((d) => (
-              <li key={d.id} className="flex items-center gap-3 rounded-xl border bg-card/50 p-3">
+              <li key={d.id} className="flex items-start gap-3 rounded-xl border bg-card/50 p-3 sm:items-center">
                 <div className="rounded-md bg-muted p-2 shrink-0">
                   {d.deviceKind === 'mobile'
                     ? <Smartphone className="size-4 text-muted-foreground" />
@@ -161,11 +161,11 @@ interface DeviceRowProps {
 function DeviceRow({ device, isCurrent, isBusy, disabled, onRevoke }: DeviceRowProps) {
   return (
     <li className={cn(
-      'flex items-center gap-3 rounded-xl border bg-card p-4 transition-opacity',
+      'flex flex-col gap-3 rounded-xl border bg-card p-4 transition-opacity sm:flex-row sm:items-center',
       disabled && 'opacity-50',
     )}>
       <div className={cn(
-        'rounded-md p-2 shrink-0',
+        'rounded-md p-2 shrink-0 self-start sm:self-auto',
         isCurrent ? 'bg-primary/15' : 'bg-muted',
       )}>
         {device.deviceKind === 'mobile'
@@ -191,7 +191,7 @@ function DeviceRow({ device, isCurrent, isBusy, disabled, onRevoke }: DeviceRowP
         variant="outline"
         onClick={onRevoke}
         disabled={disabled || isBusy}
-        className="shrink-0 text-destructive hover:text-destructive"
+        className="w-full shrink-0 text-destructive hover:text-destructive sm:w-auto"
       >
         {isBusy
           ? <Loader2 className="size-3.5 mr-1.5 animate-spin" />

@@ -66,6 +66,7 @@ const PORTAL_PREFIXES = [
   '/quizzes',
   '/payment-success',
   '/payment-cancel',
+  '/portal/subjects',
   // Auth routes — primary home is portal; landing redirects there.
   '/login',
   '/register',

@@ -1,15 +1,12 @@
 import { Outlet } from 'react-router-dom'
-import { Navbar } from './Navbar'
+import { Navbar } from '@/layouts/Navbar'
 import { SiteBackground } from '@/components/SiteBackground'
 
 /**
  * Top-level layout for the Landing app.
  *
- * Landing-only after Phase 3: Portal switched to `PortalRootLayout` (which
- * intentionally has no marketing Navbar / footer), and Admin has its own
- * `AdminLayout`. Nothing on Landing needs the previous hide-chrome heuristics
- * (Portal shell, /books, /lesson, /admin) — those surfaces aren't reachable
- * from this subdomain anymore — so this file stays deliberately small.
+ * Landing owns the marketing route tree. The website chrome itself is shared
+ * with Portal via `src/layouts/Navbar.tsx`; Admin keeps its own layout.
  */
 export function RootLayout() {
   return (

@@ -6,7 +6,19 @@ import {
   useNavigate,
   type NavLinkProps,
 } from 'react-router-dom'
-import { Menu, User, X, ShieldCheck, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
+import {
+  Award,
+  BookOpen,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  MonitorSmartphone,
+  ShieldCheck,
+  User,
+  X,
+  ChevronDown,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -183,10 +195,11 @@ function UserAvatar({ name }: { name: string }) {
 interface ProfileDropdownProps {
   name: string
   email: string
+  showStudentItems: boolean
   onLogout: () => void
 }
 
-function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
+function ProfileDropdown({ name, email, showStudentItems, onLogout }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const smartNavigate = useSmartNavigate()
@@ -196,6 +209,16 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
   function handleViewProfile() {
     setOpen(false)
     smartNavigate(ROUTES.PROFILE)
+  }
+
+  function handleDevices() {
+    setOpen(false)
+    smartNavigate(ROUTES.DEVICES)
+  }
+
+  function handleSubscription() {
+    setOpen(false)
+    smartNavigate(ROUTES.SUBSCRIPTION)
   }
 
   function handleLogout() {
@@ -237,6 +260,26 @@ function ProfileDropdown({ name, email, onLogout }: ProfileDropdownProps) {
               <User className="size-4 shrink-0 text-muted-foreground" />
               View Profile
             </button>
+            {showStudentItems && (
+              <>
+                <button
+                  role="menuitem"
+                  onClick={handleDevices}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <MonitorSmartphone className="size-4 shrink-0 text-muted-foreground" />
+                  Devices
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={handleSubscription}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <CreditCard className="size-4 shrink-0 text-muted-foreground" />
+                  Subscription
+                </button>
+              </>
+            )}
             <button
               role="menuitem"
               onClick={handleLogout}
@@ -389,11 +432,45 @@ function MobileSubjectsSection({
   )
 }
 
-// ── Navbar ───────────────────────────────────────────────────────────────────
+// ── Desktop nav rows ─────────────────────────────────────────────────────────
+
+function PublicNavTabs({
+  subjects,
+  loading,
+  isAuthenticated,
+}: {
+  subjects: Subject[]
+  loading: boolean
+  isAuthenticated: boolean
+}) {
+  return (
+    <>
+      <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
+      <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
+      <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
+      <SubjectsDropdown subjects={subjects} loading={loading} isAuthenticated={isAuthenticated} />
+      <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
+      <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
+    </>
+  )
+}
+
+function PortalNavTabs() {
+  return (
+    <>
+      <SmartNavLink to={ROUTES.DASHBOARD} end className={tabClass}>My Learning</SmartNavLink>
+      <SmartNavLink to={ROUTES.PORTAL_SUBJECTS} className={tabClass}>Subjects</SmartNavLink>
+      <SmartNavLink to={ROUTES.QUIZ_HISTORY} className={tabClass}>Quizzes</SmartNavLink>
+    </>
+  )
+}
+
+// ── Shared website Navbar ────────────────────────────────────────────────────
 
 export function Navbar() {
   const { isAuthenticated, isSubscribed, isAdmin, user, logout } = useAuthStore()
   const onAdminRoute = useMatch('/admin/*') !== null
+  const showPortalNav = CURRENT_SUBDOMAIN === 'portal' && isAuthenticated && !isAdmin
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [subjects, setSubjects] = useState<Subject[]>(() => subjectsCache ?? [])
@@ -457,7 +534,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                {!isAdmin && (
+                {!isAdmin && !showPortalNav && (
                   <SmartNavLink to={ROUTES.DASHBOARD} className={utilityLinkClass}>
                     <span className="inline-flex items-center gap-1.5">
                       <LayoutDashboard className="size-4" />
@@ -483,6 +560,7 @@ export function Navbar() {
                   <ProfileDropdown
                     name={user.name}
                     email={user.email}
+                    showStudentItems={!isAdmin}
                     onLogout={handleLogoutClick}
                   />
                 )}
@@ -513,44 +591,66 @@ export function Navbar() {
         {/* Hidden on admin routes so the admin panel isn't cluttered with public-site nav. */}
         <nav className={cn('hidden border-t bg-background/60', !onAdminRoute && 'md:block')}>
           <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
-            <SmartNavLink to={ROUTES.HOME} end className={tabClass}>Home</SmartNavLink>
-            <SmartNavLink to={ROUTES.ABOUT} className={tabClass}>Who we are</SmartNavLink>
-            <SmartNavLink to={ROUTES.BOOKS} className={tabClass}>Books</SmartNavLink>
-            <SubjectsDropdown subjects={subjects} loading={loading} isAuthenticated={isAuthenticated} />
-            <SmartNavLink to={ROUTES.FAQ}     className={tabClass}>FAQ</SmartNavLink>
-            <SmartNavLink to={ROUTES.CONTACT} className={tabClass}>Contact</SmartNavLink>
+            {showPortalNav ? (
+              <PortalNavTabs />
+            ) : (
+              <PublicNavTabs
+                subjects={subjects}
+                loading={loading}
+                isAuthenticated={isAuthenticated}
+              />
+            )}
           </div>
         </nav>
 
         {/* ── Mobile menu ── */}
         {mobileOpen && (
-          <div className="md:hidden border-t bg-background px-4 py-4 space-y-1">
-            <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
-            <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
-            <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
-            <MobileSubjectsSection
-              subjects={subjects}
-              loading={loading}
-              onNavigate={() => setMobileOpen(false)}
-              isAuthenticated={isAuthenticated}
-            />
-            <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
-            <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
-
-            {isAuthenticated && (
+          <div className="md:hidden max-h-[calc(100vh-var(--site-navbar-height))] overflow-y-auto overscroll-contain border-t bg-background px-4 py-4 space-y-1">
+            {showPortalNav ? (
               <>
-                <div className="pt-2 mt-2 border-t" />
-                {!isAdmin && (
-                  <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>
-                    <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
-                    Dashboard
-                  </MobileNavLink>
-                )}
-                {isAdmin && (
-                  <MobileNavLink to={ROUTES.ADMIN} onClick={() => setMobileOpen(false)}>
-                    <ShieldCheck className="size-4 inline-block mr-1.5 -mt-0.5" />
-                    Admin
-                  </MobileNavLink>
+                <MobileNavLink to={ROUTES.DASHBOARD} end onClick={() => setMobileOpen(false)}>
+                  <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
+                  My Learning
+                </MobileNavLink>
+                <MobileNavLink to={ROUTES.PORTAL_SUBJECTS} onClick={() => setMobileOpen(false)}>
+                  <BookOpen className="size-4 inline-block mr-1.5 -mt-0.5" />
+                  Subjects
+                </MobileNavLink>
+                <MobileNavLink to={ROUTES.QUIZ_HISTORY} onClick={() => setMobileOpen(false)}>
+                  <Award className="size-4 inline-block mr-1.5 -mt-0.5" />
+                  Quizzes
+                </MobileNavLink>
+              </>
+            ) : (
+              <>
+                <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
+                <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
+                <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
+                <MobileSubjectsSection
+                  subjects={subjects}
+                  loading={loading}
+                  onNavigate={() => setMobileOpen(false)}
+                  isAuthenticated={isAuthenticated}
+                />
+                <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
+                <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
+
+                {isAuthenticated && (
+                  <>
+                    <div className="pt-2 mt-2 border-t" />
+                    {!isAdmin && (
+                      <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>
+                        <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
+                        Dashboard
+                      </MobileNavLink>
+                    )}
+                    {isAdmin && (
+                      <MobileNavLink to={ROUTES.ADMIN} onClick={() => setMobileOpen(false)}>
+                        <ShieldCheck className="size-4 inline-block mr-1.5 -mt-0.5" />
+                        Admin
+                      </MobileNavLink>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -560,11 +660,11 @@ export function Navbar() {
                 <>
                   <div className="flex items-center gap-2 py-1">
                     {user && <UserAvatar name={user.name} />}
-                    <div>
-                      <p className="text-sm font-medium">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{user?.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
                     </div>
-                    {isSubscribed && <Badge variant="pro" className="ml-auto">Standard</Badge>}
+                    {isSubscribed && <Badge variant="pro" className="ml-auto shrink-0">Standard</Badge>}
                   </div>
                   {!isSubscribed && !isAdmin && (
                     <Button asChild className="w-full" size="sm">
@@ -577,6 +677,24 @@ export function Navbar() {
                       View Profile
                     </SmartLink>
                   </Button>
+                  {!isAdmin && (
+                    <>
+                      <Button asChild variant="outline" className="w-full" size="sm">
+                        <SmartLink to={ROUTES.DEVICES} onClick={() => setMobileOpen(false)}>
+                          <MonitorSmartphone className="size-4 mr-2" />
+                          Devices
+                        </SmartLink>
+                      </Button>
+                      {isSubscribed && (
+                        <Button asChild variant="outline" className="w-full" size="sm">
+                          <SmartLink to={ROUTES.SUBSCRIPTION} onClick={() => setMobileOpen(false)}>
+                            <CreditCard className="size-4 mr-2" />
+                            Subscription
+                          </SmartLink>
+                        </Button>
+                      )}
+                    </>
+                  )}
                   <Button variant="outline" className="w-full" size="sm" onClick={handleLogoutClick}>
                     Log out
                   </Button>

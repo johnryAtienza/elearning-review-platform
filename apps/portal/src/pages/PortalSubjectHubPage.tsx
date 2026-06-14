@@ -20,8 +20,7 @@ import type { Lesson } from '@/features/lessons/types'
 
 /**
  * Authenticated subject hub. Companion to the public SubjectDetailPage
- * (/course/:courseId) but framed as an LMS — progress-first header,
- * curriculum below.
+ * (/course/:courseId), with student progress and curriculum actions.
  *
  * Reuses:
  *   - subjectApi.getById, lessonApi.getBySubject (existing provider routers)
@@ -95,7 +94,7 @@ export function PortalSubjectHubPage() {
 
   if (loading || !subject) {
     return (
-      <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
+      <div className="container mx-auto px-4 py-12 max-w-6xl space-y-6">
         <Skeleton className="h-5 w-24" />
         <Skeleton className="aspect-video w-full rounded-2xl" />
         <Skeleton className="h-8 w-2/3" />
@@ -116,7 +115,7 @@ export function PortalSubjectHubPage() {
   const completed             = hasProgress && progressPct === 100
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl space-y-8">
+    <div className="container mx-auto px-4 py-12 max-w-6xl space-y-8">
 
       {/* ── Back link ── */}
       <Link
@@ -124,7 +123,7 @@ export function PortalSubjectHubPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="size-4" />
-        Subjects
+        All subjects
       </Link>
 
       {/* ── Subject banner ── */}
@@ -241,7 +240,7 @@ export function PortalSubjectHubPage() {
         >
           {isSaved
             ? <><BookmarkCheck className="size-4 mr-1.5" /> Saved</>
-            : <><Bookmark className="size-4 mr-1.5" /> Save to Dashboard</>
+            : <><Bookmark className="size-4 mr-1.5" /> Save to My Learning</>
           }
         </Button>
       </div>

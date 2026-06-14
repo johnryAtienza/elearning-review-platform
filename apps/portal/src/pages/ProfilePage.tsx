@@ -153,11 +153,14 @@ export function ProfilePage() {
     : null
 
   return (
-    <section className="container mx-auto px-4 py-10 max-w-2xl space-y-8">
+    <section className="container mx-auto px-4 py-12 max-w-2xl space-y-8">
 
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+          Account
+        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Your profile</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your account information and security settings.</p>
       </div>
 
@@ -166,9 +169,9 @@ export function ProfilePage() {
         <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground select-none">
           {user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
         </span>
-        <div>
-          <p className="font-semibold text-lg leading-tight">{user.name}</p>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg font-semibold leading-tight">{user.name}</p>
+          <p className="truncate text-sm text-muted-foreground">{user.email}</p>
           {formattedDate && (
             <p className="text-xs text-muted-foreground mt-0.5">Member since {formattedDate}</p>
           )}
@@ -200,7 +203,7 @@ export function ProfilePage() {
           </div>
 
           {/* Name row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label htmlFor="firstName" className="text-sm font-medium">First name</label>
               <Input

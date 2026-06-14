@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Zap, Award, ChevronRight, Plus } from 'lucide-react'
+import { BookOpen, Zap, Award, ChevronRight, Plus, PlayCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -47,62 +47,93 @@ export function DashboardPage() {
     [savedIds, subjects],
   )
 
-  return (
-    <div className="container mx-auto px-4 py-10 max-w-4xl space-y-8">
-      <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+  const firstName = user?.firstName || user?.name.split(' ')[0] || 'student'
 
-      {/* ── Profile card ── */}
-      <div className="rounded-xl border bg-card p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-        <span className="flex size-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground shrink-0">
-          {initials}
-        </span>
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{user?.name}</h2>
-            <Badge variant={isSubscribed ? 'pro' : 'outline'}>
-              {isSubscribed ? 'Standard' : 'Free'}
-            </Badge>
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-5xl space-y-10">
+
+      {/* ── Student home hero ── */}
+      <section className="rounded-2xl border bg-card p-6 sm:p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-5 min-w-0">
+            <span className="flex size-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground shrink-0">
+              {initials}
+            </span>
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                  My Learning
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                  Welcome back, {firstName}
+                </h1>
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Pick up your saved subjects, review recent quiz results, and keep your study progress moving.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={isSubscribed ? 'pro' : 'outline'}>
+                  {isSubscribed ? 'Standard Plan' : 'Free Plan'}
+                </Badge>
+                <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
+          <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0">
+            <Button asChild>
+              <Link to={ROUTES.PORTAL_SUBJECTS}>
+                <PlayCircle className="size-4 mr-1.5" />
+                Continue learning
+              </Link>
+            </Button>
+            {!isSubscribed && (
+              <Button asChild variant="outline">
+                <Link to={ROUTES.SUBSCRIPTION}>View plans</Link>
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* ── Stats cards ── */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard
-          icon={BookOpen}
-          label="Subjects Saved"
-          value={stats.subjectsSaved}
-          loading={loading}
-          accent="blue"
-        />
-        <StatCard
-          icon={Zap}
-          label="Lessons Completed"
-          value={stats.lessonsCompleted}
-          loading={loading}
-          accent="purple"
-        />
-        <StatCard
-          icon={Award}
-          label="Quizzes Taken"
-          value={stats.quizzesTaken}
-          loading={loading}
-          accent="amber"
-        />
-      </div>
+      <section className="space-y-4">
+        <SectionHeading title="Learning snapshot" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard
+            icon={BookOpen}
+            label="Saved subjects"
+            value={stats.subjectsSaved}
+            loading={loading}
+            accent="primary"
+          />
+          <StatCard
+            icon={Zap}
+            label="Lessons watched"
+            value={stats.lessonsCompleted}
+            loading={loading}
+            accent="blue"
+          />
+          <StatCard
+            icon={Award}
+            label="Quizzes taken"
+            value={stats.quizzesTaken}
+            loading={loading}
+            accent="amber"
+          />
+        </div>
+      </section>
 
       {/* ── Subscription CTA ── */}
       {!isSubscribed && (
-        <div className="rounded-xl border bg-primary/5 border-primary/20 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-2xl border bg-primary/5 border-primary/20 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <p className="font-semibold">Unlock full access</p>
             <p className="text-sm text-muted-foreground">
-              Subscribe to Standard to access all lessons, quizzes, and reviewer content.
+              Upgrade to Standard to open every lesson, reviewer, and quiz.
             </p>
           </div>
           <Button asChild className="shrink-0">
-            <Link to="/subscription">View Plans</Link>
+            <Link to={ROUTES.SUBSCRIPTION}>View plans</Link>
           </Button>
         </div>
       )}
@@ -116,19 +147,9 @@ export function DashboardPage() {
       {/* ── My Subjects ── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              My Subjects
-            </h2>
-            {savedSubjects.length > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                {savedSubjects.length}
-              </span>
-            )}
-            <div className="h-px flex-1 bg-border w-12" />
-          </div>
+          <SectionHeading title="My subjects" count={savedSubjects.length} />
           <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs">
-            <Link to="/courses">
+            <Link to={ROUTES.PORTAL_SUBJECTS}>
               <Plus className="size-3.5" />
               Add subjects
             </Link>
@@ -207,6 +228,22 @@ function StatCard({
   )
 }
 
+function SectionHeading({ title, count }: { title: string; count?: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {count !== undefined && count > 0 && (
+        <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+          {count}
+        </span>
+      )}
+      <div className="h-px flex-1 bg-border w-12" />
+    </div>
+  )
+}
+
 // ── Recent quizzes section ────────────────────────────────────────────────────
 
 function RecentQuizzesSection({
@@ -228,7 +265,7 @@ function RecentQuizzesSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent Quizzes
+            Recent quiz results
           </h2>
           {attempts.length > 0 && (
             <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
@@ -240,7 +277,7 @@ function RecentQuizzesSection({
         {hasMore && (
           <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs">
             <Link to={ROUTES.QUIZ_HISTORY}>
-              See all
+              View all
               <ChevronRight className="size-3.5" />
             </Link>
           </Button>
@@ -275,11 +312,11 @@ function EmptySubjects() {
       <div className="space-y-1.5">
         <p className="font-semibold">No subjects saved yet</p>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Browse subjects and click the bookmark icon to add them here.
+          Browse the subject library and save the subjects you want to keep studying.
         </p>
       </div>
       <Button asChild size="sm" variant="outline" className="mt-1 gap-1.5">
-        <Link to="/courses">
+        <Link to={ROUTES.PORTAL_SUBJECTS}>
           <Plus className="size-3.5" />
           Browse subjects
         </Link>

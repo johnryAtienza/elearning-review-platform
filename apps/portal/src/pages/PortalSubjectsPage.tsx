@@ -16,7 +16,7 @@ import { ROUTES } from '@/constants/routes'
  *
  * Both card types are reused from /courses but routed into the portal
  * hub (/portal/subjects/:id) via their `to` override, so clicking a card
- * keeps the user inside the portal shell.
+ * keeps the user inside the student learning area.
  *
  * Filtering is intentionally minimal vs. /courses (single search box).
  * The marketing-style course/duration/sort affordances stay on the
@@ -58,11 +58,14 @@ export function PortalSubjectsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl space-y-10">
+    <div className="container mx-auto px-4 py-12 max-w-6xl space-y-10">
 
       {/* ── Header ── */}
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
+        <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+          Subject library
+        </p>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choose what to study next</h1>
         <p className="text-sm text-muted-foreground">
           {savedSubjects.length > 0
             ? `${savedSubjects.length} saved · ${subjects.length} available`
@@ -180,8 +183,9 @@ function EmptyResults({ query }: { query: string }) {
 
 function PortalSubjectsSkeleton() {
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl space-y-10">
+    <div className="container mx-auto px-4 py-12 max-w-6xl space-y-10">
       <div className="space-y-2">
+        <Skeleton className="h-3 w-32" />
         <Skeleton className="h-7 w-32" />
         <Skeleton className="h-4 w-48" />
       </div>

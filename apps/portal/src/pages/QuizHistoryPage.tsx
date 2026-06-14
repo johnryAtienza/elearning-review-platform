@@ -15,18 +15,21 @@ export function QuizHistoryPage() {
   }, [fetch])
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-3xl space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto px-4 py-12 max-w-3xl space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Quiz History</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+            Quiz results
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Track your quiz progress</h1>
           <p className="text-sm text-muted-foreground">
             Every quiz you've submitted, newest first.
           </p>
         </div>
-        <Button asChild variant="ghost" size="sm" className="gap-1.5">
+        <Button asChild variant="ghost" size="sm" className="self-start gap-1.5 sm:self-auto">
           <Link to={ROUTES.DASHBOARD}>
             <ChevronLeft className="size-4" />
-            Dashboard
+            My Learning
           </Link>
         </Button>
       </div>
@@ -104,7 +107,7 @@ function EmptyHistory() {
         </p>
       </div>
       <Button asChild size="sm" variant="outline" className="mt-1">
-        <Link to={ROUTES.SUBJECTS}>Browse subjects</Link>
+        <Link to={ROUTES.PORTAL_SUBJECTS}>Browse subjects</Link>
       </Button>
     </div>
   )

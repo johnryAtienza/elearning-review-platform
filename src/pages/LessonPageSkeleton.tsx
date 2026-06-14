@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 export function LessonPageSkeleton() {
   return (
     <div
-      className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]"
+      className="flex flex-col lg:flex-row min-h-[calc(100vh-var(--site-navbar-height))]"
       aria-busy="true"
       aria-label="Loading lesson"
     >
@@ -11,7 +11,7 @@ export function LessonPageSkeleton() {
       <div className="flex-1 min-w-0">
 
         {/* Top bar */}
-        <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
+        <div className="sticky top-[var(--site-navbar-height)] z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
           <Skeleton className="h-4 w-24 shrink-0" />
           <div className="flex-1 min-w-0 space-y-1.5">
             <Skeleton className="h-4 w-48 hidden sm:block" />
@@ -60,7 +60,7 @@ export function LessonPageSkeleton() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-72 shrink-0 border-l bg-card">
-        <div className="sticky top-16 flex flex-col max-h-[calc(100vh-4rem)]">
+        <div className="sticky top-[var(--site-navbar-height)] flex flex-col max-h-[calc(100vh-var(--site-navbar-height))]">
           <div className="border-b px-4 py-3 space-y-2">
             <Skeleton className="h-3 w-28" />
             <Skeleton className="h-4 w-40" />

@@ -42,6 +42,7 @@
 
 :root {
   --radius: 0.5rem;
+  --site-navbar-height: 4rem;
 
   /* --- Brand accents --- */
   --brand:        oklch(0.595 0.183 44);   /* #d45100 */
@@ -101,6 +102,8 @@
  * and trivial to remove later if we drop the `dark:` prefix usage.
  */
 .dark {
+  --site-navbar-height: 4rem;
+
   --brand:        oklch(0.595 0.183 44);
   --brand-bright: oklch(0.720 0.180 55);
   --brand-hover:  oklch(0.530 0.170 42);
@@ -143,6 +146,13 @@
   --chart-3: oklch(0.650 0.150 240);
   --chart-4: oklch(0.760 0.160 75);
   --chart-5: oklch(0.780 0.210 145);
+}
+
+@media (min-width: 768px) {
+  :root,
+  .dark {
+    --site-navbar-height: 6.625rem;
+  }
 }
 
 @theme inline {

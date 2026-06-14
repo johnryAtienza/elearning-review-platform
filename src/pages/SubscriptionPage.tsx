@@ -253,26 +253,28 @@ export function SubscriptionPage() {
         <h2 className="text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-5">
           Plan Comparison
         </h2>
-        <div className="rounded-2xl border overflow-hidden">
-          <div className="grid grid-cols-3 bg-muted/40 text-sm font-semibold border-b">
-            <div className="px-4 py-3">Feature</div>
-            <div className="px-4 py-3 text-center text-muted-foreground">Free</div>
-            <div className="px-4 py-3 text-center text-primary">Standard</div>
-          </div>
-          {COMPARISON_ROWS.map((row, i) => (
-            <div
-              key={row.label}
-              className={cn('grid grid-cols-3 text-sm', i % 2 === 0 ? 'bg-card' : 'bg-muted/20')}
-            >
-              <div className="px-4 py-3 text-muted-foreground">{row.label}</div>
-              <div className="px-4 py-3 flex justify-center items-center">
-                <ComparisonCell value={row.free} />
-              </div>
-              <div className="px-4 py-3 flex justify-center items-center">
-                <ComparisonCell value={row.standard} highlight />
-              </div>
+        <div className="rounded-2xl border overflow-x-auto">
+          <div className="min-w-[34rem]">
+            <div className="grid grid-cols-3 bg-muted/40 text-sm font-semibold border-b">
+              <div className="px-4 py-3">Feature</div>
+              <div className="px-4 py-3 text-center text-muted-foreground">Free</div>
+              <div className="px-4 py-3 text-center text-primary">Standard</div>
             </div>
-          ))}
+            {COMPARISON_ROWS.map((row, i) => (
+              <div
+                key={row.label}
+                className={cn('grid grid-cols-3 text-sm', i % 2 === 0 ? 'bg-card' : 'bg-muted/20')}
+              >
+                <div className="px-4 py-3 text-muted-foreground">{row.label}</div>
+                <div className="px-4 py-3 flex justify-center items-center">
+                  <ComparisonCell value={row.free} />
+                </div>
+                <div className="px-4 py-3 flex justify-center items-center">
+                  <ComparisonCell value={row.standard} highlight />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

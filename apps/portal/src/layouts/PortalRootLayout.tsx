@@ -1,25 +1,25 @@
 import { Outlet } from 'react-router-dom'
+import { Navbar } from '@/layouts/Navbar'
 import { SiteBackground } from '@/components/SiteBackground'
 
 /**
  * Top-level layout for the Portal app.
  *
- * Portal is learning-only after Phase 3 — no marketing Navbar, no marketing
- * footer, no Home/About/Books/FAQ/Contact tabs. Auth pages and payment
- * callbacks render bare here. Protected routes wrap themselves in
- * `PortalLayout` (the dashboard sidebar shell) inside the router, so they
- * never see this layer beyond the background.
- *
- * Landing keeps using the shared `src/layouts/RootLayout.tsx` for its
- * marketing chrome — this file is intentionally Portal-only.
+ * Portal is learning-only after Phase 3, but it now uses the same public-site
+ * chrome as Landing: shared Navbar, dark blueprint background, normal document
+ * scroll, and footer. Auth guards and route ownership remain Portal-specific.
  */
 export function PortalRootLayout() {
   return (
     <div className="relative min-h-screen flex flex-col">
       <SiteBackground />
-      <main className="flex-1 flex flex-col">
+      <Navbar />
+      <main className="flex-1">
         <Outlet />
       </main>
+      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} ELearn. All rights reserved.
+      </footer>
     </div>
   )
 }

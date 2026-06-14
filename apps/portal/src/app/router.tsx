@@ -1,5 +1,4 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { PortalLayout } from '@/layouts/PortalLayout'
 import { SubjectsPage } from '../pages/SubjectsPage'
 import { SubjectDetailPage } from '@/pages/SubjectDetailPage'
 import { LessonPage } from '@/pages/LessonPage'
@@ -111,7 +110,7 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // ── Authenticated portal area (sidebar shell + checkout). ────
+          // ── Authenticated portal area. ────────────────────────────────
           {
             element: <PortalProtectedRoute />,
             children: [
@@ -120,21 +119,13 @@ export const router = createBrowserRouter([
               // LMS-style "the subdomain is the app" entrance.
               { index: true, element: <Navigate to="/dashboard" replace /> },
 
-              // Pages that live inside the portal sidebar shell.
-              {
-                element: <PortalLayout />,
-                children: [
-                  { path: 'dashboard',                  element: <DashboardPage />        },
-                  { path: 'quizzes',                    element: <QuizHistoryPage />      },
-                  { path: 'subscription',               element: <SubscriptionPage />     },
-                  { path: 'profile',                    element: <ProfilePage />          },
-                  { path: 'profile/devices',            element: <DevicesPage />          },
-                  { path: 'portal/subjects',            element: <PortalSubjectsPage />   },
-                  { path: 'portal/subjects/:subjectId', element: <PortalSubjectHubPage /> },
-                ],
-              },
-
-              // Protected routes that intentionally stay outside the portal shell.
+              { path: 'dashboard',                  element: <DashboardPage />        },
+              { path: 'quizzes',                    element: <QuizHistoryPage />      },
+              { path: 'subscription',               element: <SubscriptionPage />     },
+              { path: 'profile',                    element: <ProfilePage />          },
+              { path: 'profile/devices',            element: <DevicesPage />          },
+              { path: 'portal/subjects',            element: <PortalSubjectsPage />   },
+              { path: 'portal/subjects/:subjectId', element: <PortalSubjectHubPage /> },
               { path: 'book/:bookId/checkout', element: <BookCheckoutPage /> },
             ],
           },

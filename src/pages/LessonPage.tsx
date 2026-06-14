@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
 import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
-import { PortalLayout } from '@/layouts/PortalLayout'
 import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
@@ -270,37 +269,38 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
-  // ── Branched render: authenticated users render inside PortalLayout (which
-  //    carries the breadcrumb, position counter, video progress strip, and a
-  //    course-content drawer toggle for mobile). Guests render the same
-  //    lesson body inside the existing layout with the existing sticky header
-  //    above it — guest UX byte-identical to today.
-
   const position = `${data.currentIdx + 1} / ${siblings.length}`
 
-  // Right course-content panel sticky offset differs by chrome above it:
-  //   - authed: inside PortalLayout's overflow-auto main (header is sibling
-  //     of main, not above viewport) → top-0, panel height limited by viewport
-  //     minus PortalLayout header (h-14 = 3.5rem).
-  //   - guest: page-level scroll under public Navbar (h-16 = 4rem).
-  const rightPanelSticky = isAuthenticated
-    ? 'sticky top-0 flex flex-col max-h-[calc(100vh-3.5rem)]'
-    : 'sticky top-16 flex flex-col max-h-[calc(100vh-4rem)]'
+  const stickyOffset = 'top-[var(--site-navbar-height)]'
+  const stickyPanelHeight = 'max-h-[calc(100vh-var(--site-navbar-height))]'
+  const rightPanelSticky = cn('sticky flex flex-col', stickyOffset, stickyPanelHeight)
 
-  // Breadcrumb destined for PortalLayout's headerSlot (authenticated only).
-  // Segments collapse head-first as the viewport narrows.
-  const headerBreadcrumb = (
+  const subjectHref = previewMode
+    ? ROUTES.PREVIEW_SUBJECT(lesson.courseId)
+    : isAuthenticated
+      ? ROUTES.PORTAL_SUBJECT(lesson.courseId)
+      : ROUTES.SUBJECT(lesson.courseId)
+
+  const lessonBreadcrumb = (
     <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 overflow-hidden">
-      <Link to={ROUTES.DASHBOARD} className="hover:text-foreground transition-colors hidden md:inline">
-        Dashboard
-      </Link>
-      <ChevronRight className="size-3 shrink-0 hidden md:inline" aria-hidden="true" />
-      <Link to={ROUTES.PORTAL_SUBJECTS} className="hover:text-foreground transition-colors hidden sm:inline">
-        Subjects
-      </Link>
+      {isAuthenticated ? (
+        <>
+          <Link to={ROUTES.DASHBOARD} className="hover:text-foreground transition-colors hidden md:inline">
+            Dashboard
+          </Link>
+          <ChevronRight className="size-3 shrink-0 hidden md:inline" aria-hidden="true" />
+          <Link to={ROUTES.PORTAL_SUBJECTS} className="hover:text-foreground transition-colors hidden sm:inline">
+            Subjects
+          </Link>
+        </>
+      ) : (
+        <Link to={previewMode ? '/' : ROUTES.SUBJECTS} className="hover:text-foreground transition-colors hidden sm:inline">
+          {previewMode ? 'Home' : 'Subjects'}
+        </Link>
+      )}
       <ChevronRight className="size-3 shrink-0 hidden sm:inline" aria-hidden="true" />
       <Link
-        to={ROUTES.PORTAL_SUBJECT(lesson.courseId)}
+        to={subjectHref}
         className="hover:text-foreground transition-colors truncate"
       >
         {subject?.title ?? 'Subject'}
@@ -310,39 +310,21 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     </nav>
   )
 
-  // PortalLayout headerActions: position counter (sm+) and a mobile/tablet
-  // toggle that opens the course-content drawer (right panel is hidden below
-  // lg, so without this button there'd be no way to see the lesson list).
-  const headerActions = (
-    <>
-      <span className="text-xs text-muted-foreground tabular-nums hidden sm:inline">{position}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-8 lg:hidden"
-        onClick={() => setSidebarOpen((v) => !v)}
-        title="Lesson list"
-      >
-        <List className="size-4" />
-      </Button>
-    </>
-  )
-
   const layout = (
     <div className={cn(
       'flex flex-col lg:flex-row',
-      isAuthenticated ? 'min-h-full' : 'min-h-[calc(100vh-4rem)]',
+      'min-h-[calc(100vh-var(--site-navbar-height))]',
     )}>
       {/* ── Main content ── */}
       <div className="flex-1 min-w-0">
 
-        {/* Lesson sticky header — guests only. Authed users get equivalent
-            information in PortalLayout's header (breadcrumb + position + a
-            video progress strip rendered via headerProgress). */}
-        {!isAuthenticated && (
-        <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3">
+        {/* Lesson sticky header */}
+        <div className={cn(
+          'sticky z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3',
+          stickyOffset,
+        )}>
           <Link
-            to={previewMode ? ROUTES.PREVIEW_SUBJECT(lesson.courseId) : ROUTES.SUBJECT(lesson.courseId)}
+            to={subjectHref}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <ChevronLeft className="size-4" />
@@ -350,7 +332,13 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           </Link>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate hidden sm:block">{lesson.title}</p>
+            <div className="hidden sm:block">
+              {isAuthenticated ? (
+                lessonBreadcrumb
+              ) : (
+                <p className="text-sm font-medium truncate">{lesson.title}</p>
+              )}
+            </div>
             <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden max-w-xs">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"
@@ -372,15 +360,16 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             <span className="text-xs text-muted-foreground">{position}</span>
           </div>
 
-          <button
-            className="lg:hidden rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 lg:hidden"
             onClick={() => setSidebarOpen((v) => !v)}
-            aria-label="Toggle lesson list"
+            title="Lesson list"
           >
-            <List className="size-5" />
-          </button>
+            <List className="size-4" />
+          </Button>
         </div>
-        )}
 
         {/* Mobile lesson sidebar overlay */}
         {sidebarOpen && (
@@ -400,8 +389,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 
         {/* Content */}
         <div className="px-4 py-8 max-w-3xl mx-auto space-y-8">
-          {/* Breadcrumb — guests only. Authenticated users get the breadcrumb
-              in PortalLayout's headerSlot. */}
+          {/* Breadcrumb — guests only; authenticated users get it in the sticky lesson header. */}
           {!isAuthenticated && (
             <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Link to={previewMode ? '/' : ROUTES.SUBJECTS} className="hover:text-foreground transition-colors">
@@ -517,7 +505,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 
           {/* ── Reviewer / Quiz tab panel ── */}
           {activeTab !== null && (
-            <div ref={tabPanelRef}>
+            <div ref={tabPanelRef} className="scroll-mt-[calc(var(--site-navbar-height)+1rem)]">
               {activeTab === 'reviewer' && (reviewerContent || signedPdfUrl) && (
                 <ReviewerSection
                   content={reviewerContent}
@@ -561,9 +549,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             const lockedHref = previewMode
               ? getAbsoluteUrl(withReturnParam(ROUTES.REGISTER, ROUTES.SUBJECT(lesson.courseId)))
               : ROUTES.SUBSCRIPTION
-            const backToSubjectTo = previewMode
-              ? ROUTES.PREVIEW_SUBJECT(lesson.courseId)
-              : ROUTES.SUBJECT(lesson.courseId)
+            const backToSubjectTo = subjectHref
 
             // In previewMode the locked target is cross-origin; render as <a>.
             const NavLink = ({
@@ -650,20 +636,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     </div>
   )
 
-  // ── Branched return ────────────────────────────────────────────────────────
-  if (isAuthenticated) {
-    return (
-      <PortalLayout
-        defaultCollapsed
-        headerSlot={headerBreadcrumb}
-        headerActions={headerActions}
-        headerProgress={progress}
-        flush
-      >
-        {layout}
-      </PortalLayout>
-    )
-  }
   return layout
 }
 

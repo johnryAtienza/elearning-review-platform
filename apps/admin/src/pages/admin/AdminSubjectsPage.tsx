@@ -24,10 +24,11 @@ import { ROUTES } from '@/constants/routes'
 
 // ── Column layout (single source of truth for header + rows) ──────────────────
 
-const GRID_COLS = 'grid-cols-[3rem_1fr_4rem_6rem_9rem]'
+const GRID_COLS = 'grid-cols-[3rem_4rem_1fr_4rem_6rem_9rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'Thumb',   smOnly: true },
+  { label: 'Order',   center: true, smOnly: true },
   { label: 'Subject' },
   { label: 'Lessons', center: true, smOnly: true },
   { label: 'Status',  center: true },
@@ -97,9 +98,12 @@ export function AdminSubjectsPage() {
   function handleSaved(saved: AdminSubject, isEdit: boolean) {
     setSubjects((prev) => {
       const exists = prev.some((s) => s.id === saved.id)
-      return exists
+      const next = exists
         ? prev.map((s) => s.id === saved.id ? saved : s)
-        : [saved, ...prev]
+        : [...prev, saved]
+      return next.sort((a, b) =>
+        a.sortOrder - b.sortOrder || (a.createdAt < b.createdAt ? 1 : -1),
+      )
     })
     setModal({ open: false })
     toast.success(isEdit ? `"${saved.title}" updated` : `"${saved.title}" created`)
@@ -136,6 +140,7 @@ export function AdminSubjectsPage() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-4">
                 <Skeleton className="hidden sm:block size-10 rounded-md shrink-0" />
+                <Skeleton className="hidden sm:block h-4 w-6" />
                 <div className="flex-1 space-y-1.5">
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-3 w-64" />
@@ -222,6 +227,11 @@ function SubjectRow({
             className="size-10 rounded-md border"
           />
         </div>
+
+        {/* Order */}
+        <span className="hidden sm:flex justify-center text-sm tabular-nums text-muted-foreground">
+          {subject.sortOrder}
+        </span>
 
         {/* Title + description */}
         <div className="min-w-0">

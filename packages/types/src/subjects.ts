@@ -20,6 +20,8 @@ export interface Subject {
   duration: string
   /** ISO timestamp from created_at — used for "Newest" sort */
   createdAt?: string
+  /** Admin-managed display order. Lower values appear first. */
+  sortOrder?: number
   /** Skill level — populated after running add_course_search_indexes migration */
   difficulty?: 'Beginner' | 'Intermediate' | 'Advanced'
   /** Free-form keyword tags for search */

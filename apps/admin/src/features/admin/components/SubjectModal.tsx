@@ -27,6 +27,7 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
   const [title,            setTitle]            = useState(subject?.title       ?? '')
   const [description,      setDescription]      = useState(subject?.description ?? '')
   const [courseId,         setCourseIdState]    = useState<string>(subject?.courseId ?? '')
+  const [sortOrder,        setSortOrder]        = useState<number>(subject?.sortOrder ?? 0)
   const [thumbnailFile,    setThumbnailFile]    = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(subject?.thumbnailUrl ?? null)
   const [saving,           setSaving]           = useState(false)
@@ -61,6 +62,7 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
     e.preventDefault()
     const trimmedTitle = title.trim()
     if (!trimmedTitle) { setError('Title is required.'); return }
+    if (!Number.isInteger(sortOrder)) { setError('Order must be a whole number.'); return }
 
     setSaving(true)
     setError(null)
@@ -75,12 +77,14 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
           title:       trimmedTitle,
           description: description.trim(),
           courseId:    chosenCourseId,
+          sortOrder,
         })
       } else {
         subjectId = await createSubject({
           title:       trimmedTitle,
           description: description.trim(),
           courseId:    chosenCourseId,
+          sortOrder,
         })
       }
 
@@ -112,6 +116,7 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
         isPublished:  subject?.isPublished ?? false,
         lessonCount:  subject?.lessonCount ?? 0,
         createdAt:    subject?.createdAt   ?? new Date().toISOString(),
+        sortOrder,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save subject.')
@@ -201,6 +206,26 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
               placeholder="e.g. Introduction to React"
               disabled={saving}
             />
+          </div>
+
+          {/* Order */}
+          <div className="space-y-1.5">
+            <label htmlFor="subject-order" className="text-sm font-medium">
+              Order
+            </label>
+            <Input
+              id="subject-order"
+              type="number"
+              min={0}
+              step={1}
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Math.max(0, Number(e.target.value) || 0))}
+              disabled={saving}
+              className="w-28 text-center"
+            />
+            <p className="text-xs text-muted-foreground">
+              Lower numbers appear first in subject menus and listings.
+            </p>
           </div>
 
           {/* Description */}

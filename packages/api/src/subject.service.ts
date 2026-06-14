@@ -35,12 +35,13 @@ interface SubjectRow {
   difficulty: string | null
   tags: string[] | null
   created_at: string
+  sort_order: number
   is_published: boolean
   lessons: [{ count: number }]
 }
 
 const SUBJECT_SELECT =
-  'id, title, description, thumbnail, thumbnail_url, category, course_id, duration, difficulty, tags, created_at, is_published, lessons:lessons(count), course:courses(id,name,slug)'
+  'id, title, description, thumbnail, thumbnail_url, category, course_id, duration, difficulty, tags, created_at, sort_order, is_published, lessons:lessons(count), course:courses(id,name,slug)'
 
 // ── Mapper: DB row → app type ─────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ function toAppSubject(row: SubjectRow): Subject {
     difficulty:  (row.difficulty as Subject['difficulty']) ?? undefined,
     tags:        row.tags ?? [],
     createdAt:   row.created_at,
+    sortOrder:   row.sort_order,
     isPublished: row.is_published,
     lessons:     row.lessons?.[0]?.count ?? 0,
   }
@@ -74,6 +76,7 @@ export async function getSubjects(): Promise<Subject[]> {
     .from('subjects')
     .select(SUBJECT_SELECT)
     .eq('is_published', true)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) {

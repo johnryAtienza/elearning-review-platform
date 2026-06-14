@@ -39,12 +39,14 @@ export interface AdminSubject {
   lessonCount: number
   thumbnailUrl: string | null
   createdAt: string
+  sortOrder: number
 }
 
 export interface SubjectFormData {
   title: string
   description: string
   courseId?: string | null
+  sortOrder: number
 }
 
 export interface AdminLesson {
@@ -164,6 +166,7 @@ interface SubjectRow {
   is_published: boolean
   thumbnail_url: string | null
   created_at: string
+  sort_order: number
   lessons: { count: number }[]
 }
 
@@ -282,7 +285,8 @@ export async function getAdminStats(): Promise<AdminStats> {
 export async function getAdminSubjects(): Promise<AdminSubject[]> {
   const { data, error } = await supabase
     .from('subjects')
-    .select('id, title, description, category, course_id, duration, is_published, thumbnail_url, created_at, lessons:lessons(count), course:courses(id,name)')
+    .select('id, title, description, category, course_id, duration, is_published, thumbnail_url, created_at, sort_order, lessons:lessons(count), course:courses(id,name)')
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_SUBJECTS_FAILED', error.message)
@@ -299,6 +303,7 @@ export async function getAdminSubjects(): Promise<AdminSubject[]> {
     lessonCount:  row.lessons[0]?.count ?? 0,
     thumbnailUrl: row.thumbnail_url,
     createdAt:    row.created_at,
+    sortOrder:    row.sort_order,
   }))
 }
 
@@ -312,6 +317,7 @@ export async function createSubject(data: SubjectFormData): Promise<string> {
       course_id:    data.courseId ?? null,
       duration:     '',
       is_published: false,
+      sort_order:   data.sortOrder,
     })
     .select('id')
     .single()
@@ -328,6 +334,7 @@ export async function updateSubject(
   if (data.title        !== undefined) update.title         = data.title
   if (data.description  !== undefined) update.description   = data.description
   if (data.thumbnailUrl !== undefined) update.thumbnail_url = data.thumbnailUrl
+  if (data.sortOrder    !== undefined) update.sort_order    = data.sortOrder
   if ('courseId' in data)              update.course_id     = data.courseId ?? null
 
   const { error } = await supabase
@@ -389,6 +396,7 @@ export async function getSubjectsForSelect(): Promise<SubjectOption[]> {
   const { data, error } = await supabase
     .from('subjects')
     .select('id, title')
+    .order('sort_order', { ascending: true })
     .order('title')
 
   if (error) throw new ApiError(500, 'ADMIN_SUBJECTS_FAILED', error.message)

@@ -5,7 +5,7 @@
  *   - 300 ms debounce on the search query
  *   - Fuzzy-scored full-text matching (title › description › tags)
  *   - Course (parent grouping), duration, and difficulty filters
- *   - Sorting: relevant | newest | a-z | most-lessons
+ *   - Sorting: database order | newest | a-z | most-lessons
  *
  * Structured so it can migrate to server-side search (Supabase full-text
  * search via `search_vector` column) without changing the public API.
@@ -109,8 +109,8 @@ function applySorting(
     }
     if (sort === 'az')            return a.title.localeCompare(b.title)
     if (sort === 'most-lessons')  return b.lessons - a.lessons
-    // Default (no query + relevant): most lessons first
-    return b.lessons - a.lessons
+    // Default browsing order comes from the database `subjects.sort_order`.
+    return 0
   })
   // Strip internal score before returning
   return sorted.map(({ _score: _s, ...c }) => c)
@@ -204,12 +204,10 @@ export function useSubjects(): UseSubjectsResult {
     return applySorting(scored, sort, q !== '')
   }, [subjects, debouncedSearch, course, duration, sort])
 
-  // Recommended: top subjects by lesson count (shown when no query + no filters)
+  // Recommended follows the admin-managed subject sequence.
   const recommended = useMemo(
     () =>
-      [...subjects]
-        .sort((a, b) => b.lessons - a.lessons)
-        .slice(0, RECOMMENDED_COUNT),
+      subjects.slice(0, RECOMMENDED_COUNT),
     [subjects],
   )
 

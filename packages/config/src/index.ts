@@ -74,6 +74,15 @@ const config = {
     /** Log suspicious blur/focus patterns that may indicate screen capture */
     detectCapture: import.meta.env.VITE_PROTECTION_DETECT_CAPTURE !== 'false',
   },
+  deviceLimit: {
+    /**
+     * Phase G — Netflix-style device cap (1 mobile + 1 desktop per account).
+     * Disabled by default. Set VITE_DEVICE_LIMIT_ENABLED=true to enforce.
+     * When off, registerCurrentDevice() is a no-op and DeviceLimitModal
+     * never appears (applies to both the portal and admin apps).
+     */
+    enabled: import.meta.env.VITE_DEVICE_LIMIT_ENABLED === 'true',
+  },
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? '',

@@ -81,6 +81,10 @@ function toUserDevice(row: DeviceRow): UserDevice {
  */
 export async function registerCurrentDevice(): Promise<void> {
   if (config.api.useMock) return
+  // Phase G device cap is gated behind a flag (off by default). When
+  // disabled this no-ops, so no DeviceLimitError is ever thrown and
+  // DeviceLimitModal never mounts on login / register / initialize.
+  if (!config.deviceLimit.enabled) return
 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return  // Not logged in — nothing to register.

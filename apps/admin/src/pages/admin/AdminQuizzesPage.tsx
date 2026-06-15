@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { QuizModal } from '../../features/admin/components/QuizModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, filterTabClass,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -49,11 +49,14 @@ type CategoryModalState =
   | { open: false }
   | { open: true; category: AdminProblemSetCategory | null }
 
+type PageTab = 'problemSets' | 'categories'
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function AdminQuizzesPage() {
   const [quizzes,            setQuizzes]            = useState<AdminQuiz[]>([])
   const [categories,         setCategories]         = useState<AdminProblemSetCategory[]>([])
+  const [activeTab,          setActiveTab]          = useState<PageTab>('problemSets')
   const [loading,            setLoading]            = useState(true)
   const [loadError,          setLoadError]          = useState<string | null>(null)
   const [deleting,           setDeleting]           = useState<Set<string>>(new Set())
@@ -157,86 +160,110 @@ export function AdminQuizzesPage() {
               : `${quizzes.length} problem set${quizzes.length !== 1 ? 's' : ''} across ${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}`}
           </p>
         </div>
-        <Button
-          onClick={() => setModal({ open: true, quiz: null, loading: false })}
-          disabled={!loading && categories.length === 0}
-          title={categories.length === 0 ? 'Create a category first' : undefined}
+        {activeTab === 'problemSets' && (
+          <Button
+            onClick={() => setModal({ open: true, quiz: null, loading: false })}
+            disabled={!loading && categories.length === 0}
+            title={categories.length === 0 ? 'Create a category first' : undefined}
+          >
+            <Plus className="mr-2 size-4" />
+            New Problem Set
+          </Button>
+        )}
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-2" role="tablist" aria-label="Problem set management">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'problemSets'}
+          className={filterTabClass(activeTab === 'problemSets')}
+          onClick={() => setActiveTab('problemSets')}
         >
-          <Plus className="mr-2 size-4" />
-          New Problem Set
-        </Button>
+          Problem Sets
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'categories'}
+          className={filterTabClass(activeTab === 'categories')}
+          onClick={() => setActiveTab('categories')}
+        >
+          Categories
+        </button>
       </div>
 
       {/* ── Load error ── */}
       <LoadError message={loadError} />
 
-      {/* ── Categories ── */}
-      <ProblemSetCategoriesPanel
-        categories={categories}
-        loading={loading}
-        deletingCategoryId={deletingCategoryId}
-        confirmCategoryId={confirmCategoryId}
-        onCreate={() => setCategoryModal({ open: true, category: null })}
-        onEdit={(category) => setCategoryModal({ open: true, category })}
-        onConfirmDelete={(category) => setConfirmCategoryId(category.id)}
-        onCancelDelete={() => setConfirmCategoryId(null)}
-        onDelete={handleDeleteCategory}
-      />
+      {activeTab === 'categories' ? (
+        <ProblemSetCategoriesPanel
+          categories={categories}
+          loading={loading}
+          deletingCategoryId={deletingCategoryId}
+          confirmCategoryId={confirmCategoryId}
+          onCreate={() => setCategoryModal({ open: true, category: null })}
+          onEdit={(category) => setCategoryModal({ open: true, category })}
+          onConfirmDelete={(category) => setConfirmCategoryId(category.id)}
+          onCancelDelete={() => setConfirmCategoryId(null)}
+          onDelete={handleDeleteCategory}
+        />
+      ) : (
+        <div className="rounded-xl border shadow-sm overflow-hidden">
+          <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
-      {/* ── Table ── */}
-      <div className="rounded-xl border shadow-sm overflow-hidden">
-        <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
-
-        {loading ? (
-          <div className="divide-y">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-4">
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-28" />
+          {loading ? (
+            <div className="divide-y">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-4">
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                  <Skeleton className="h-5 w-8 rounded-full hidden sm:block" />
+                  <Skeleton className="h-4 w-20 hidden sm:block" />
+                  <Skeleton className="h-7 w-16 rounded-md" />
                 </div>
-                <Skeleton className="h-5 w-8 rounded-full hidden sm:block" />
-                <Skeleton className="h-4 w-20 hidden sm:block" />
-                <Skeleton className="h-7 w-16 rounded-md" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-        ) : quizzes.length === 0 ? (
-          <EmptyState
-            icon={ClipboardList}
-            title="No problem sets yet"
-            description="Create a problem set and attach it to a lesson."
-            action={
-              <Button
-                size="sm"
-                onClick={() => setModal({ open: true, quiz: null, loading: false })}
-                disabled={categories.length === 0}
-                title={categories.length === 0 ? 'Create a category first' : undefined}
-              >
-                <Plus className="mr-2 size-4" />
-                New Problem Set
-              </Button>
-            }
-          />
+          ) : quizzes.length === 0 ? (
+            <EmptyState
+              icon={ClipboardList}
+              title="No problem sets yet"
+              description="Create a problem set and attach it to a lesson."
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => setModal({ open: true, quiz: null, loading: false })}
+                  disabled={categories.length === 0}
+                  title={categories.length === 0 ? 'Create a category first' : undefined}
+                >
+                  <Plus className="mr-2 size-4" />
+                  New Problem Set
+                </Button>
+              }
+            />
 
-        ) : (
-          <div className="divide-y">
-            {quizzes.map((quiz) => (
-              <QuizRow
-                key={quiz.id}
-                quiz={quiz}
-                isDeleting={deleting.has(quiz.id)}
-                isConfirmingDelete={confirmId === quiz.id}
-                onEdit={() => handleEdit(quiz)}
-                onConfirmDelete={() => setConfirmId(quiz.id)}
-                onCancelDelete={() => setConfirmId(null)}
-                onDelete={() => handleDelete(quiz)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="divide-y">
+              {quizzes.map((quiz) => (
+                <QuizRow
+                  key={quiz.id}
+                  quiz={quiz}
+                  isDeleting={deleting.has(quiz.id)}
+                  isConfirmingDelete={confirmId === quiz.id}
+                  onEdit={() => handleEdit(quiz)}
+                  onConfirmDelete={() => setConfirmId(quiz.id)}
+                  onCancelDelete={() => setConfirmId(null)}
+                  onDelete={() => handleDelete(quiz)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Modal ── */}
       {modal.open && (

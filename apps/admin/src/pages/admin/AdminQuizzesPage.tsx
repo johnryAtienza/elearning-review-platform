@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, type ElementType, type FormEvent } from 'react'
 import {
   ClipboardList, Plus, Pencil, Trash2,
-  Loader2, BookMarked, Tags,
+  Loader2, BookMarked, Tags, List, Folder,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/utils/cn'
 import { QuizModal } from '../../features/admin/components/QuizModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, filterTabClass,
+  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -50,6 +51,11 @@ type CategoryModalState =
   | { open: true; category: AdminProblemSetCategory | null }
 
 type PageTab = 'problemSets' | 'categories'
+
+const PAGE_TABS: Array<{ id: PageTab; label: string; icon: ElementType }> = [
+  { id: 'problemSets', label: 'Problem Sets', icon: List },
+  { id: 'categories',  label: 'Categories',   icon: Folder },
+]
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -160,110 +166,115 @@ export function AdminQuizzesPage() {
               : `${quizzes.length} problem set${quizzes.length !== 1 ? 's' : ''} across ${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}`}
           </p>
         </div>
-        {activeTab === 'problemSets' && (
-          <Button
-            onClick={() => setModal({ open: true, quiz: null, loading: false })}
-            disabled={!loading && categories.length === 0}
-            title={categories.length === 0 ? 'Create a category first' : undefined}
-          >
-            <Plus className="mr-2 size-4" />
-            New Problem Set
-          </Button>
-        )}
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="flex items-center gap-2" role="tablist" aria-label="Problem set management">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'problemSets'}
-          className={filterTabClass(activeTab === 'problemSets')}
-          onClick={() => setActiveTab('problemSets')}
-        >
-          Problem Sets
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'categories'}
-          className={filterTabClass(activeTab === 'categories')}
-          onClick={() => setActiveTab('categories')}
-        >
-          Categories
-        </button>
       </div>
 
       {/* ── Load error ── */}
       <LoadError message={loadError} />
 
-      {activeTab === 'categories' ? (
-        <ProblemSetCategoriesPanel
-          categories={categories}
-          loading={loading}
-          deletingCategoryId={deletingCategoryId}
-          confirmCategoryId={confirmCategoryId}
-          onCreate={() => setCategoryModal({ open: true, category: null })}
-          onEdit={(category) => setCategoryModal({ open: true, category })}
-          onConfirmDelete={(category) => setConfirmCategoryId(category.id)}
-          onCancelDelete={() => setConfirmCategoryId(null)}
-          onDelete={handleDeleteCategory}
-        />
-      ) : (
-        <div className="rounded-xl border shadow-sm overflow-hidden">
-          <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
+      <div className="overflow-hidden rounded-xl border shadow-sm">
+        {/* ── Tabs ── */}
+        <div className="flex flex-col gap-4 border-b px-4 pt-3 sm:flex-row sm:items-stretch sm:justify-between sm:px-6 sm:pt-0">
+          <div className="flex flex-wrap items-stretch gap-2 sm:gap-5" role="tablist" aria-label="Problem set management">
+            {PAGE_TABS.map((tab) => (
+              <ProblemSetPageTab
+                key={tab.id}
+                tab={tab}
+                active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+              />
+            ))}
+          </div>
 
-          {loading ? (
-            <div className="divide-y">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-4">
-                  <div className="flex-1 space-y-1.5">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-28" />
-                  </div>
-                  <Skeleton className="h-5 w-8 rounded-full hidden sm:block" />
-                  <Skeleton className="h-4 w-20 hidden sm:block" />
-                  <Skeleton className="h-7 w-16 rounded-md" />
-                </div>
-              ))}
-            </div>
-
-          ) : quizzes.length === 0 ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="No problem sets yet"
-              description="Create a problem set and attach it to a lesson."
-              action={
-                <Button
-                  size="sm"
-                  onClick={() => setModal({ open: true, quiz: null, loading: false })}
-                  disabled={categories.length === 0}
-                  title={categories.length === 0 ? 'Create a category first' : undefined}
-                >
-                  <Plus className="mr-2 size-4" />
-                  New Problem Set
-                </Button>
-              }
-            />
-
-          ) : (
-            <div className="divide-y">
-              {quizzes.map((quiz) => (
-                <QuizRow
-                  key={quiz.id}
-                  quiz={quiz}
-                  isDeleting={deleting.has(quiz.id)}
-                  isConfirmingDelete={confirmId === quiz.id}
-                  onEdit={() => handleEdit(quiz)}
-                  onConfirmDelete={() => setConfirmId(quiz.id)}
-                  onCancelDelete={() => setConfirmId(null)}
-                  onDelete={() => handleDelete(quiz)}
-                />
-              ))}
-            </div>
-          )}
+          <div className="flex items-center pb-4 sm:pb-0">
+            {activeTab === 'problemSets' ? (
+              <Button
+                onClick={() => setModal({ open: true, quiz: null, loading: false })}
+                disabled={!loading && categories.length === 0}
+                title={categories.length === 0 ? 'Create a category first' : undefined}
+              >
+                <Plus className="mr-2 size-4" />
+                New Problem Set
+              </Button>
+            ) : (
+              <Button onClick={() => setCategoryModal({ open: true, category: null })}>
+                <Plus className="mr-2 size-4" />
+                New Category
+              </Button>
+            )}
+          </div>
         </div>
-      )}
+
+        {activeTab === 'categories' ? (
+          <ProblemSetCategoriesPanel
+            categories={categories}
+            loading={loading}
+            deletingCategoryId={deletingCategoryId}
+            confirmCategoryId={confirmCategoryId}
+            embedded
+            onCreate={() => setCategoryModal({ open: true, category: null })}
+            onEdit={(category) => setCategoryModal({ open: true, category })}
+            onConfirmDelete={(category) => setConfirmCategoryId(category.id)}
+            onCancelDelete={() => setConfirmCategoryId(null)}
+            onDelete={handleDeleteCategory}
+          />
+        ) : (
+          <div className="p-4 sm:p-6">
+            <div className="rounded-xl border shadow-sm overflow-hidden">
+              <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
+
+              {loading ? (
+                <div className="divide-y">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 px-4 py-4">
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-48" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                      <Skeleton className="h-5 w-8 rounded-full hidden sm:block" />
+                      <Skeleton className="h-4 w-20 hidden sm:block" />
+                      <Skeleton className="h-7 w-16 rounded-md" />
+                    </div>
+                  ))}
+                </div>
+
+              ) : quizzes.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="No problem sets yet"
+                  description="Create a problem set and attach it to a lesson."
+                  action={
+                    <Button
+                      size="sm"
+                      onClick={() => setModal({ open: true, quiz: null, loading: false })}
+                      disabled={categories.length === 0}
+                      title={categories.length === 0 ? 'Create a category first' : undefined}
+                    >
+                      <Plus className="mr-2 size-4" />
+                      New Problem Set
+                    </Button>
+                  }
+                />
+
+              ) : (
+                <div className="divide-y">
+                  {quizzes.map((quiz) => (
+                    <QuizRow
+                      key={quiz.id}
+                      quiz={quiz}
+                      isDeleting={deleting.has(quiz.id)}
+                      isConfirmingDelete={confirmId === quiz.id}
+                      onEdit={() => handleEdit(quiz)}
+                      onConfirmDelete={() => setConfirmId(quiz.id)}
+                      onCancelDelete={() => setConfirmId(null)}
+                      onDelete={() => handleDelete(quiz)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Modal ── */}
       {modal.open && (
@@ -295,6 +306,37 @@ export function AdminQuizzesPage() {
   )
 }
 
+// ── Page tabs ────────────────────────────────────────────────────────────────
+
+interface ProblemSetPageTabProps {
+  tab: typeof PAGE_TABS[number]
+  active: boolean
+  onClick: () => void
+}
+
+function ProblemSetPageTab({ tab, active, onClick }: ProblemSetPageTabProps) {
+  const Icon = tab.icon
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'relative flex min-h-14 items-center gap-3 px-2 text-sm font-semibold transition-colors sm:min-h-20 sm:px-4',
+        'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors',
+        active
+          ? 'text-foreground after:bg-primary'
+          : 'text-muted-foreground after:bg-transparent hover:text-foreground',
+      )}
+    >
+      <Icon className={cn('size-5 transition-colors', active ? 'text-primary' : 'text-muted-foreground')} />
+      <span>{tab.label}</span>
+    </button>
+  )
+}
+
 // ── Category management ──────────────────────────────────────────────────────
 
 interface ProblemSetCategoriesPanelProps {
@@ -302,6 +344,7 @@ interface ProblemSetCategoriesPanelProps {
   loading: boolean
   deletingCategoryId: string | null
   confirmCategoryId: string | null
+  embedded?: boolean
   onCreate: () => void
   onEdit: (category: AdminProblemSetCategory) => void
   onConfirmDelete: (category: AdminProblemSetCategory) => void
@@ -314,110 +357,115 @@ function ProblemSetCategoriesPanel({
   loading,
   deletingCategoryId,
   confirmCategoryId,
+  embedded = false,
   onCreate,
   onEdit,
   onConfirmDelete,
   onCancelDelete,
   onDelete,
 }: ProblemSetCategoriesPanelProps) {
-  return (
-    <section className="rounded-xl border shadow-sm overflow-hidden">
-      <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Tags className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Problem Set Categories</h2>
+  const body = loading ? (
+    <div className="divide-y">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-4 py-3">
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-20" />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Categories drive the lesson-page tabs and their display order.
-          </p>
+          <Skeleton className="h-7 w-16 rounded-md" />
         </div>
-        <Button size="sm" variant="outline" onClick={onCreate}>
+      ))}
+    </div>
+  ) : categories.length === 0 ? (
+    <EmptyState
+      icon={Tags}
+      title="No categories yet"
+      description="Create at least one category before adding problem sets."
+      action={
+        <Button size="sm" onClick={onCreate}>
           <Plus className="mr-2 size-4" />
           New Category
         </Button>
-      </div>
+      }
+    />
+  ) : (
+    <div className="divide-y">
+      {categories.map((category) => {
+        const isDeleting = deletingCategoryId === category.id
+        const isConfirmingDelete = confirmCategoryId === category.id
 
-      {loading ? (
-        <div className="divide-y">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3">
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-              <Skeleton className="h-7 w-16 rounded-md" />
-            </div>
-          ))}
-        </div>
-      ) : categories.length === 0 ? (
-        <EmptyState
-          icon={Tags}
-          title="No categories yet"
-          description="Create at least one category before adding problem sets."
-          action={
-            <Button size="sm" onClick={onCreate}>
-              <Plus className="mr-2 size-4" />
-              New Category
-            </Button>
-          }
-        />
-      ) : (
-        <div className="divide-y">
-          {categories.map((category) => {
-            const isDeleting = deletingCategoryId === category.id
-            const isConfirmingDelete = confirmCategoryId === category.id
-
-            return (
-              <div key={category.id} className="divide-y">
-                <div className="flex items-center gap-4 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{category.name}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="tabular-nums">Order {category.sortOrder}</span>
-                      <Badge variant="secondary" className="tabular-nums">
-                        {category.problemSetCount} set{category.problemSetCount === 1 ? '' : 's'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-1">
-                    <Tip label="Edit category">
-                      <Button
-                        variant="ghost" size="icon" className="size-8"
-                        disabled={isDeleting} onClick={() => onEdit(category)}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                    </Tip>
-                    <Tip label="Delete category" align="right">
-                      <Button
-                        variant="ghost" size="icon"
-                        className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        disabled={isDeleting} onClick={() => onConfirmDelete(category)}
-                      >
-                        {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                      </Button>
-                    </Tip>
-                  </div>
+        return (
+          <div key={category.id} className="divide-y">
+            <div className="flex items-center gap-4 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{category.name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="tabular-nums">Order {category.sortOrder}</span>
+                  <Badge variant="secondary" className="tabular-nums">
+                    {category.problemSetCount} set{category.problemSetCount === 1 ? '' : 's'}
+                  </Badge>
                 </div>
-
-                {isConfirmingDelete && (
-                  <DeleteConfirmRow
-                    message={
-                      <>
-                        Delete category <strong>"{category.name}"</strong>? Categories currently used by problem sets cannot be deleted.
-                      </>
-                    }
-                    onConfirm={() => onDelete(category)}
-                    onCancel={onCancelDelete}
-                  />
-                )}
               </div>
-            )
-          })}
+
+              <div className="flex items-center justify-end gap-1">
+                <Tip label="Edit category">
+                  <Button
+                    variant="ghost" size="icon" className="size-8"
+                    disabled={isDeleting} onClick={() => onEdit(category)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                </Tip>
+                <Tip label="Delete category" align="right">
+                  <Button
+                    variant="ghost" size="icon"
+                    className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    disabled={isDeleting} onClick={() => onConfirmDelete(category)}
+                  >
+                    {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                  </Button>
+                </Tip>
+              </div>
+            </div>
+
+            {isConfirmingDelete && (
+              <DeleteConfirmRow
+                message={
+                  <>
+                    Delete category <strong>"{category.name}"</strong>? Categories currently used by problem sets cannot be deleted.
+                  </>
+                }
+                onConfirm={() => onDelete(category)}
+                onCancel={onCancelDelete}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <section className={embedded ? 'p-4 sm:p-6' : 'rounded-xl border shadow-sm overflow-hidden'}>
+      {!embedded && (
+        <div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Tags className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Problem Set Categories</h2>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Categories drive the lesson-page tabs and their display order.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onCreate}>
+            <Plus className="mr-2 size-4" />
+            New Category
+          </Button>
         </div>
       )}
+
+      {embedded ? <div className="rounded-xl border shadow-sm overflow-hidden">{body}</div> : body}
     </section>
   )
 }

@@ -87,13 +87,28 @@ export interface AdminQuizQuestion {
   answerImageUrl: string | null
 }
 
+export interface AdminProblemSetCategory {
+  id: string
+  name: string
+  sortOrder: number
+  problemSetCount: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AdminQuiz {
   id: string
   lessonId: string
+  title: string
+  categoryId: string
+  categoryName: string
+  categorySortOrder: number
   lessonTitle: string
   courseTitle: string
   description: string | null
   randomize: boolean
+  sortOrder: number
+  status: 'draft' | 'published'
   questionCount: number
   createdAt: string
 }
@@ -175,11 +190,25 @@ interface SubjectRow {
 interface QuizRow {
   id: string
   lesson_id: string
+  title: string | null
+  category_id: string
+  category: { id: string; name: string; sort_order: number | null } | null
   description: string | null
   randomize_questions: boolean
+  sort_order: number | null
+  status: 'draft' | 'published' | null
   created_at: string
   lessons: { title: string; subjects: { title: string } | null } | null
   quiz_questions: { count: number }[]
+}
+
+interface ProblemSetCategoryRow {
+  id: string
+  name: string
+  sort_order: number | null
+  created_at: string
+  updated_at: string
+  quizzes: { count: number }[]
 }
 
 interface QuizQuestionRow {
@@ -471,12 +500,95 @@ export async function deleteAdminLesson(lessonId: string): Promise<void> {
   if (error) throw new ApiError(500, 'ADMIN_LESSON_DELETE_FAILED', error.message)
 }
 
-// ── Quizzes ───────────────────────────────────────────────────────────────────
+// ── Problem sets ──────────────────────────────────────────────────────────────
+
+export async function getProblemSetCategories(): Promise<AdminProblemSetCategory[]> {
+  const { data, error } = await supabase
+    .from('problem_set_categories')
+    .select('id, name, sort_order, created_at, updated_at, quizzes(count)')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (error) throw new ApiError(500, 'ADMIN_PROBLEM_SET_CATEGORIES_FAILED', error.message)
+
+  return (data as unknown as ProblemSetCategoryRow[]).map((row) => ({
+    id:              row.id,
+    name:            row.name,
+    sortOrder:       row.sort_order ?? 0,
+    problemSetCount: row.quizzes[0]?.count ?? 0,
+    createdAt:       row.created_at,
+    updatedAt:       row.updated_at,
+  }))
+}
+
+export async function createProblemSetCategory({
+  name,
+  sortOrder,
+}: {
+  name: string
+  sortOrder: number
+}): Promise<string> {
+  const { data, error } = await supabase
+    .from('problem_set_categories')
+    .insert({
+      name:       name.trim(),
+      sort_order: sortOrder,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw new ApiError(500, 'ADMIN_PROBLEM_SET_CATEGORY_CREATE_FAILED', error.message)
+  return (data as { id: string }).id
+}
+
+export async function updateProblemSetCategory(
+  categoryId: string,
+  {
+    name,
+    sortOrder,
+  }: {
+    name: string
+    sortOrder: number
+  },
+): Promise<void> {
+  const { error } = await supabase
+    .from('problem_set_categories')
+    .update({
+      name:       name.trim(),
+      sort_order: sortOrder,
+    })
+    .eq('id', categoryId)
+
+  if (error) throw new ApiError(500, 'ADMIN_PROBLEM_SET_CATEGORY_UPDATE_FAILED', error.message)
+}
+
+export async function deleteProblemSetCategory(categoryId: string): Promise<void> {
+  const { error } = await supabase
+    .from('problem_set_categories')
+    .delete()
+    .eq('id', categoryId)
+
+  if (!error) return
+
+  const isInUse =
+    error.code === '23503'
+    || /foreign key|still referenced|violates/i.test(error.message)
+
+  throw new ApiError(
+    isInUse ? 409 : 500,
+    isInUse ? 'ADMIN_PROBLEM_SET_CATEGORY_IN_USE' : 'ADMIN_PROBLEM_SET_CATEGORY_DELETE_FAILED',
+    isInUse
+      ? 'This category is used by one or more problem sets. Move or delete those problem sets first.'
+      : error.message,
+  )
+}
 
 export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, subjects(title)), quiz_questions(count)')
+    .select('id, lesson_id, title, category_id, category:problem_set_categories(id, name, sort_order), description, randomize_questions, sort_order, status, created_at, lessons(title, subjects(title)), quiz_questions(count)')
+    .order('lesson_id', { ascending: true })
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZZES_FAILED', error.message)
@@ -484,22 +596,34 @@ export async function getAdminQuizzes(): Promise<AdminQuiz[]> {
   return (data as unknown as QuizRow[]).map((row) => ({
     id:            row.id,
     lessonId:      row.lesson_id,
+    title:         row.title?.trim() || 'Elements',
+    categoryId:    row.category?.id ?? row.category_id,
+    categoryName:  row.category?.name?.trim() || 'Elements',
+    categorySortOrder: row.category?.sort_order ?? 40,
     lessonTitle:   row.lessons?.title ?? 'Unknown lesson',
     // AdminQuiz.courseTitle field name kept until Phase 3; value is the
     // parent subject's title.
     courseTitle:   row.lessons?.subjects?.title ?? 'Unknown subject',
     description:   row.description ?? null,
     randomize:     row.randomize_questions ?? false,
+    sortOrder:     row.sort_order ?? 0,
+    status:        row.status ?? 'published',
     questionCount: row.quiz_questions[0]?.count ?? 0,
     createdAt:     row.created_at,
-  }))
+  })).sort((a, b) =>
+    a.lessonTitle.localeCompare(b.lessonTitle)
+    || a.categorySortOrder - b.categorySortOrder
+    || a.categoryName.localeCompare(b.categoryName)
+    || a.sortOrder - b.sortOrder
+    || a.title.localeCompare(b.title)
+  )
 }
 
 export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | null> {
   const [quizRes, questionsRes] = await Promise.all([
     supabase
       .from('quizzes')
-      .select('id, lesson_id, description, randomize_questions, created_at, lessons(title, subjects(title))')
+      .select('id, lesson_id, title, category_id, category:problem_set_categories(id, name, sort_order), description, randomize_questions, sort_order, status, created_at, lessons(title, subjects(title))')
       .eq('id', quizId)
       .single(),
     supabase
@@ -529,20 +653,50 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
   return {
     id:            quiz.id,
     lessonId:      quiz.lesson_id,
+    title:         quiz.title?.trim() || 'Elements',
+    categoryId:    quiz.category?.id ?? quiz.category_id,
+    categoryName:  quiz.category?.name?.trim() || 'Elements',
+    categorySortOrder: quiz.category?.sort_order ?? 40,
     lessonTitle:   quiz.lessons?.title ?? 'Unknown lesson',
     courseTitle:   quiz.lessons?.subjects?.title ?? 'Unknown subject',
     description:   quiz.description ?? null,
     randomize:     quiz.randomize_questions ?? false,
+    sortOrder:     quiz.sort_order ?? 0,
+    status:        quiz.status ?? 'published',
     questionCount: questions.length,
     createdAt:     quiz.created_at,
     questions,
   }
 }
 
-export async function createAdminQuiz(lessonId: string, description?: string | null, randomize?: boolean): Promise<string> {
+export async function createAdminQuiz({
+  lessonId,
+  title,
+  categoryId,
+  description,
+  randomize,
+  sortOrder,
+  status,
+}: {
+  lessonId: string
+  title: string
+  categoryId: string
+  description?: string | null
+  randomize?: boolean
+  sortOrder?: number
+  status?: 'draft' | 'published'
+}): Promise<string> {
   const { data, error } = await supabase
     .from('quizzes')
-    .insert({ lesson_id: lessonId, description: description ?? null, randomize_questions: randomize ?? false })
+    .insert({
+      lesson_id:           lessonId,
+      title,
+      category_id:         categoryId,
+      description:         description ?? null,
+      randomize_questions: randomize ?? false,
+      sort_order:          sortOrder ?? 0,
+      status:              status ?? 'published',
+    })
     .select('id')
     .single()
 
@@ -550,10 +704,34 @@ export async function createAdminQuiz(lessonId: string, description?: string | n
   return (data as { id: string }).id
 }
 
-export async function updateAdminQuiz(quizId: string, description: string | null, randomize: boolean): Promise<void> {
+export async function updateAdminQuiz(
+  quizId: string,
+  {
+    title,
+    categoryId,
+    description,
+    randomize,
+    sortOrder,
+    status,
+  }: {
+    title: string
+    categoryId: string
+    description: string | null
+    randomize: boolean
+    sortOrder: number
+    status: 'draft' | 'published'
+  },
+): Promise<void> {
   const { error } = await supabase
     .from('quizzes')
-    .update({ description, randomize_questions: randomize })
+    .update({
+      title,
+      category_id: categoryId,
+      description,
+      randomize_questions: randomize,
+      sort_order:          sortOrder,
+      status,
+    })
     .eq('id', quizId)
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZ_UPDATE_FAILED', error.message)

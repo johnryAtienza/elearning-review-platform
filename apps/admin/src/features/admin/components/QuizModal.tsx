@@ -16,6 +16,7 @@ import {
   updateAdminQuiz,
   deleteQuizQuestionsByIds,
   upsertQuizQuestion,
+  type AdminProblemSetCategory,
   type AdminQuizFull,
   type AdminQuizOption,
 } from '@s-class/api/admin.service'
@@ -101,14 +102,19 @@ function fromExistingQuestion(q: AdminQuizFull['questions'][number]): DraftQuest
 
 interface QuizModalProps {
   quiz: AdminQuizFull | null   // null = create mode
+  categories: AdminProblemSetCategory[]
   onClose: () => void
   onSaved: (quizId: string, lessonId: string) => void
 }
 
-export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
+export function QuizModal({ quiz, categories, onClose, onSaved }: QuizModalProps) {
   const isEdit = quiz !== null
 
   const [lessonId,     setLessonId]     = useState(quiz?.lessonId ?? '')
+  const [title,        setTitle]        = useState(quiz?.title ?? '')
+  const [categoryId,   setCategoryId]   = useState(quiz?.categoryId ?? categories[0]?.id ?? '')
+  const [sortOrder,    setSortOrder]    = useState(String(quiz?.sortOrder ?? 40))
+  const [status,       setStatus]       = useState<'draft' | 'published'>(quiz?.status ?? 'published')
   const [description,  setDescription]  = useState(quiz?.description ?? '')
   const [randomize,    setRandomize]    = useState(quiz?.randomize ?? false)
   const [lessons,      setLessons]      = useState<{ id: string; title: string; courseTitle: string }[]>([])
@@ -141,6 +147,9 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
   // ── Validation ────────────────────────────────────────────────────────────────
   function validate(): string | null {
     if (!lessonId) return 'Please select a lesson.'
+    if (!title.trim()) return 'Please enter a problem set title.'
+    if (!categoryId) return 'Please select a category.'
+    if (!Number.isFinite(Number(sortOrder))) return 'Sort order must be a number.'
     if (questions.length === 0) return 'Add at least one question.'
     for (let qi = 0; qi < questions.length; qi++) {
       const q = questions[qi]
@@ -169,12 +178,31 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
 
     try {
       // 1. Get or create quiz record
-      setUploadStep('Preparing quiz…')
+      setUploadStep('Preparing problem set…')
+      const trimmedTitle = title.trim()
       const trimmedDescription = description.trim() || null
+      const numericSortOrder = Number(sortOrder)
       const quizId = isEdit
         ? quiz.id
-        : await createAdminQuiz(lessonId, trimmedDescription, randomize)
-      if (isEdit) await updateAdminQuiz(quizId, trimmedDescription, randomize)
+        : await createAdminQuiz({
+          lessonId,
+          title:       trimmedTitle,
+          categoryId,
+          description: trimmedDescription,
+          randomize,
+          sortOrder:   numericSortOrder,
+          status,
+        })
+      if (isEdit) {
+        await updateAdminQuiz(quizId, {
+          title:       trimmedTitle,
+          categoryId,
+          description: trimmedDescription,
+          randomize,
+          sortOrder:   numericSortOrder,
+          status,
+        })
+      }
 
       // 2. In edit mode, delete only questions that were explicitly removed
       if (isEdit && deletedIdsRef.current.length > 0) {
@@ -264,7 +292,7 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
 
       onSaved(quizId, lessonId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save quiz.')
+      setError(err instanceof Error ? err.message : 'Failed to save problem set.')
     } finally {
       setSaving(false)
       setUploadStep('')
@@ -323,7 +351,7 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold">{isEdit ? 'Edit Quiz' : 'New Quiz'}</h2>
+            <h2 className="text-lg font-semibold">{isEdit ? 'Edit Problem Set' : 'New Problem Set'}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {questions.length} question{questions.length !== 1 ? 's' : ''}
             </p>
@@ -365,6 +393,73 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
               )}
             </div>
 
+            {/* Problem set settings */}
+            <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Problem Set Title <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Algebra Basics Set 1"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Category <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  disabled={saving || categories.length === 0}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {categories.length === 0 ? (
+                    <option value="">Create a category first</option>
+                  ) : (
+                    categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {categories.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Create at least one category before saving a problem set.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-[7rem_9rem]">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Sort Order</label>
+                <Input
+                  type="number"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
+                  disabled={saving}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+            </div>
+
             {/* Description */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -376,7 +471,7 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
-                placeholder="Add instructions or additional details for this quiz…"
+                placeholder="Add instructions or additional details for this problem set…"
                 disabled={saving}
                 rows={4}
                 className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
@@ -398,7 +493,7 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
                     )}>
                       <p className="font-semibold mb-1">Randomize Questions</p>
                       <p className="text-muted-foreground">
-                        When <span className="font-medium text-foreground">On</span>, questions will appear in a different random order each time a student takes the quiz.
+                        When <span className="font-medium text-foreground">On</span>, questions will appear in a different random order each time a student takes this problem set.
                       </p>
                       <p className="text-muted-foreground mt-1">
                         When <span className="font-medium text-foreground">Off</span> (default), questions follow the order you set here.
@@ -465,9 +560,9 @@ export function QuizModal({ quiz, onClose, onSaved }: QuizModalProps) {
               <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving || lessonsLoad}>
+              <Button type="submit" disabled={saving || lessonsLoad || categories.length === 0}>
                 {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {isEdit ? 'Save changes' : 'Create quiz'}
+                {isEdit ? 'Save changes' : 'Create problem set'}
               </Button>
             </div>
           </div>

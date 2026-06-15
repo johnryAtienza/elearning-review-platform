@@ -13,19 +13,26 @@ import { ResultSummary } from './ResultSummary'
 import { ROUTES } from '@/constants/routes'
 import { MathText } from '@/components/MathText'
 
+function randomIndex(maxExclusive: number): number {
+  const values = new Uint32Array(1)
+  globalThis.crypto?.getRandomValues(values)
+  return Math.floor((values[0] / 2 ** 32) * maxExclusive)
+}
+
 interface QuizComponentProps {
+  title?: string
   questions: QuizQuestion[]
   lessonId: string
   visible: boolean
   description?: string | null
   randomize?: boolean
   /**
-   * When true the quiz is locked (free tier on a non-preview lesson).
+   * When true the problem set is locked (free tier on a non-preview lesson).
    * Shows a blurred teaser + upgrade CTA instead of the real questions.
    */
   locked?: boolean
   /**
-   * When true, submitting the quiz writes a row to quiz_results (enrolled
+   * When true, submitting the problem set writes a row to quiz_results (enrolled
    * users only). Guests and free-tier users on a preview lesson get the
    * full interactive experience but no completion record. Defaults to true
    * to preserve behavior for callers that don't pass it explicitly.
@@ -34,6 +41,7 @@ interface QuizComponentProps {
 }
 
 export function QuizComponent({
+  title = 'Problem Set',
   questions,
   lessonId,
   visible,
@@ -49,7 +57,7 @@ export function QuizComponent({
     if (!randomize) return questions
     const copy = [...questions]
     for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
+      const j = randomIndex(i + 1)
       ;[copy[i], copy[j]] = [copy[j], copy[i]]
     }
     return copy
@@ -98,12 +106,12 @@ export function QuizComponent({
     setCurrentIndex(0)
   }
 
-  // Section header — always shown so the user knows a quiz exists
+  // Section header — always shown so the user knows a problem set exists
   const header = (
     <div className="flex items-center gap-3">
       <div className="h-px flex-1 bg-border" />
       <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-        Quiz
+        {title}
         {(!visible || locked) && <Lock className="size-3" />}
       </h2>
       <div className="h-px flex-1 bg-border" />
@@ -120,9 +128,9 @@ export function QuizComponent({
             <Lock className="size-5 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-semibold">Quiz Locked</p>
+            <p className="text-sm font-semibold">Problem Set Locked</p>
             <p className="text-xs text-muted-foreground">
-              Finish watching the video to unlock the quiz.
+              Finish watching the video to unlock this problem set.
             </p>
           </div>
         </div>
@@ -210,7 +218,7 @@ export function QuizComponent({
               disabled={!hasAnswered}
               className="gap-1.5"
             >
-              {isLast ? 'Submit Quiz' : 'Next'}
+              {isLast ? 'Submit Problem Set' : 'Next'}
               {!isLast && <ChevronRight className="size-4" />}
             </Button>
           </div>
@@ -343,9 +351,9 @@ function LockedQuiz({ questions }: { questions: QuizQuestion[] }) {
           <Lock className="size-6 text-primary" />
         </div>
         <div className="space-y-1">
-          <p className="font-semibold">Quiz Locked</p>
+          <p className="font-semibold">Problem Set Locked</p>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            Quizzes are available on the Standard plan. Upgrade to test your knowledge and see
+            Problem sets are available on the Standard plan. Upgrade to test your knowledge and see
             your scores.
           </p>
         </div>

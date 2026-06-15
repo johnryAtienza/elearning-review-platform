@@ -153,7 +153,7 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
       </ol>
 
       <Button variant="outline" onClick={onRetry} className="w-full">
-        Retry Quiz
+        Retry Problem Set
       </Button>
 
       {lightbox && (

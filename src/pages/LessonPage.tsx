@@ -6,10 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
 import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
 import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
-import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
 import { LessonList } from '@/features/lessons/components/LessonList'
-import { LessonCTAs, type LessonActionTab } from '@/features/lessons/components/LessonCTAs'
+import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
 import { ContentWatermark } from '@/components/ContentWatermark'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
@@ -19,13 +18,11 @@ import { useQuizStore } from '@/store/quizStore'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
-import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { quizApi } from '@/services/quizApi'
 import { getEffectivePermissions, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
-import type { ReviewerContent } from '@/features/lessons/types'
-import type { Quiz } from '@/features/quiz/types'
+import type { ProblemSet } from '@/features/quiz/types'
 import { cn } from '@/utils/cn'
 import config from '@/config'
 
@@ -38,8 +35,52 @@ interface LessonPageProps {
   previewMode?: boolean
 }
 
-function isProblemTab(tab: LessonActionTab): boolean {
-  return tab === 'core-problems' || tab === 'recall-problems' || tab === 'challenge'
+interface ProblemSetCategoryGroup {
+  id: string
+  name: string
+  sortOrder: number
+  questionCount: number
+  problemSets: ProblemSet[]
+}
+
+function groupProblemSets(problemSets: ProblemSet[]): ProblemSetCategoryGroup[] {
+  const groups = new Map<string, ProblemSetCategoryGroup>()
+
+  for (const problemSet of problemSets) {
+    const group = groups.get(problemSet.categoryId) ?? {
+      id:            problemSet.categoryId,
+      name:          problemSet.categoryName,
+      sortOrder:     problemSet.categorySortOrder,
+      questionCount: 0,
+      problemSets:   [],
+    }
+
+    group.questionCount += problemSet.questionCount
+    group.problemSets.push(problemSet)
+    groups.set(problemSet.categoryId, group)
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      problemSets: [...group.problemSets].sort((a, b) =>
+        a.sortOrder - b.sortOrder
+        || a.title.localeCompare(b.title)
+      ),
+    }))
+    .sort((a, b) =>
+      a.sortOrder - b.sortOrder
+      || a.name.localeCompare(b.name)
+    )
+}
+
+function getFirstProblemSetSelection(problemSets: ProblemSet[]) {
+  const firstGroup = groupProblemSets(problemSets)[0]
+  const firstSet = firstGroup?.problemSets[0] ?? null
+  return {
+    categoryId: firstGroup?.id ?? null,
+    problemSet: firstSet,
+  }
 }
 
 export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
@@ -49,8 +90,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const [videoProgress,   setVideoProgress]   = useState(0)
   const [previewEnded,    setPreviewEnded]     = useState(false)
   const [sidebarOpen,     setSidebarOpen]      = useState(false)
-  const [reviewerContent, setReviewerContent] = useState<ReviewerContent | undefined>()
-  const [quiz,            setQuiz]            = useState<Quiz | undefined>()
+  const [problemSets,     setProblemSets]     = useState<ProblemSet[]>([])
 
   // Watched state — loaded from backend, persisted on user action
   const [isWatched,      setIsWatched]      = useState(false)
@@ -62,8 +102,9 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const [resumeChoice,  setResumeChoice]  = useState<'pending' | 'resolved'>('resolved')
   const [playerStartAt, setPlayerStartAt] = useState<number | undefined>(undefined)
 
-  // Tab state — only one lesson action panel is visible at a time
-  const [activeTab, setActiveTab] = useState<LessonActionTab | null>(null)
+  // Tab state — categories drive tabs; a category may contain multiple sets
+  const [activeCategoryId,  setActiveCategoryId]  = useState<string | null>(null)
+  const [activeProblemSetId, setActiveProblemSetId] = useState<string | null>(null)
 
   // Ref for scrolling to the tab panel when a tab is activated
   const tabPanelRef = useRef<HTMLDivElement>(null)
@@ -116,9 +157,9 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     setPreviewEnded(false)
     setIsWatched(false)
     setMarkingWatched(false)
-    setReviewerContent(undefined)
-    setQuiz(undefined)
-    setActiveTab(null)
+    setProblemSets([])
+    setActiveCategoryId(null)
+    setActiveProblemSetId(null)
     setResumeAt(null)
     setResumeChoice('resolved')
     setPlayerStartAt(undefined)
@@ -126,16 +167,16 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     const lessonId = data.lesson.id
 
     Promise.all([
-      getReviewerContent(lessonId),
-      quizApi.getByLesson(lessonId),
+      quizApi.getProblemSetsByLesson(lessonId),
       isAuthenticated ? getLessonWatchedStatus(lessonId) : Promise.resolve(false),
-    ]).then(([rc, qz, watched]) => {
-      setReviewerContent(rc)
-      setQuiz(qz)
+    ]).then(([sets, watched]) => {
+      setProblemSets(sets)
       setIsWatched(watched)
       if (watched) {
-        const defaultTab: LessonActionTab | null = rc ? 'core-problems' : qz ? 'elements' : null
-        setActiveTab(defaultTab)
+        const defaultSelection = getFirstProblemSetSelection(sets)
+        if (defaultSelection.problemSet) setLessonId(defaultSelection.problemSet.id)
+        setActiveCategoryId(defaultSelection.categoryId)
+        setActiveProblemSetId(defaultSelection.problemSet?.id ?? null)
       }
       // Offer resume whenever localStorage has a position — Watched lessons
       // stay re-watchable from where the user last paused.
@@ -149,14 +190,15 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 
   // Clear per-lesson UI state when the user logs out while staying on this page.
   // The lesson-id reset effect above only fires on navigation, so without this
-  // the prior session's Watched badge, active quiz tab, and quiz answers would
+  // the prior session's Watched badge, active problem set tab, and answers would
   // leak into the guest view of a free-preview lesson.
   const prevAuthRef = useRef(isAuthenticated)
   useEffect(() => {
     if (prevAuthRef.current && !isAuthenticated) {
       setIsWatched(false)
       setMarkingWatched(false)
-      setActiveTab(null)
+      setActiveCategoryId(null)
+      setActiveProblemSetId(null)
       setResumeAt(null)
       setResumeChoice('resolved')
       setPlayerStartAt(undefined)
@@ -179,14 +221,18 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
-      // Auto-open problem content (or Elements as fallback) after marking watched
-      const defaultTab: LessonActionTab | null = reviewerContent ? 'core-problems' : quiz ? 'elements' : null
-      setActiveTab(defaultTab)
+      // Auto-open the first configured category/problem set after marking watched.
+      const defaultSelection = getFirstProblemSetSelection(problemSets)
+      if (defaultSelection.problemSet) setLessonId(defaultSelection.problemSet.id)
+      setActiveCategoryId(defaultSelection.categoryId)
+      setActiveProblemSetId(defaultSelection.problemSet?.id ?? null)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
-      const defaultTab: LessonActionTab | null = reviewerContent ? 'core-problems' : quiz ? 'elements' : null
-      setActiveTab(defaultTab)
+      const defaultSelection = getFirstProblemSetSelection(problemSets)
+      if (defaultSelection.problemSet) setLessonId(defaultSelection.problemSet.id)
+      setActiveCategoryId(defaultSelection.categoryId)
+      setActiveProblemSetId(defaultSelection.problemSet?.id ?? null)
     } finally {
       setMarkingWatched(false)
     }
@@ -245,14 +291,20 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   // *user* is technically subscribed vs. just getting a free preview.
   const hasFullAccess    = isSubscribed || previewBypass
 
-  // Full-access (subscribed OR Day 1 free): reviewer + quiz unlock after marking
+  // Full-access (subscribed OR Day 1 free): problem sets unlock after marking
   // watched. Otherwise (Day 2+ on free tier): always visible (limited/locked).
   const contentUnlocked = hasFullAccess ? isWatched : true
+  const problemSetGroups = groupProblemSets(problemSets)
+  const activeGroup = problemSetGroups.find((group) => group.id === activeCategoryId) ?? null
+  const activeProblemSet =
+    activeGroup?.problemSets.find((set) => set.id === activeProblemSetId)
+    ?? activeGroup?.problemSets[0]
+    ?? null
 
-  // Navigation: full-access needs isWatched + quiz submitted; otherwise
+  // Navigation: full-access needs isWatched + active problem set submitted; otherwise
   // (Day 2+ on free tier) just needs preview done.
   const navReady = hasFullAccess
-    ? isWatched && (quiz ? submitted : true)
+    ? isWatched && (problemSets.length > 0 ? submitted : true)
     : previewEnded
 
   // Video preview seconds — undefined when unlimited (standard tier or Day 1)
@@ -260,15 +312,25 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     ? undefined
     : permissions.videoPreviewSeconds
 
-  // Single completion hint shown below the quiz section
+  // Single completion hint shown below the problem set section
   const completionHint = getCompletionHint({
-    isSubscribed: hasFullAccess, isWatched, videoProgress, quiz, submitted, previewEnded,
+    isSubscribed: hasFullAccess, isWatched, videoProgress, problemSetCount: problemSets.length, submitted, previewEnded,
     previewSeconds: permissions.videoPreviewSeconds,
   })
 
-  function handleTabChange(tab: LessonActionTab) {
-    setActiveTab(tab)
+  function handleTabChange(tab: string) {
+    const group = problemSetGroups.find((item) => item.id === tab)
+    const firstProblemSet = group?.problemSets[0] ?? null
+
+    setActiveCategoryId(tab)
+    setActiveProblemSetId(firstProblemSet?.id ?? null)
+    if (firstProblemSet) setLessonId(firstProblemSet.id)
     setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  function handleProblemSetChange(problemSetId: string) {
+    setActiveProblemSetId(problemSetId)
+    setLessonId(problemSetId)
   }
 
   const position = `${data.currentIdx + 1} / ${siblings.length}`
@@ -479,9 +541,12 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             isWatched={isWatched}
             markingWatched={markingWatched}
             onMarkWatched={handleMarkWatched}
-            hasReviewer={!!reviewerContent}
-            hasQuiz={!!quiz}
-            activeTab={activeTab}
+            tabs={problemSetGroups.map((group) => ({
+              id:            group.id,
+              label:         group.name,
+              questionCount: group.questionCount,
+            }))}
+            activeTab={activeCategoryId}
             onTabChange={handleTabChange}
           />
 
@@ -504,25 +569,26 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           )}
 
           {/* ── Lesson action tab panel ── */}
-          {activeTab !== null && (
-            <div ref={tabPanelRef} className="scroll-mt-[calc(var(--site-navbar-height)+1rem)]">
-              {isProblemTab(activeTab) && reviewerContent && (
-                <ReviewerSection
-                  content={reviewerContent}
-                  visible={contentUnlocked}
+          {activeProblemSet && (
+            <div ref={tabPanelRef} className="scroll-mt-[calc(var(--site-navbar-height)+1rem)] space-y-5">
+              {activeGroup && activeGroup.problemSets.length > 1 && (
+                <ProblemSetPicker
+                  problemSets={activeGroup.problemSets}
+                  activeProblemSetId={activeProblemSet.id}
+                  onSelect={handleProblemSetChange}
                 />
               )}
-              {activeTab === 'elements' && quiz && (
-                <QuizComponent
-                  questions={quiz.questions}
-                  lessonId={lesson.id}
-                  description={quiz.description}
-                  randomize={quiz.randomize}
-                  visible={contentUnlocked}
-                  locked={!permissions.quizEnabled}
-                  persistResults={isSubscribed || isAdmin}
-                />
-              )}
+              <QuizComponent
+                key={activeProblemSet.id}
+                title={activeProblemSet.title}
+                questions={activeProblemSet.questions}
+                lessonId={lesson.id}
+                description={activeProblemSet.description}
+                randomize={activeProblemSet.randomize}
+                visible={contentUnlocked}
+                locked={!permissions.quizEnabled}
+                persistResults={isSubscribed || isAdmin}
+              />
             </div>
           )}
 
@@ -640,29 +706,85 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
 // ── Completion hint ───────────────────────────────────────────────────────────
 
 function getCompletionHint({
-  isSubscribed, isWatched, videoProgress, quiz, submitted, previewEnded, previewSeconds,
+  isSubscribed, isWatched, videoProgress, problemSetCount, submitted, previewEnded, previewSeconds,
 }: {
   isSubscribed: boolean
   isWatched: boolean
   videoProgress: number
-  quiz: Quiz | undefined
+  problemSetCount: number
   submitted: boolean
   previewEnded: boolean
   previewSeconds: number
 }): ReactNode {
   if (isSubscribed) {
     if (!isWatched && videoProgress < 95)
-      return <>Watch at least 95% of the video, then click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.</>
+      return <>Watch at least 95% of the video, then click <strong>Mark as Watched</strong> to unlock the problem sets.</>
     if (!isWatched)
-      return <>Click <strong>Mark as Watched</strong> to unlock the reviewer and quiz.</>
-    if (quiz && !submitted)
-      return 'Submit the quiz to unlock navigation.'
+      return <>Click <strong>Mark as Watched</strong> to unlock the problem sets.</>
+    if (problemSetCount > 0 && !submitted)
+      return 'Submit the active problem set to unlock navigation.'
     return null
   }
   return !previewEnded ? `Watch the ${previewSeconds}s preview to continue.` : null
 }
 
-// ── Guest CTA (replaces video/reviewer/quiz for unauthenticated visitors
+// ── Problem set selector ─────────────────────────────────────────────────────
+
+function ProblemSetPicker({
+  problemSets,
+  activeProblemSetId,
+  onSelect,
+}: {
+  problemSets: ProblemSet[]
+  activeProblemSetId: string
+  onSelect: (problemSetId: string) => void
+}) {
+  return (
+    <div className="rounded-xl border bg-card/50 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">Problem Sets</p>
+        <span className="text-xs text-muted-foreground">
+          {problemSets.length} set{problemSets.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {problemSets.map((problemSet) => {
+          const active = problemSet.id === activeProblemSetId
+
+          return (
+            <button
+              key={problemSet.id}
+              type="button"
+              onClick={() => onSelect(problemSet.id)}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-left transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                active
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'bg-muted/20 text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-sm font-medium">{problemSet.title}</span>
+                <span className="shrink-0 rounded-full bg-background/70 px-2 py-0.5 text-xs tabular-nums">
+                  {problemSet.questionCount}
+                </span>
+              </div>
+              {problemSet.description && (
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                  {problemSet.description}
+                </p>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Guest CTA (replaces video/problem sets for unauthenticated visitors
 //     on non-preview lessons) ────────────────────────────────────────────────
 
 function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; previewMode?: boolean }) {
@@ -681,7 +803,7 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
           <h2 className="text-lg font-semibold">Enroll to unlock this lesson</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             This lesson is part of the Standard plan. Create an account and enroll
-            to watch the video, read the reviewer, and take the quiz.
+            to watch the video and work through the problem sets.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -704,7 +826,7 @@ function GuestEnrollCTA({ lessonId, previewMode = false }: { lessonId: string; p
         <h2 className="text-lg font-semibold">Enroll to unlock this lesson</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           This lesson is part of the Standard plan. Create an account and enroll
-          to watch the video, read the reviewer, and take the quiz.
+          to watch the video and work through the problem sets.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -812,7 +934,7 @@ function PreviewConversionBanner({
       <div className="flex-1 min-w-0 space-y-1">
         <p className="text-sm font-semibold">Ready for the rest of the subject?</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Enroll to unlock every lesson and the quizzes.
+          Enroll to unlock every lesson and the problem sets.
         </p>
       </div>
       <Button asChild size="sm" className="shrink-0">
@@ -847,8 +969,8 @@ function FreeTierBanner({ previewEnded, previewSeconds }: FreeTierBannerProps) {
         </p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {previewEnded
-            ? 'Preview complete. Upgrade to Standard for the full video and quizzes.'
-            : `Videos preview for ${previewSeconds} seconds. Quizzes are locked.`}
+            ? 'Preview complete. Upgrade to Standard for the full video and problem sets.'
+            : `Videos preview for ${previewSeconds} seconds. Problem sets are locked.`}
         </p>
       </div>
       <Button asChild size="sm" variant={previewEnded ? 'default' : 'outline'} className="shrink-0">

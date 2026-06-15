@@ -16,11 +16,38 @@ export interface QuizQuestion {
   answerImageUrl?: string | null
 }
 
+export type ProblemSetStatus = 'draft' | 'published'
+
 export interface Quiz {
+  id?: string
   lessonId: string
+  title?: string
   description?: string | null
   randomize?: boolean
+  categoryId?: string
+  categoryName?: string
+  categorySortOrder?: number
+  sortOrder?: number
+  status?: ProblemSetStatus
   questions: QuizQuestion[]
+}
+
+export interface ProblemSetCategory {
+  id: string
+  name: string
+  sortOrder: number
+  problemSetCount?: number
+}
+
+export interface ProblemSet extends Quiz {
+  id: string
+  title: string
+  categoryId: string
+  categoryName: string
+  categorySortOrder: number
+  sortOrder: number
+  status: ProblemSetStatus
+  questionCount: number
 }
 
 export interface QuizResult {

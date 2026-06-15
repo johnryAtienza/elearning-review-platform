@@ -14,11 +14,15 @@
  *   content panel; only one panel is ever shown at a time.
  */
 
-import { Check, CheckCircle2, ClipboardList, Loader2 } from 'lucide-react'
+import { Brain, Check, CheckCircle2, CircleDot, ClipboardList, Loader2, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 
-export type LessonActionTab = 'core-problems' | 'recall-problems' | 'challenge' | 'elements'
+export interface LessonActionTab {
+  id: string
+  label: string
+  questionCount?: number
+}
 
 interface LessonCTAsProps {
   /** 0–100 watch progress reported by VideoPlayer */
@@ -29,32 +33,23 @@ interface LessonCTAsProps {
   markingWatched: boolean
   onMarkWatched: () => void
 
-  /** Whether this lesson has structured reviewer content */
-  hasReviewer: boolean
-  /** Whether this lesson has a quiz */
-  hasQuiz: boolean
+  /** Published problem-set categories configured for this lesson */
+  tabs: LessonActionTab[]
 
   /** Currently visible tab — null means no panel is open (shouldn't happen in Phase 2) */
-  activeTab: LessonActionTab | null
+  activeTab: string | null
   /** Called when the user clicks a tab button */
-  onTabChange: (tab: LessonActionTab) => void
+  onTabChange: (tab: string) => void
 }
 
 const WATCH_THRESHOLD = 95
-
-const PROBLEM_TABS: Array<{ id: LessonActionTab; label: string; icon: React.ReactNode }> = [
-  { id: 'core-problems', label: 'Core Problems', icon: <ClipboardList className="size-3.5" /> },
-  { id: 'recall-problems', label: 'Recall Problems', icon: <ClipboardList className="size-3.5" /> },
-  { id: 'challenge', label: 'Challenge', icon: <ClipboardList className="size-3.5" /> },
-]
 
 export function LessonCTAs({
   videoProgress,
   isWatched,
   markingWatched,
   onMarkWatched,
-  hasReviewer,
-  hasQuiz,
+  tabs,
   activeTab,
   onTabChange,
 }: LessonCTAsProps) {
@@ -72,30 +67,22 @@ export function LessonCTAs({
         </div>
 
         {/* Only render the tab control if there's at least one tab to show */}
-        {(hasReviewer || hasQuiz) && (
+        {tabs.length > 0 && (
           <>
             <div className="h-5 w-px bg-border shrink-0" />
 
             {/* Segmented tab control */}
             <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border bg-muted/40 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex w-max items-center gap-0.5">
-                {PROBLEM_TABS.map((tab) => (
+                {tabs.map((tab) => (
                   <TabButton
                     key={tab.id}
                     active={activeTab === tab.id}
                     onClick={() => onTabChange(tab.id)}
-                    icon={tab.icon}
-                    label={tab.label}
+                    icon={getProblemSetIcon(tab.label)}
+                    label={formatProblemSetLabel(tab)}
                   />
                 ))}
-                {hasQuiz && (
-                  <TabButton
-                    active={activeTab === 'elements'}
-                    onClick={() => onTabChange('elements')}
-                    icon={<ClipboardList className="size-3.5" />}
-                    label="Elements"
-                  />
-                )}
               </div>
             </div>
           </>
@@ -147,6 +134,22 @@ export function LessonCTAs({
       </Tooltip>
     </div>
   )
+}
+
+function formatProblemSetLabel(tab: LessonActionTab): string {
+  return typeof tab.questionCount === 'number'
+    ? `${tab.label} (${tab.questionCount})`
+    : tab.label
+}
+
+function getProblemSetIcon(title: string): React.ReactNode {
+  const normalized = title.toLowerCase()
+
+  if (normalized.includes('core')) return <CircleDot className="size-3.5" />
+  if (normalized.includes('recall')) return <Brain className="size-3.5" />
+  if (normalized.includes('challenge')) return <Trophy className="size-3.5" />
+
+  return <ClipboardList className="size-3.5" />
 }
 
 // ── TabButton ─────────────────────────────────────────────────────────────────

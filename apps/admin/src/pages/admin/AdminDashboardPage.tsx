@@ -160,8 +160,8 @@ export function AdminDashboardPage() {
           />
           <QuickLink
             to={ROUTES.ADMIN_QUIZZES}
-            label="Quizzes"
-            description="Review and manage quizzes across lessons."
+            label="Problem Sets"
+            description="Review and manage practice problem sets across lessons."
             icon={TrendingUp}
           />
         </div>

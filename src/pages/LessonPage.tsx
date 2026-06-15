@@ -21,7 +21,7 @@ import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { getReviewerContent } from '@/features/lessons/services/reviewerService'
 import { quizApi } from '@/services/quizApi'
-import { getEffectivePermissions, getEffectiveTier, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
+import { getEffectivePermissions, tierFromSubscribed, isUnlimited, isFreePreview } from '@/features/subscription/services/accessControl'
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
 import type { ReviewerContent } from '@/features/lessons/types'
@@ -99,7 +99,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const lessonIsPreview = isFreePreview(data?.lesson)
   const {
     videoUrl:    signedVideoUrl,
-    pdfUrl:      signedPdfUrl,
     loading:     contentLoading,
     error:       contentError,
   } = useSecureContent(lessonId ?? '', isAuthenticated || lessonIsPreview)
@@ -131,7 +130,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
       setQuiz(qz)
       setIsWatched(watched)
       if (watched) {
-        const defaultTab = (rc || signedPdfUrl) ? 'reviewer' : qz ? 'quiz' : null
+        const defaultTab = rc ? 'reviewer' : qz ? 'quiz' : null
         setActiveTab(defaultTab)
       }
       // Offer resume whenever localStorage has a position — Watched lessons
@@ -177,12 +176,12 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
       }
       setIsWatched(true)
       // Auto-open reviewer (or quiz as fallback) after marking watched
-      const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
+      const defaultTab = reviewerContent ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
-      const defaultTab = (reviewerContent || signedPdfUrl) ? 'reviewer' : quiz ? 'quiz' : null
+      const defaultTab = reviewerContent ? 'reviewer' : quiz ? 'quiz' : null
       setActiveTab(defaultTab)
     } finally {
       setMarkingWatched(false)
@@ -238,12 +237,11 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   // plays in full. Non-preview lessons follow the caller's tier; guests get
   // fully locked permissions and see the GuestEnrollCTA instead of content.
   const permissions      = getEffectivePermissions(tier, lesson, isAuthenticated)
-  const effectiveTier    = getEffectiveTier(tier, lesson, isAuthenticated)
   // For navigation / progress / banner copy we still want to know if the
   // *user* is technically subscribed vs. just getting a free preview.
   const hasFullAccess    = isSubscribed || previewBypass
 
-  // Full-access (subscribed OR Day 1 free): PDF + quiz unlock after marking
+  // Full-access (subscribed OR Day 1 free): reviewer + quiz unlock after marking
   // watched. Otherwise (Day 2+ on free tier): always visible (limited/locked).
   const contentUnlocked = hasFullAccess ? isWatched : true
 
@@ -477,7 +475,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             isWatched={isWatched}
             markingWatched={markingWatched}
             onMarkWatched={handleMarkWatched}
-            hasReviewer={!!(reviewerContent || signedPdfUrl)}
+            hasReviewer={!!reviewerContent}
             hasQuiz={!!quiz}
             activeTab={activeTab}
             onTabChange={handleTabChange}
@@ -504,12 +502,10 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           {/* ── Reviewer / Quiz tab panel ── */}
           {activeTab !== null && (
             <div ref={tabPanelRef} className="scroll-mt-[calc(var(--site-navbar-height)+1rem)]">
-              {activeTab === 'reviewer' && (reviewerContent || signedPdfUrl) && (
+              {activeTab === 'reviewer' && reviewerContent && (
                 <ReviewerSection
                   content={reviewerContent}
-                  pdfUrl={signedPdfUrl ?? undefined}
                   visible={contentUnlocked}
-                  tier={effectiveTier}
                 />
               )}
               {activeTab === 'quiz' && quiz && (
@@ -812,7 +808,7 @@ function PreviewConversionBanner({
       <div className="flex-1 min-w-0 space-y-1">
         <p className="text-sm font-semibold">Ready for the rest of the subject?</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Enroll to unlock every lesson, the full reviewer PDF, and the quizzes.
+          Enroll to unlock every lesson and the quizzes.
         </p>
       </div>
       <Button asChild size="sm" className="shrink-0">
@@ -847,8 +843,8 @@ function FreeTierBanner({ previewEnded, previewSeconds }: FreeTierBannerProps) {
         </p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {previewEnded
-            ? 'Preview complete. Upgrade to Standard for the full video, complete PDF access, and quizzes.'
-            : `Videos preview for ${previewSeconds} seconds. PDFs are limited to the first ${5} pages. Quizzes are locked.`}
+            ? 'Preview complete. Upgrade to Standard for the full video and quizzes.'
+            : `Videos preview for ${previewSeconds} seconds. Quizzes are locked.`}
         </p>
       </div>
       <Button asChild size="sm" variant={previewEnded ? 'default' : 'outline'} className="shrink-0">

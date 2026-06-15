@@ -27,7 +27,7 @@ interface LessonCTAsProps {
   markingWatched: boolean
   onMarkWatched: () => void
 
-  /** Whether this lesson has reviewer content (text or PDF) */
+  /** Whether this lesson has structured reviewer content */
   hasReviewer: boolean
   /** Whether this lesson has a quiz */
   hasQuiz: boolean

@@ -75,9 +75,9 @@ export function AttemptRow({ attempt }: { attempt: QuizAttempt }) {
           <Award className="size-5" />
         </div>
         <div className="flex-1 min-w-0 space-y-0.5">
-          <p className="text-sm font-semibold truncate">{attempt.lessonTitle}</p>
+          <p className="text-sm font-semibold truncate">{attempt.quizTitle ?? attempt.lessonTitle}</p>
           <p className="text-xs text-muted-foreground truncate">
-            {attempt.courseTitle} · {date}
+            {attempt.lessonTitle} · {attempt.courseTitle} · {date}
           </p>
         </div>
         <div className="text-right shrink-0">

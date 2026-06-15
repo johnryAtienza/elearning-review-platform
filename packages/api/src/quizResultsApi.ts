@@ -21,6 +21,8 @@ export interface QuizAttempt {
   lessonTitle: string
   courseId:    string
   courseTitle: string
+  quizId:      string | null
+  quizTitle:   string | null
   score:       number
   total:       number
   submittedAt: string
@@ -31,6 +33,7 @@ export interface QuizAttemptDetail extends QuizAttempt {
 }
 
 export interface SaveQuizResultInput {
+  quizId:   string
   lessonId: string
   score:    number
   total:    number
@@ -58,6 +61,7 @@ export async function saveQuizResult(input: SaveQuizResultInput): Promise<boolea
     .insert({
       user_id:   user.id,
       lesson_id: input.lessonId,
+      quiz_id:   input.quizId,
       score:     input.score,
       total:     input.total,
       answers:   input.answers,
@@ -69,6 +73,7 @@ export async function saveQuizResult(input: SaveQuizResultInput): Promise<boolea
       details: error.details,
       hint: error.hint,
       message: error.message,
+      quizId: input.quizId,
       lessonId: input.lessonId,
       total: input.total,
       answerCount: Object.keys(input.answers).length,
@@ -83,7 +88,7 @@ export async function saveQuizResult(input: SaveQuizResultInput): Promise<boolea
 
 /**
  * Returns the user's quiz attempts (newest first), joined with
- * lesson and subject titles. Uses the get_quiz_history() RPC.
+ * lesson, subject, and problem set titles. Uses the get_quiz_history() RPC.
  *
  * The RPC return shape changed in the Phase 1 migration:
  * `course_id` / `course_title` → `subject_id` / `subject_title`.
@@ -102,6 +107,8 @@ export async function getQuizHistory(limit = 50): Promise<QuizAttempt[]> {
       lesson_title:  string
       subject_id:    string
       subject_title: string
+      quiz_id:       string | null
+      quiz_title:    string | null
       score:         number
       total:         number
       submitted_at:  string
@@ -112,6 +119,8 @@ export async function getQuizHistory(limit = 50): Promise<QuizAttempt[]> {
       lessonTitle: r.lesson_title,
       courseId:    r.subject_id,
       courseTitle: r.subject_title,
+      quizId:      r.quiz_id,
+      quizTitle:   r.quiz_title,
       score:       Number(r.score),
       total:       Number(r.total),
       submittedAt: r.submitted_at,
@@ -125,6 +134,7 @@ export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDeta
     .select(`
       id,
       lesson_id,
+      quiz_id,
       score,
       total,
       answers,
@@ -135,6 +145,9 @@ export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDeta
         subjects!inner (
           title
         )
+      ),
+      quizzes (
+        title
       )
     `)
     .eq('id', attemptId)
@@ -146,6 +159,7 @@ export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDeta
   const row = data as unknown as {
     id: string
     lesson_id: string
+    quiz_id: string | null
     score: number
     total: number
     answers: Record<string, number>
@@ -157,6 +171,9 @@ export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDeta
         title: string
       }
     }
+    quizzes: {
+      title: string | null
+    } | null
   }
 
   return {
@@ -165,6 +182,8 @@ export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDeta
     lessonTitle: row.lessons.title,
     courseId:    row.lessons.subject_id,
     courseTitle: row.lessons.subjects.title,
+    quizId:      row.quiz_id,
+    quizTitle:   row.quizzes?.title ?? null,
     score:       Number(row.score),
     total:       Number(row.total),
     answers:     row.answers ?? {},

@@ -581,6 +581,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
               <QuizComponent
                 key={activeProblemSet.id}
                 title={activeProblemSet.title}
+                quizId={activeProblemSet.id}
                 questions={activeProblemSet.questions}
                 lessonId={lesson.id}
                 description={activeProblemSet.description}

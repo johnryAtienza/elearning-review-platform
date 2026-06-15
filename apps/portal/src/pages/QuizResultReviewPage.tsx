@@ -110,8 +110,8 @@ function AttemptReview({
   onRetry: () => void
 }) {
   const questions = useMemo(
-    () => findAttemptQuestions(problemSets, attempt.answers),
-    [problemSets, attempt.answers],
+    () => findAttemptQuestions(problemSets, attempt.quizId, attempt.answers),
+    [problemSets, attempt.quizId, attempt.answers],
   )
 
   const result = useMemo(() => {
@@ -153,8 +153,14 @@ function AttemptReview({
 
 function findAttemptQuestions(
   problemSets: ProblemSet[],
+  quizId: string | null,
   answers: Record<string, number>,
 ): QuizQuestion[] {
+  if (quizId) {
+    const matchingSet = problemSets.find((set) => set.id === quizId)
+    if (matchingSet) return matchingSet.questions
+  }
+
   const answeredIds = new Set(Object.keys(answers))
   const matchingSet = problemSets.find((set) =>
     set.questions.some((question) => answeredIds.has(question.id)),

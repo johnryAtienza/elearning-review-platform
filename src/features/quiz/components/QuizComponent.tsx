@@ -21,6 +21,7 @@ function randomIndex(maxExclusive: number): number {
 
 interface QuizComponentProps {
   title?: string
+  quizId: string
   questions: QuizQuestion[]
   lessonId: string
   visible: boolean
@@ -43,6 +44,7 @@ interface QuizComponentProps {
 
 export function QuizComponent({
   title = 'Problem Set',
+  quizId,
   questions,
   lessonId,
   visible,
@@ -87,6 +89,7 @@ export function QuizComponent({
 
   async function persistAttempt(score: number) {
     const ok = await saveQuizResult({
+      quizId,
       lessonId,
       score,
       total: shuffled.length,

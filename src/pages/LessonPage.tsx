@@ -9,7 +9,7 @@ import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
 import { ReviewerSection } from '@/features/lessons/components/ReviewerSection'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
 import { LessonList } from '@/features/lessons/components/LessonList'
-import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
+import { LessonCTAs, type LessonActionTab } from '@/features/lessons/components/LessonCTAs'
 import { ContentWatermark } from '@/components/ContentWatermark'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
@@ -38,6 +38,10 @@ interface LessonPageProps {
   previewMode?: boolean
 }
 
+function isProblemTab(tab: LessonActionTab): boolean {
+  return tab === 'core-problems' || tab === 'recall-problems' || tab === 'challenge'
+}
+
 export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const { lessonId } = useParams<{ lessonId: string }>()
 
@@ -58,8 +62,8 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const [resumeChoice,  setResumeChoice]  = useState<'pending' | 'resolved'>('resolved')
   const [playerStartAt, setPlayerStartAt] = useState<number | undefined>(undefined)
 
-  // Tab state — only one of reviewer/quiz is visible at a time
-  const [activeTab, setActiveTab] = useState<'reviewer' | 'quiz' | null>(null)
+  // Tab state — only one lesson action panel is visible at a time
+  const [activeTab, setActiveTab] = useState<LessonActionTab | null>(null)
 
   // Ref for scrolling to the tab panel when a tab is activated
   const tabPanelRef = useRef<HTMLDivElement>(null)
@@ -130,7 +134,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
       setQuiz(qz)
       setIsWatched(watched)
       if (watched) {
-        const defaultTab = rc ? 'reviewer' : qz ? 'quiz' : null
+        const defaultTab: LessonActionTab | null = rc ? 'core-problems' : qz ? 'elements' : null
         setActiveTab(defaultTab)
       }
       // Offer resume whenever localStorage has a position — Watched lessons
@@ -175,13 +179,13 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
         await markLessonWatched(data.lesson.id)
       }
       setIsWatched(true)
-      // Auto-open reviewer (or quiz as fallback) after marking watched
-      const defaultTab = reviewerContent ? 'reviewer' : quiz ? 'quiz' : null
+      // Auto-open problem content (or Elements as fallback) after marking watched
+      const defaultTab: LessonActionTab | null = reviewerContent ? 'core-problems' : quiz ? 'elements' : null
       setActiveTab(defaultTab)
     } catch (err) {
       console.error('Failed to save watch progress:', err)
       setIsWatched(true)
-      const defaultTab = reviewerContent ? 'reviewer' : quiz ? 'quiz' : null
+      const defaultTab: LessonActionTab | null = reviewerContent ? 'core-problems' : quiz ? 'elements' : null
       setActiveTab(defaultTab)
     } finally {
       setMarkingWatched(false)
@@ -262,7 +266,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     previewSeconds: permissions.videoPreviewSeconds,
   })
 
-  function handleTabChange(tab: 'reviewer' | 'quiz') {
+  function handleTabChange(tab: LessonActionTab) {
     setActiveTab(tab)
     setTimeout(() => tabPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
@@ -499,16 +503,16 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             />
           )}
 
-          {/* ── Reviewer / Quiz tab panel ── */}
+          {/* ── Lesson action tab panel ── */}
           {activeTab !== null && (
             <div ref={tabPanelRef} className="scroll-mt-[calc(var(--site-navbar-height)+1rem)]">
-              {activeTab === 'reviewer' && reviewerContent && (
+              {isProblemTab(activeTab) && reviewerContent && (
                 <ReviewerSection
                   content={reviewerContent}
                   visible={contentUnlocked}
                 />
               )}
-              {activeTab === 'quiz' && quiz && (
+              {activeTab === 'elements' && quiz && (
                 <QuizComponent
                   questions={quiz.questions}
                   lessonId={lesson.id}

@@ -10,13 +10,15 @@
  *
  * Phase 2 — Watched:
  *   Replaces the button with a ✓ Watched badge and a segmented tab
- *   control (Reviewer | Quiz). Clicking a tab switches the visible
+ *   control for lesson actions. Clicking a tab switches the visible
  *   content panel; only one panel is ever shown at a time.
  */
 
-import { Check, CheckCircle2, BookOpen, ClipboardList, Loader2 } from 'lucide-react'
+import { Check, CheckCircle2, ClipboardList, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
+
+export type LessonActionTab = 'core-problems' | 'recall-problems' | 'challenge' | 'elements'
 
 interface LessonCTAsProps {
   /** 0–100 watch progress reported by VideoPlayer */
@@ -33,12 +35,18 @@ interface LessonCTAsProps {
   hasQuiz: boolean
 
   /** Currently visible tab — null means no panel is open (shouldn't happen in Phase 2) */
-  activeTab: 'reviewer' | 'quiz' | null
+  activeTab: LessonActionTab | null
   /** Called when the user clicks a tab button */
-  onTabChange: (tab: 'reviewer' | 'quiz') => void
+  onTabChange: (tab: LessonActionTab) => void
 }
 
 const WATCH_THRESHOLD = 95
+
+const PROBLEM_TABS: Array<{ id: LessonActionTab; label: string; icon: React.ReactNode }> = [
+  { id: 'core-problems', label: 'Core Problems', icon: <ClipboardList className="size-3.5" /> },
+  { id: 'recall-problems', label: 'Recall Problems', icon: <ClipboardList className="size-3.5" /> },
+  { id: 'challenge', label: 'Challenge', icon: <ClipboardList className="size-3.5" /> },
+]
 
 export function LessonCTAs({
   videoProgress,
@@ -69,23 +77,26 @@ export function LessonCTAs({
             <div className="h-5 w-px bg-border shrink-0" />
 
             {/* Segmented tab control */}
-            <div className="flex items-center gap-0.5 rounded-lg border bg-muted/40 p-1">
-              {hasReviewer && (
-                <TabButton
-                  active={activeTab === 'reviewer'}
-                  onClick={() => onTabChange('reviewer')}
-                  icon={<BookOpen className="size-3.5" />}
-                  label="Reviewer"
-                />
-              )}
-              {hasQuiz && (
-                <TabButton
-                  active={activeTab === 'quiz'}
-                  onClick={() => onTabChange('quiz')}
-                  icon={<ClipboardList className="size-3.5" />}
-                  label="Quiz"
-                />
-              )}
+            <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border bg-muted/40 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max items-center gap-0.5">
+                {PROBLEM_TABS.map((tab) => (
+                  <TabButton
+                    key={tab.id}
+                    active={activeTab === tab.id}
+                    onClick={() => onTabChange(tab.id)}
+                    icon={tab.icon}
+                    label={tab.label}
+                  />
+                ))}
+                {hasQuiz && (
+                  <TabButton
+                    active={activeTab === 'elements'}
+                    onClick={() => onTabChange('elements')}
+                    icon={<ClipboardList className="size-3.5" />}
+                    label="Elements"
+                  />
+                )}
+              </div>
             </div>
           </>
         )}

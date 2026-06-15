@@ -323,13 +323,17 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           'sticky z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3',
           stickyOffset,
         )}>
-          <Link
-            to={subjectHref}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-full border-border/70 bg-card/60 px-3 text-muted-foreground shadow-none hover:bg-accent/60 hover:text-foreground"
           >
-            <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">{subject?.title ?? 'Subject'}</span>
-          </Link>
+            <Link to={subjectHref}>
+              <ChevronLeft className="size-4" />
+              <span className="hidden sm:inline">{subject?.title ?? 'Subject'}</span>
+            </Link>
+          </Button>
 
           <div className="flex-1 min-w-0">
             <div className="hidden sm:block">
@@ -338,12 +342,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
               ) : (
                 <p className="text-sm font-medium truncate">{lesson.title}</p>
               )}
-            </div>
-            <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden max-w-xs">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
             </div>
           </div>
 

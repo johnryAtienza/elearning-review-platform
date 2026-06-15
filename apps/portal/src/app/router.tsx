@@ -5,6 +5,7 @@ import { ROUTES } from '@/constants/routes'
 import { BookCheckoutPage } from '../pages/BookCheckoutPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { QuizHistoryPage } from '../pages/QuizHistoryPage'
+import { QuizResultReviewPage } from '../pages/QuizResultReviewPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { DevicesPage } from '../pages/DevicesPage'
 import { PaymentSuccessPage } from '../pages/PaymentSuccessPage'
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
                   { path: 'subjects/:subjectId',   element: <PortalSubjectHubPage /> },
                   { path: 'lessons/:lessonId',     element: <LessonPage />           },
                   { path: 'quiz-history',          element: <QuizHistoryPage />      },
+                  { path: 'quiz-history/:attemptId', element: <QuizResultReviewPage /> },
                   { path: 'subscription',          element: <SubscriptionPage />     },
                   { path: 'profile',               element: <ProfilePage />          },
                   { path: 'profile/devices',       element: <DevicesPage />          },

@@ -8,6 +8,7 @@ import { BooksPage } from '../pages/BooksPage'
 import { BookDetailPage } from '../pages/BookDetailPage'
 import { DashboardPage } from '../../../portal/src/pages/DashboardPage'
 import { QuizHistoryPage } from '../../../portal/src/pages/QuizHistoryPage'
+import { QuizResultReviewPage } from '../../../portal/src/pages/QuizResultReviewPage'
 import { PaymentSuccessPage } from '../../../portal/src/pages/PaymentSuccessPage'
 import { PaymentCancelPage } from '../../../portal/src/pages/PaymentCancelPage'
 import { BookCheckoutPage } from '../../../portal/src/pages/BookCheckoutPage'
@@ -115,6 +116,7 @@ export const router = createBrowserRouter([
                   { path: 'subjects/:subjectId',       element: <PortalSubjectHubPage /> },
                   { path: 'lessons/:lessonId',         element: <LessonPage />           },
                   { path: 'quiz-history',              element: <QuizHistoryPage />      },
+                  { path: 'quiz-history/:attemptId',   element: <QuizResultReviewPage /> },
                   { path: 'subscription',              element: <SubscriptionPage />     },
                   { path: 'profile',                   element: <ProfilePage />          },
                   { path: 'profile/devices',           element: <DevicesPage />          },

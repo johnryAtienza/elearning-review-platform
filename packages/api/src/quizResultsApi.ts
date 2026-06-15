@@ -26,6 +26,10 @@ export interface QuizAttempt {
   submittedAt: string
 }
 
+export interface QuizAttemptDetail extends QuizAttempt {
+  answers: Record<string, number>
+}
+
 export interface SaveQuizResultInput {
   lessonId: string
   score:    number
@@ -100,4 +104,57 @@ export async function getQuizHistory(limit = 50): Promise<QuizAttempt[]> {
       submittedAt: r.submitted_at,
     }
   })
+}
+
+export async function getQuizAttempt(attemptId: string): Promise<QuizAttemptDetail | null> {
+  const { data, error } = await supabase
+    .from('quiz_results')
+    .select(`
+      id,
+      lesson_id,
+      score,
+      total,
+      answers,
+      submitted_at,
+      lessons!inner (
+        title,
+        subject_id,
+        subjects!inner (
+          title
+        )
+      )
+    `)
+    .eq('id', attemptId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  const row = data as unknown as {
+    id: string
+    lesson_id: string
+    score: number
+    total: number
+    answers: Record<string, number>
+    submitted_at: string
+    lessons: {
+      title: string
+      subject_id: string
+      subjects: {
+        title: string
+      }
+    }
+  }
+
+  return {
+    id:          row.id,
+    lessonId:    row.lesson_id,
+    lessonTitle: row.lessons.title,
+    courseId:    row.lessons.subject_id,
+    courseTitle: row.lessons.subjects.title,
+    score:       Number(row.score),
+    total:       Number(row.total),
+    answers:     row.answers ?? {},
+    submittedAt: row.submitted_at,
+  }
 }

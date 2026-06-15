@@ -17,6 +17,7 @@ export const ROUTES = {
   PORTAL:          '/portal',
   DASHBOARD:       '/portal/dashboard',
   QUIZ_HISTORY:    '/portal/quiz-history',
+  QUIZ_RESULT:     (attemptId: string) => `/portal/quiz-history/${attemptId}`,
   SUBJECTS:        '/portal/subjects',
   SUBSCRIPTION:    '/portal/subscription',
   SUBJECT: (id: string) => `/portal/subjects/${id}`,

@@ -68,7 +68,7 @@ export function AttemptRow({ attempt }: { attempt: QuizAttempt }) {
   return (
     <li>
       <Link
-        to={ROUTES.LESSON(attempt.lessonId)}
+        to={ROUTES.QUIZ_RESULT(attempt.id)}
         className="flex items-center gap-4 rounded-xl border bg-card p-4 hover:bg-muted/40 transition-colors group"
       >
         <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground shrink-0">

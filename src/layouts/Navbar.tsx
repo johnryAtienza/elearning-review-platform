@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Link,
   NavLink,
-  useLocation,
   useMatch,
   useNavigate,
   type NavLinkProps,
@@ -278,6 +277,16 @@ function ProfileDropdown({ name, email, showStudentItems, onLogout }: ProfileDro
     smartNavigate(ROUTES.DEVICES)
   }
 
+  function handleSubjects() {
+    setOpen(false)
+    smartNavigate(ROUTES.PORTAL_SUBJECTS)
+  }
+
+  function handleQuizzes() {
+    setOpen(false)
+    smartNavigate(ROUTES.QUIZ_HISTORY)
+  }
+
   function handleSubscription() {
     setOpen(false)
     smartNavigate(ROUTES.SUBSCRIPTION)
@@ -324,6 +333,22 @@ function ProfileDropdown({ name, email, showStudentItems, onLogout }: ProfileDro
             </button>
             {showStudentItems && (
               <>
+                <button
+                  role="menuitem"
+                  onClick={handleSubjects}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <BookOpen className="size-4 shrink-0 text-muted-foreground" />
+                  Subjects
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={handleQuizzes}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left"
+                >
+                  <Award className="size-4 shrink-0 text-muted-foreground" />
+                  Quizzes
+                </button>
                 <button
                   role="menuitem"
                   onClick={handleDevices}
@@ -616,16 +641,6 @@ function PublicNavTabs({
   )
 }
 
-function PortalNavTabs() {
-  return (
-    <>
-      <SmartNavLink to={ROUTES.DASHBOARD} end className={tabClass}>My Learning</SmartNavLink>
-      <SmartNavLink to={ROUTES.PORTAL_SUBJECTS} className={tabClass}>Subjects</SmartNavLink>
-      <SmartNavLink to={ROUTES.QUIZ_HISTORY} className={tabClass}>Quizzes</SmartNavLink>
-    </>
-  )
-}
-
 function DesktopAuthActionsLoading() {
   return (
     <div
@@ -655,10 +670,7 @@ function MobileAuthActionsLoading() {
 
 export function Navbar() {
   const { isAuthenticated, isSubscribed, isAdmin, isInitializing, user, logout } = useAuthStore()
-  const { pathname } = useLocation()
   const onAdminRoute = useMatch('/admin/*') !== null
-  const onPortalRoute = pathname === ROUTES.PORTAL || pathname.startsWith(`${ROUTES.PORTAL}/`)
-  const showPortalNav = !isInitializing && onPortalRoute && isAuthenticated && !isAdmin
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [subjects, setSubjects] = useState<Subject[]>(() => subjectsCache ?? [])
@@ -726,7 +738,7 @@ export function Navbar() {
               <DesktopAuthActionsLoading />
             ) : isAuthenticated ? (
               <>
-                {!isAdmin && !showPortalNav && (
+                {!isAdmin && (
                   <SmartNavLink to={ROUTES.DASHBOARD} className={utilityLinkClass}>
                     <span className="inline-flex items-center gap-1.5">
                       <LayoutDashboard className="size-4" />
@@ -783,68 +795,55 @@ export function Navbar() {
         {/* Hidden on admin routes so the admin panel isn't cluttered with public-site nav. */}
         <nav className={cn('hidden border-t bg-background/60', !onAdminRoute && 'md:block')}>
           <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
-            {showPortalNav ? (
-              <PortalNavTabs />
-            ) : (
-              <PublicNavTabs
-                courses={courses}
-                subjects={subjects}
-                loading={loading}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
+            <PublicNavTabs
+              courses={courses}
+              subjects={subjects}
+              loading={loading}
+              isAuthenticated={isAuthenticated}
+            />
           </div>
         </nav>
 
         {/* ── Mobile menu ── */}
         {mobileOpen && (
           <div className="md:hidden max-h-[calc(100vh-var(--site-navbar-height))] overflow-y-auto overscroll-contain border-t bg-background px-4 py-4 space-y-1">
-            {showPortalNav ? (
-              <>
-                <MobileNavLink to={ROUTES.DASHBOARD} end onClick={() => setMobileOpen(false)}>
-                  <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
-                  My Learning
-                </MobileNavLink>
-                <MobileNavLink to={ROUTES.PORTAL_SUBJECTS} onClick={() => setMobileOpen(false)}>
-                  <BookOpen className="size-4 inline-block mr-1.5 -mt-0.5" />
-                  Subjects
-                </MobileNavLink>
-                <MobileNavLink to={ROUTES.QUIZ_HISTORY} onClick={() => setMobileOpen(false)}>
-                  <Award className="size-4 inline-block mr-1.5 -mt-0.5" />
-                  Quizzes
-                </MobileNavLink>
-              </>
-            ) : (
-              <>
-                <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
-                <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
-                <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
-                <MobileCoursesSection
-                  courses={courses}
-                  subjects={subjects}
-                  loading={loading}
-                  onNavigate={() => setMobileOpen(false)}
-                  isAuthenticated={isAuthenticated}
-                />
-                <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
-                <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
+            <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
+            <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
+            <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>
+            <MobileCoursesSection
+              courses={courses}
+              subjects={subjects}
+              loading={loading}
+              onNavigate={() => setMobileOpen(false)}
+              isAuthenticated={isAuthenticated}
+            />
+            <MobileNavLink to={ROUTES.FAQ}     onClick={() => setMobileOpen(false)}>FAQ</MobileNavLink>
+            <MobileNavLink to={ROUTES.CONTACT} onClick={() => setMobileOpen(false)}>Contact</MobileNavLink>
 
-                {!isInitializing && isAuthenticated && (
+            {!isInitializing && isAuthenticated && (
+              <>
+                <div className="pt-2 mt-2 border-t" />
+                {!isAdmin && (
                   <>
-                    <div className="pt-2 mt-2 border-t" />
-                    {!isAdmin && (
-                      <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>
-                        <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
-                        My Learning
-                      </MobileNavLink>
-                    )}
-                    {isAdmin && (
-                      <MobileNavLink to={ROUTES.ADMIN} onClick={() => setMobileOpen(false)}>
-                        <ShieldCheck className="size-4 inline-block mr-1.5 -mt-0.5" />
-                        Admin
-                      </MobileNavLink>
-                    )}
+                    <MobileNavLink to={ROUTES.DASHBOARD} onClick={() => setMobileOpen(false)}>
+                      <LayoutDashboard className="size-4 inline-block mr-1.5 -mt-0.5" />
+                      My Learning
+                    </MobileNavLink>
+                    <MobileNavLink to={ROUTES.PORTAL_SUBJECTS} onClick={() => setMobileOpen(false)}>
+                      <BookOpen className="size-4 inline-block mr-1.5 -mt-0.5" />
+                      Subjects
+                    </MobileNavLink>
+                    <MobileNavLink to={ROUTES.QUIZ_HISTORY} onClick={() => setMobileOpen(false)}>
+                      <Award className="size-4 inline-block mr-1.5 -mt-0.5" />
+                      Quizzes
+                    </MobileNavLink>
                   </>
+                )}
+                {isAdmin && (
+                  <MobileNavLink to={ROUTES.ADMIN} onClick={() => setMobileOpen(false)}>
+                    <ShieldCheck className="size-4 inline-block mr-1.5 -mt-0.5" />
+                    Admin
+                  </MobileNavLink>
                 )}
               </>
             )}

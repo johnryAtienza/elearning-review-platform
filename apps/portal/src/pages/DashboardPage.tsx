@@ -56,7 +56,7 @@ export function DashboardPage() {
       <section className="rounded-2xl border bg-card p-6 sm:p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-5 min-w-0">
-            <span className="flex size-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground shrink-0">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground select-none">
               {initials}
             </span>
             <div className="min-w-0 space-y-3">
@@ -65,7 +65,7 @@ export function DashboardPage() {
                   My Learning
                 </p>
                 <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                  Welcome back, {firstName}
+                  Welcome back {firstName}!
                 </h1>
                 <p className="text-sm text-muted-foreground max-w-2xl">
                   Pick up your saved subjects, review recent quiz results, and keep your study progress moving.

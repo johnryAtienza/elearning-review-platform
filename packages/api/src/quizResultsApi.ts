@@ -5,7 +5,7 @@
  * Supabase table.
  *
  * RLS ensures each user can only insert their own rows (and only
- * for subscribed users or Day-1-free lessons).
+ * for subscribed users or authenticated free-preview lessons).
  *
  * Prerequisites:
  *   - 20260520000002_quiz_results_history.sql migration must be run
@@ -45,7 +45,7 @@ export interface SaveQuizResultInput {
  * retries become separate history entries.
  *
  * Returns true on success, false if the RLS check blocked the insert
- * (e.g. free user submitting a non-Day-1 quiz). Never throws — the
+ * (e.g. free user submitting a non-preview lesson quiz). Never throws — the
  * caller treats failure as "skip persistence" rather than crashing
  * the quiz UI.
  */
@@ -63,7 +63,20 @@ export async function saveQuizResult(input: SaveQuizResultInput): Promise<boolea
       answers:   input.answers,
     })
 
-  return !error
+  if (error) {
+    console.error('Failed to save quiz result', {
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      message: error.message,
+      lessonId: input.lessonId,
+      total: input.total,
+      answerCount: Object.keys(input.answers).length,
+    })
+    return false
+  }
+
+  return true
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────────

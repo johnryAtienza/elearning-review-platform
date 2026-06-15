@@ -33,9 +33,10 @@ interface QuizComponentProps {
   locked?: boolean
   /**
    * When true, submitting the problem set writes a row to quiz_results (enrolled
-   * users only). Guests and free-tier users on a preview lesson get the
-   * full interactive experience but no completion record. Defaults to true
-   * to preserve behavior for callers that don't pass it explicitly.
+   * users and authenticated free-preview learners). Guests still get the
+   * full interactive experience on preview lessons but no completion record.
+   * Defaults to true to preserve behavior for callers that don't pass it
+   * explicitly.
    */
   persistResults?: boolean
 }

@@ -587,7 +587,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
                 randomize={activeProblemSet.randomize}
                 visible={contentUnlocked}
                 locked={!permissions.quizEnabled}
-                persistResults={isSubscribed || isAdmin}
+                persistResults={isAuthenticated && (isAdmin || hasFullAccess)}
               />
             </div>
           )}

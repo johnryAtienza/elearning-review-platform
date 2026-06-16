@@ -170,6 +170,19 @@ export interface AdminSubscription {
   createdAt: string
 }
 
+type AdminSubscriptionAccessAction = 'disable_access' | 'restore_access'
+
+interface AdminSubscriptionAccessResponse {
+  subscription: {
+    id: string
+    userId: string
+    isActive: boolean
+    expiresAt: string | null
+    tier: string | null
+    durationMonths: number | null
+  }
+}
+
 export interface AdminUser {
   id: string
   name: string
@@ -893,9 +906,8 @@ export async function updateAdminUser(
  * view. Two queries are needed because subscriptions.user_id references
  * auth.users (not profiles), so a direct PostgREST join to profiles is unavailable.
  *
- * Required SQL (run once in Supabase dashboard):
- *   CREATE POLICY "subscriptions: admin updates all"
- *     ON public.subscriptions FOR UPDATE USING (public.is_admin());
+ * Mutations intentionally go through the admin-subscriptions Edge Function.
+ * Direct client-side subscription writes are blocked by RLS.
  */
 export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
   const [subsRes, usersRes] = await Promise.all([
@@ -936,42 +948,69 @@ export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
   })
 }
 
-export async function setSubscriptionActive(id: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('subscriptions')
-    .update({ is_active: isActive })
-    .eq('id', id)
+async function invokeAdminSubscriptionAccess(
+  action: AdminSubscriptionAccessAction,
+  userId: string,
+  reason?: string,
+): Promise<AdminSubscriptionAccessResponse> {
+  const body: { action: AdminSubscriptionAccessAction; userId: string; reason?: string } = { action, userId }
+  if (reason) body.reason = reason
 
-  if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
+  const { data, error } = await supabase.functions.invoke<AdminSubscriptionAccessResponse>(
+    'admin-subscriptions',
+    { body },
+  )
+
+  if (error) {
+    let status = 500
+    let code = 'ADMIN_SUBSCRIPTION_UPDATE_FAILED'
+    let message = error.message || 'Failed to update subscription.'
+
+    const context = (error as { context?: unknown }).context
+    if (context instanceof Response) {
+      status = context.status
+      try {
+        const payload = await context.clone().json() as { error?: string; code?: string }
+        if (payload.error) message = payload.error
+        if (payload.code)  code    = payload.code
+      } catch {
+        // Keep the default function error message.
+      }
+    }
+
+    throw new ApiError(status, code, message, error)
+  }
+
+  if (!data) {
+    throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', 'Subscription update returned an empty response.')
+  }
+
+  return data
+}
+
+export async function setSubscriptionActive(id: string, isActive: boolean): Promise<void> {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('user_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_FETCH_FAILED', error.message)
+  if (!data) throw new ApiError(404, 'SUBSCRIPTION_NOT_FOUND', 'Subscription not found.')
+
+  await invokeAdminSubscriptionAccess(
+    isActive ? 'restore_access' : 'disable_access',
+    (data as { user_id: string }).user_id,
+  )
 }
 
 /**
  * Activate or deactivate a subscription for a user by userId.
- * Creates a new subscription row if none exists (for activation).
- *
- * Required SQL policies (run once):
- *   CREATE POLICY "subscriptions: admin inserts"
- *     ON public.subscriptions FOR INSERT WITH CHECK (public.is_admin());
- *   CREATE POLICY "subscriptions: admin updates all"
- *     ON public.subscriptions FOR UPDATE USING (public.is_admin());
+ * This no longer creates subscription rows; grant/renew flows must go through
+ * an explicit admin renewal path so every access change is audited.
  */
 export async function setUserSubscriptionStatus(userId: string, isActive: boolean): Promise<void> {
-  if (isActive) {
-    // Upsert: create subscription if none exists, otherwise re-activate
-    const { error } = await supabase
-      .from('subscriptions')
-      .upsert(
-        { user_id: userId, is_active: true, tier: 'standard', started_at: new Date().toISOString() },
-        { onConflict: 'user_id' },
-      )
-    if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
-  } else {
-    const { error } = await supabase
-      .from('subscriptions')
-      .update({ is_active: false })
-      .eq('user_id', userId)
-    if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_UPDATE_FAILED', error.message)
-  }
+  await invokeAdminSubscriptionAccess(isActive ? 'restore_access' : 'disable_access', userId)
 }
 
 // ── Books (Phase C) ───────────────────────────────────────────────────────────

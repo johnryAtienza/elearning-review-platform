@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BookMarked, Plus, Pencil, Trash2, Loader2,
-  FileVideo, FileText, CheckCircle2,
+  FileVideo, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,13 +22,12 @@ import { toast } from '@/lib/toast'
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 'grid-cols-[1fr_4rem_4rem_3.5rem_5rem]'
+const GRID_COLS = 'grid-cols-[1fr_4rem_4rem_5rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'Lesson' },
   { label: 'Order',   center: true, smOnly: true },
   { label: 'Video',   center: true },
-  { label: 'PDF',     center: true },
   { label: 'Actions', center: true },
 ]
 
@@ -145,7 +144,6 @@ export function AdminLessonsPage() {
                 </div>
                 <Skeleton className="hidden sm:block h-4 w-6" />
                 <Skeleton className="size-4 rounded" />
-                <Skeleton className="size-4 rounded" />
                 <Skeleton className="h-7 w-16 rounded-md" />
               </div>
             ))}
@@ -250,13 +248,6 @@ function LessonRow({
           {lesson.videoUrl
             ? <CheckCircle2 className="size-4 text-success" />
             : <FileVideo className="size-4 text-muted-foreground/30" />}
-        </span>
-
-        {/* PDF indicator */}
-        <span className="flex justify-center" title={lesson.reviewerPdfUrl ? 'PDF uploaded' : 'No PDF'}>
-          {lesson.reviewerPdfUrl
-            ? <CheckCircle2 className="size-4 text-success" />
-            : <FileText className="size-4 text-muted-foreground/30" />}
         </span>
 
         {/* Actions */}

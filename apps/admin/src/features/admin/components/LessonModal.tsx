@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload } from 'lucide-react'
+import { X, Loader2, FileVideo, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { uploadToStorage, type ProgressCallback } from '@s-class/api/storageClient'
@@ -26,7 +26,7 @@ interface LessonModalProps {
   onSaved: (lesson: AdminLesson) => void
 }
 
-type UploadStage = 'idle' | 'creating' | 'video' | 'pdf' | 'finalising'
+type UploadStage = 'idle' | 'creating' | 'video' | 'finalising'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
   const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
   const [videoFile,    setVideoFile]    = useState<File | null>(null)
-  const [pdfFile,      setPdfFile]      = useState<File | null>(null)
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [courses,      setCourses]      = useState<SubjectOption[]>([])
@@ -65,7 +64,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [saving,       setSaving]       = useState(false)
   const [stage,        setStage]        = useState<UploadStage>('idle')
   const [videoProgress, setVideoProgress] = useState(0)
-  const [pdfProgress,  setPdfProgress]  = useState(0)
   const [error,        setError]        = useState<string | null>(null)
 
   // ── Load courses for dropdown (runs once on mount) ───────────────────────────
@@ -131,18 +129,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
         await updateAdminLesson(lessonId, { videoUrl })
       }
 
-      // 3. Upload PDF (if a file was picked)
-      let reviewerPdfUrl = lesson?.reviewerPdfUrl ?? null
-      if (pdfFile && lessonId) {
-        setStage('pdf')
-        setPdfProgress(0)
-        const path   = storagePaths.reviewerPdf(lessonId)
-        const onProg: ProgressCallback = ({ percent }) => setPdfProgress(percent)
-        const result = await uploadToStorage(pdfFile, path, onProg)
-        reviewerPdfUrl = result.path    // store storage key, not public URL
-        await updateAdminLesson(lessonId, { reviewerPdfUrl })
-      }
-
       setStage('finalising')
 
       const courseTitle = courses.find((c) => c.id === courseId)?.title ?? lesson?.courseTitle ?? ''
@@ -157,7 +143,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
         isFreePreview,
         durationMinutes: durationMinutes,
         videoUrl,
-        reviewerPdfUrl,
+        reviewerPdfUrl: lesson?.reviewerPdfUrl ?? null,
         createdAt:       lesson?.createdAt ?? new Date().toISOString(),
       })
     } catch (err) {
@@ -178,7 +164,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
     switch (stage) {
       case 'creating':   return 'Saving lesson…'
       case 'video':      return `Uploading video… ${videoProgress}%`
-      case 'pdf':        return `Uploading PDF… ${pdfProgress}%`
       case 'finalising': return 'Finalising…'
       default:           return isEdit ? 'Save changes' : 'Create lesson'
     }
@@ -366,23 +351,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                   onFile={setVideoFile}
                   uploading={saving && stage === 'video'}
                   progress={videoProgress}
-                  done={saving && (stage === 'pdf' || stage === 'finalising') && videoFile !== null}
-                  disabled={saving}
-                />
-
-                {/* PDF upload */}
-                <FilePicker
-                  label="Reviewer PDF"
-                  icon={FileText}
-                  accept="application/pdf"
-                  maxBytes={UPLOAD_LIMITS.PDF}
-                  hint="PDF · max 50 MB"
-                  existingPath={lesson?.reviewerPdfUrl}
-                  file={pdfFile}
-                  onFile={setPdfFile}
-                  uploading={saving && stage === 'pdf'}
-                  progress={pdfProgress}
-                  done={saving && stage === 'finalising' && pdfFile !== null}
+                  done={saving && stage === 'finalising' && videoFile !== null}
                   disabled={saving}
                 />
               </div>

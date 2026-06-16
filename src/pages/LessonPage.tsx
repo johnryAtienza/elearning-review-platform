@@ -387,12 +387,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           'sticky z-10 border-b bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3',
           stickyOffset,
         )}>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="rounded-full border-border/70 bg-card/60 px-3 text-muted-foreground shadow-none hover:bg-accent/60 hover:text-foreground"
-          >
+          <Button asChild size="sm">
             <Link to={subjectHref}>
               <ChevronLeft className="size-4" />
               <span className="hidden sm:inline">{subject?.title ?? 'Subject'}</span>

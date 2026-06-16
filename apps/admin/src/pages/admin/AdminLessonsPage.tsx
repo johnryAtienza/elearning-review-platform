@@ -22,11 +22,10 @@ import { toast } from '@/lib/toast'
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 'grid-cols-[1fr_4rem_4rem_5rem]'
+const GRID_COLS = 'grid-cols-[1fr_4rem_5rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'Lesson' },
-  { label: 'Order',   center: true, smOnly: true },
   { label: 'Video',   center: true },
   { label: 'Actions', center: true },
 ]
@@ -142,7 +141,6 @@ export function AdminLessonsPage() {
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="hidden sm:block h-4 w-6" />
                 <Skeleton className="size-4 rounded" />
                 <Skeleton className="h-7 w-16 rounded-md" />
               </div>
@@ -237,11 +235,6 @@ function LessonRow({
             )}
           </div>
         </div>
-
-        {/* Order */}
-        <span className="hidden sm:flex justify-center text-sm tabular-nums text-muted-foreground">
-          #{lesson.order}
-        </span>
 
         {/* Video indicator */}
         <span className="flex justify-center" title={lesson.videoUrl ? 'Video uploaded' : 'No video'}>

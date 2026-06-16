@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Loader2, FileVideo, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,7 +36,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   // ── Form state ───────────────────────────────────────────────────────────────
   const [courseId,     setCourseId]     = useState(lesson?.courseId ?? defaultCourseId ?? '')
   const [title,        setTitle]        = useState(lesson?.title ?? '')
-  const [order,        setOrder]        = useState<number>(lesson?.order ?? 1)
   const originalCourseId = useRef(lesson?.courseId ?? defaultCourseId ?? '')
   const originalOrder    = useRef(lesson?.order ?? 1)
 
@@ -78,23 +77,6 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       .finally(() => setCoursesLoading(false))
   }, [])
 
-  // ── Course change: auto-advance order to avoid constraint collision ───────────
-  const handleCourseChange = useCallback(async (newCourseId: string) => {
-    setCourseId(newCourseId)
-    if (newCourseId === originalCourseId.current) {
-      // Reverted to original course — restore original order
-      setOrder(originalOrder.current)
-    } else {
-      // New course selected — set order to next available slot
-      try {
-        const max = await getMaxLessonOrderInSubject(newCourseId)
-        setOrder(max + 1)
-      } catch {
-        // Non-fatal; user can adjust order manually
-      }
-    }
-  }, [])
-
   // ── Submit ────────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -110,8 +92,21 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       setStage('creating')
       const durationMinutes = durationHrs * 60 + durationMins || null
       let lessonId = lesson?.id
+      const subjectChanged = isEdit && courseId !== originalCourseId.current
+      const order = (!isEdit || subjectChanged)
+        ? await getMaxLessonOrderInSubject(courseId) + 1
+        : originalOrder.current
+
       if (isEdit) {
-        await updateAdminLesson(lesson.id, { courseId, title: title.trim(), order, weekNumber, dayNumber, isFreePreview, durationMinutes })
+        await updateAdminLesson(lesson.id, {
+          courseId,
+          title: title.trim(),
+          ...(subjectChanged ? { order } : {}),
+          weekNumber,
+          dayNumber,
+          isFreePreview,
+          durationMinutes,
+        })
       } else {
         lessonId = await createAdminLesson({ courseId, title: title.trim(), order, weekNumber, dayNumber, isFreePreview, durationMinutes })
       }
@@ -148,8 +143,8 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key')) {
-        setError('Another lesson in this subject already has the same order number. Please use a different order value.')
+      if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key') || msg.includes('lessons_subject_id_order_key')) {
+        setError('Another lesson was assigned the same position in this subject. Please save again.')
       } else {
         setError(msg || 'Failed to save lesson.')
       }
@@ -199,7 +194,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               <select
                 id="lesson-course"
                 value={courseId}
-                onChange={(e) => { void handleCourseChange(e.target.value) }}
+                onChange={(e) => setCourseId(e.target.value)}
                 disabled={saving || coursesLoading}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -229,22 +224,10 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
               />
             </div>
 
-            {/* Order + Week + Day (curriculum slot) */}
+            {/* Week + Day (curriculum slot) */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Curriculum slot</label>
               <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="lesson-order" className="text-xs text-muted-foreground">Order</label>
-                  <Input
-                    id="lesson-order"
-                    type="number"
-                    min={1}
-                    value={order}
-                    onChange={(e) => setOrder(Number(e.target.value))}
-                    disabled={saving}
-                    className="w-24 text-center"
-                  />
-                </div>
                 <div className="space-y-1">
                   <label htmlFor="lesson-week" className="text-xs text-muted-foreground">Week</label>
                   <Input
@@ -271,7 +254,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Order = position within the subject. Week + Day drive the
+                Lesson order is assigned automatically. Week + Day drive the
                 curriculum grid on the subject page.
               </p>
             </div>

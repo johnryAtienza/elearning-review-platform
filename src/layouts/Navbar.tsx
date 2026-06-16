@@ -419,7 +419,7 @@ function CoursesDropdown({
   return (
     <div
       ref={ref}
-      className="relative"
+      className="relative -mb-1 pb-1"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
@@ -444,7 +444,7 @@ function CoursesDropdown({
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full mt-1 w-80 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute left-0 top-full w-80 max-h-[70vh] overflow-y-auto rounded-xl border bg-card shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-150"
         >
           {loading ? (
             <div aria-busy="true" aria-live="polite" className="space-y-1.5 p-2">

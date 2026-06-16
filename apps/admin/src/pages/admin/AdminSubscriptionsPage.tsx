@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CreditCard, Search, CheckCircle2, XCircle } from 'lucide-react'
+import { CreditCard, Search, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import {
 } from '../../features/admin/components/AdminTable'
 import {
   getAdminSubscriptions,
+  getAdminSubscriptionEffectiveStatus,
   setSubscriptionActive,
   type AdminSubscription,
 } from '@s-class/api/admin.service'
@@ -29,11 +30,12 @@ const HEADER_COLS: ColConfig[] = [
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type StatusFilter = 'all' | 'active' | 'inactive'
+type StatusFilter = 'all' | 'active' | 'expired' | 'inactive'
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   all:      'All',
   active:   'Active',
+  expired:  'Expired',
   inactive: 'Inactive',
 }
 
@@ -65,7 +67,7 @@ export function AdminSubscriptionsPage() {
     const next = !sub.isActive
     setConfirmId(null)
     setToggling((prev) => new Set(prev).add(sub.id))
-    setSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, isActive: next } : s))
+    setSubs((prev) => prev.map((s) => s.id === sub.id ? withRawActive(s, next) : s))
     try {
       await setSubscriptionActive(sub.id, next)
       toast.success(
@@ -74,7 +76,7 @@ export function AdminSubscriptionsPage() {
           : `${sub.userName ?? 'Subscription'} deactivated`,
       )
     } catch (err) {
-      setSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, isActive: sub.isActive } : s))
+      setSubs((prev) => prev.map((s) => s.id === sub.id ? sub : s))
       toast.error(err, 'Failed to update subscription.')
     } finally {
       setToggling((prev) => { const s = new Set(prev); s.delete(sub.id); return s })
@@ -86,15 +88,15 @@ export function AdminSubscriptionsPage() {
     return subs.filter((s) => {
       const matchesStatus =
         filter === 'all' ||
-        (filter === 'active'   && s.isActive) ||
-        (filter === 'inactive' && !s.isActive)
+        s.effectiveStatus === filter
       const matchesSearch = !q || (s.userName ?? '').toLowerCase().includes(q)
       return matchesStatus && matchesSearch
     })
   }, [subs, search, filter])
 
-  const activeCount   = subs.filter((s) => s.isActive).length
-  const inactiveCount = subs.length - activeCount
+  const activeCount   = subs.filter((s) => s.effectiveStatus === 'active').length
+  const expiredCount  = subs.filter((s) => s.effectiveStatus === 'expired').length
+  const inactiveCount = subs.filter((s) => s.effectiveStatus === 'inactive').length
 
   return (
     <div className="space-y-6">
@@ -103,7 +105,7 @@ export function AdminSubscriptionsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {subs.length} total · {activeCount} active · {inactiveCount} inactive
+          {subs.length} total · {activeCount} active · {expiredCount} expired · {inactiveCount} inactive
         </p>
       </div>
 
@@ -213,6 +215,47 @@ function planLabel(planId: string): string {
   return planId === 'free' ? 'Free' : 'Standard'
 }
 
+function withRawActive(sub: AdminSubscription, isActive: boolean): AdminSubscription {
+  const effectiveStatus = getAdminSubscriptionEffectiveStatus({
+    isActive,
+    expiresAt: sub.expiresAt,
+  })
+
+  return {
+    ...sub,
+    isActive,
+    effectiveStatus,
+    isEntitled: effectiveStatus === 'active',
+  }
+}
+
+function StatusBadge({ status }: { status: AdminSubscription['effectiveStatus'] }) {
+  if (status === 'active') {
+    return (
+      <Badge variant="success" className="gap-1">
+        <CheckCircle2 className="size-3" />
+        Active
+      </Badge>
+    )
+  }
+
+  if (status === 'expired') {
+    return (
+      <Badge variant="warning" className="gap-1">
+        <Clock className="size-3" />
+        Expired
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1 text-muted-foreground">
+      <XCircle className="size-3" />
+      Inactive
+    </Badge>
+  )
+}
+
 function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfirm, onCancel }: SubscriptionRowProps) {
   return (
     <div className="divide-y">
@@ -235,17 +278,7 @@ function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfi
 
         {/* Status */}
         <span className="flex justify-center">
-          {sub.isActive ? (
-            <Badge variant="success" className="gap-1">
-              <CheckCircle2 className="size-3" />
-              Active
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="gap-1 text-muted-foreground">
-              <XCircle className="size-3" />
-              Inactive
-            </Badge>
-          )}
+          <StatusBadge status={sub.effectiveStatus} />
         </span>
 
         {/* Expires */}
@@ -292,4 +325,3 @@ function SubscriptionRow({ sub, isToggling, isConfirming, onToggleClick, onConfi
     </div>
   )
 }
-

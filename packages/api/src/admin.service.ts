@@ -132,12 +132,39 @@ export interface SubjectOption {
   title: string
 }
 
+export type AdminSubscriptionEffectiveStatus = 'active' | 'expired' | 'inactive'
+
+interface SubscriptionEntitlementFields {
+  isActive: boolean
+  expiresAt: string | null
+}
+
+export function getAdminSubscriptionEffectiveStatus(
+  subscription: SubscriptionEntitlementFields,
+  now: Date = new Date(),
+): AdminSubscriptionEffectiveStatus {
+  if (!subscription.isActive) return 'inactive'
+  if (!subscription.expiresAt) return 'active'
+
+  const expiresAt = new Date(subscription.expiresAt)
+  return expiresAt.getTime() > now.getTime() ? 'active' : 'expired'
+}
+
+export function isAdminSubscriptionEntitled(
+  subscription: SubscriptionEntitlementFields,
+  now: Date = new Date(),
+): boolean {
+  return getAdminSubscriptionEffectiveStatus(subscription, now) === 'active'
+}
+
 export interface AdminSubscription {
   id: string
   userId: string
   userName: string | null
   planId: string
   isActive: boolean
+  effectiveStatus: AdminSubscriptionEffectiveStatus
+  isEntitled: boolean
   startedAt: string
   expiresAt: string | null
   createdAt: string
@@ -888,16 +915,25 @@ export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
     (usersRes.data as { id: string; name: string }[]).map((u) => [u.id, u.name]),
   )
 
-  return (subsRes.data as SubscriptionRow[]).map((row) => ({
-    id:        row.id,
-    userId:    row.user_id,
-    userName:  nameMap.get(row.user_id) ?? null,
-    planId:    row.plan_id,
-    isActive:  row.is_active,
-    startedAt: row.started_at,
-    expiresAt: row.expires_at,
-    createdAt: row.created_at,
-  }))
+  return (subsRes.data as SubscriptionRow[]).map((row) => {
+    const effectiveStatus = getAdminSubscriptionEffectiveStatus({
+      isActive:  row.is_active,
+      expiresAt: row.expires_at,
+    })
+
+    return {
+      id:              row.id,
+      userId:          row.user_id,
+      userName:        nameMap.get(row.user_id) ?? null,
+      planId:          row.plan_id,
+      isActive:        row.is_active,
+      effectiveStatus,
+      isEntitled:      effectiveStatus === 'active',
+      startedAt:       row.started_at,
+      expiresAt:       row.expires_at,
+      createdAt:       row.created_at,
+    }
+  })
 }
 
 export async function setSubscriptionActive(id: string, isActive: boolean): Promise<void> {

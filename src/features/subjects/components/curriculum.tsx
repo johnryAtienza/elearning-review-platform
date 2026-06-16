@@ -70,10 +70,12 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }:
       </h3>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {group.lessons.map((lesson) => (
+        {group.lessons.map((lesson, index) => (
           <DayCard
             key={lesson.id}
             lesson={lesson}
+            previousWeekLessons={group.lessons.slice(0, index)}
+            isLastInWeek={index === group.lessons.length - 1}
             isSubscribed={isSubscribed}
             isAuthenticated={isAuthenticated}
             previewMode={previewMode}
@@ -99,15 +101,25 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }:
 
 interface DayCardProps {
   lesson: Lesson
+  previousWeekLessons: Lesson[]
+  isLastInWeek: boolean
   isSubscribed: boolean
   isAuthenticated: boolean
   previewMode?: boolean
 }
 
-export function DayCard({ lesson, isSubscribed, isAuthenticated, previewMode }: DayCardProps) {
-  const isExam    = /\bexam\b/i.test(lesson.title)
-  const day       = effectiveDay(lesson)
-  const isPreview = lesson.isFreePreview === true
+export function DayCard({
+  lesson,
+  previousWeekLessons,
+  isLastInWeek,
+  isSubscribed,
+  isAuthenticated,
+  previewMode,
+}: DayCardProps) {
+  const isExam       = /\bexam\b/i.test(lesson.title)
+  const isWeeklyExam = isExam && isLastInWeek
+  const day          = effectiveDay(lesson)
+  const isPreview    = lesson.isFreePreview === true
   // Free-preview lessons unlock for everyone — guests, free-tier auth, and
   // subscribers alike. Premium lessons require a subscription. In Landing's
   // public preview funnel only preview-flagged lessons are actually unlocked.
@@ -141,7 +153,7 @@ export function DayCard({ lesson, isSubscribed, isAuthenticated, previewMode }: 
     </h4>
   )
 
-  const contentTypes = (
+  const regularContentTypes = (
     <ul className="mt-auto space-y-0.5 pt-2">
       <li className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <PlayCircle className="size-3 shrink-0" />
@@ -157,6 +169,27 @@ export function DayCard({ lesson, isSubscribed, isAuthenticated, previewMode }: 
       </li>
     </ul>
   )
+
+  const examCovers = (
+    <div className="mt-auto space-y-1 pt-2">
+      <p className="text-[11px] font-semibold text-muted-foreground">
+        Covers:
+      </p>
+      <ul className="space-y-0.5">
+        {previousWeekLessons.map((coveredLesson) => (
+          <li
+            key={coveredLesson.id}
+            className="flex gap-1.5 text-[11px] leading-snug text-muted-foreground"
+          >
+            <span aria-hidden="true" className="shrink-0">•</span>
+            <span className="line-clamp-1">{coveredLesson.title}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+
+  const contentTypes = isWeeklyExam ? examCovers : regularContentTypes
 
   // Unlocked → real link to the lesson. In preview mode the link points to
   // Landing's /preview/lesson/:id; otherwise the same-origin lesson route.

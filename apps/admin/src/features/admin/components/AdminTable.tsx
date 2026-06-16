@@ -22,6 +22,8 @@ export interface ColConfig {
   center?: boolean
   /** Hide on mobile, show on sm+ (hidden sm:block). */
   smOnly?: boolean
+  /** Optional extra classes for page-specific responsive visibility/sizing. */
+  className?: string
 }
 
 // ── Shared row base class ──────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export function AdminTableHeader({ cols, gridCols }: AdminTableHeaderProps) {
           className={cn(
             col.center  && 'text-center',
             col.smOnly  && 'hidden sm:block',
+            col.className,
           )}
         >
           {col.label}

@@ -22,10 +22,18 @@ import { toast } from '@/lib/toast'
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 'grid-cols-[1fr_4rem_5rem]'
+const GRID_COLS = [
+  'grid-cols-[minmax(0,1fr)_3.25rem_4.25rem]',
+  'lg:grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_6.25rem_5rem_3.25rem_4.25rem]',
+  'xl:grid-cols-[minmax(0,1fr)_4rem_4rem_7rem_6rem_4rem_5rem]',
+].join(' ')
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'Lesson' },
+  { label: 'Week',         center: true, className: 'hidden lg:block' },
+  { label: 'Day',          center: true, className: 'hidden lg:block' },
+  { label: 'Free Preview', center: true, className: 'hidden lg:block' },
+  { label: 'Duration',     center: true, className: 'hidden lg:block' },
   { label: 'Video',   center: true },
   { label: 'Actions', center: true },
 ]
@@ -136,13 +144,17 @@ export function AdminLessonsPage() {
         {loading ? (
           <div className="divide-y">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-4">
+              <div key={i} className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
                 <div className="flex-1 space-y-1.5">
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="size-4 rounded" />
-                <Skeleton className="h-7 w-16 rounded-md" />
+                <Skeleton className="hidden lg:block h-4 w-6 justify-self-center" />
+                <Skeleton className="hidden lg:block h-4 w-6 justify-self-center" />
+                <Skeleton className="hidden lg:block h-5 w-12 rounded-full justify-self-center" />
+                <Skeleton className="hidden lg:block h-4 w-12 justify-self-center" />
+                <Skeleton className="size-4 rounded justify-self-center" />
+                <Skeleton className="h-7 w-16 rounded-md justify-self-end" />
               </div>
             ))}
           </div>
@@ -193,12 +205,17 @@ export function AdminLessonsPage() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatLessonDuration(minutes: number): string {
+function formatLessonDuration(minutes: number | null): string {
+  if (!minutes) return ''
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   if (h === 0) return `${m}m`
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
+}
+
+function formatSlotNumber(value: number | null): string {
+  return value === null ? '-' : String(value)
 }
 
 // ── LessonRow ─────────────────────────────────────────────────────────────────
@@ -217,6 +234,8 @@ function LessonRow({
   lesson, isDeleting, isConfirmingDelete,
   onEdit, onConfirmDelete, onCancelDelete, onDelete,
 }: LessonRowProps) {
+  const duration = formatLessonDuration(lesson.durationMinutes)
+
   return (
     <div className="divide-y">
       <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
@@ -224,17 +243,37 @@ function LessonRow({
         {/* Title + course */}
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{lesson.title}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="secondary" className="text-xs font-normal py-0">
+          <div className="flex items-center mt-1 min-w-0">
+            <Badge variant="secondary" className="max-w-full truncate text-xs font-normal py-0">
               {lesson.courseTitle}
             </Badge>
-            {lesson.durationMinutes != null && (
-              <span className="text-xs text-muted-foreground">
-                {formatLessonDuration(lesson.durationMinutes)}
-              </span>
-            )}
           </div>
         </div>
+
+        {/* Curriculum week */}
+        <span className="hidden lg:block text-center text-xs tabular-nums text-muted-foreground">
+          {formatSlotNumber(lesson.weekNumber)}
+        </span>
+
+        {/* Curriculum day */}
+        <span className="hidden lg:block text-center text-xs tabular-nums text-muted-foreground">
+          {formatSlotNumber(lesson.dayNumber)}
+        </span>
+
+        {/* Free preview */}
+        <span className="hidden lg:flex justify-center">
+          <Badge
+            variant={lesson.isFreePreview ? 'success' : 'outline'}
+            className="min-w-12 justify-center"
+          >
+            {lesson.isFreePreview ? 'Yes' : 'No'}
+          </Badge>
+        </span>
+
+        {/* Duration */}
+        <span className="hidden lg:block text-center text-xs tabular-nums text-muted-foreground">
+          {duration}
+        </span>
 
         {/* Video indicator */}
         <span className="flex justify-center" title={lesson.videoUrl ? 'Video uploaded' : 'No video'}>

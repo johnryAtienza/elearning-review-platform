@@ -714,7 +714,8 @@ Set these in **Cloudflare Pages → Settings → Environment Variables**:
 
 - [ ] Add production URL to **Supabase → Auth → URL Configuration → Site URL**
 - [ ] Add production URL to **Supabase → Auth → URL Configuration → Redirect URLs**
-- [ ] Add production URL to **Cloudflare R2 → Bucket → CORS policy** allowed origins
+- [ ] Add admin origins to **Cloudflare R2 → Bucket → CORS policy** allowed origins
+      (`http://localhost:5176` for local uploads, plus production/preview admin URLs)
 - [ ] Confirm Edge Functions are deployed: `supabase functions deploy`
 - [ ] Apply pending SQL migrations: `supabase db push`
 

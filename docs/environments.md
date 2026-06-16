@@ -77,6 +77,33 @@ Pages bindings — never in `.env`/the browser bundle:
 | `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` | `supabase secrets set` | signed URLs + uploads |
 | `R2_BUCKET` (binding) | Cloudflare Pages → Functions | public asset proxy |
 
+## R2 upload CORS
+Direct browser uploads use a presigned `PUT` URL from `generate-upload-url`, then
+the admin app uploads the file straight to the R2 bucket host. The R2 bucket needs
+a CORS policy for every admin origin that performs uploads. For local admin dev,
+include `http://localhost:5176`; for deployed admin, include the production and
+preview admin origins you use.
+
+Dashboard path: **Cloudflare → R2 → bucket → Settings → CORS Policy → Add CORS policy → JSON**.
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5176",
+      "https://admin.s-class.com.ph"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Origins must match exactly: scheme, host, and port only. Do not include a path or
+trailing slash.
+
 ## Build process
 - Per app: `tsc --noEmit -p tsconfig.json && vite build` → `apps/<app>/dist`.
   The TS check **fails the build on any type error**.

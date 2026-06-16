@@ -103,16 +103,27 @@ function xhrUpload(
       // R2 returns 200 for successful PUT
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve()
+      } else if (xhr.status === 0) {
+        reject(new Error(getUploadNetworkError()))
       } else {
         reject(new Error(`Upload failed with status ${xhr.status}`))
       }
     })
 
-    xhr.addEventListener('error', () => reject(new Error('Upload network error')))
+    xhr.addEventListener('error', () => reject(new Error(getUploadNetworkError())))
     xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
 
     xhr.open('PUT', url)
     xhr.setRequestHeader('Content-Type', contentType)
     xhr.send(file)
   })
+}
+
+function getUploadNetworkError(): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'the admin origin'
+
+  return [
+    'Upload could not reach R2.',
+    `Check the Cloudflare R2 bucket CORS policy allows ${origin}, PUT, and the Content-Type header.`,
+  ].join(' ')
 }

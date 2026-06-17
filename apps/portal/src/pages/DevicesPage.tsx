@@ -7,6 +7,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { listMyDevices, revokeDevice } from '@s-class/api/devicesApi'
 import { getDeviceIdentity } from '@s-class/api/fingerprint'
+import {
+  formatDeviceFirstSeen,
+  formatDeviceLastSeen,
+  getDeviceMetaLabel,
+  getDeviceName,
+} from '@s-class/api/deviceDisplay'
 import { ROUTES } from '@/constants/routes'
 import { toast } from '@/lib/toast'
 import { cn } from '@/utils/cn'
@@ -134,9 +140,16 @@ export function DevicesPage() {
                     : <Laptop     className="size-4 text-muted-foreground" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm capitalize">{d.deviceKind} · {uaShort(d.userAgent)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm">{getDeviceName(d)}</p>
+                    {getDeviceMetaLabel(d.userAgent) && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {getDeviceMetaLabel(d.userAgent)}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Last seen {new Date(d.lastSeenAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                    {formatDeviceLastSeen(d.lastSeenAt)}
                   </p>
                 </div>
               </li>
@@ -159,6 +172,9 @@ interface DeviceRowProps {
 }
 
 function DeviceRow({ device, isCurrent, isBusy, disabled, onRevoke }: DeviceRowProps) {
+  const name = getDeviceName(device)
+  const meta = getDeviceMetaLabel(device.userAgent)
+
   return (
     <li className={cn(
       'flex flex-col gap-3 rounded-xl border bg-card p-4 transition-opacity sm:flex-row sm:items-center',
@@ -175,14 +191,14 @@ function DeviceRow({ device, isCurrent, isBusy, disabled, onRevoke }: DeviceRowP
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-medium capitalize">{device.deviceKind}</p>
-          <Badge variant="outline" className="text-[10px]">{uaShort(device.userAgent)}</Badge>
+          <p className="text-sm font-medium">{name}</p>
+          {meta && <Badge variant="outline" className="text-[10px]">{meta}</Badge>}
           {isCurrent && <Badge variant="pro" className="text-[10px]">This device</Badge>}
         </div>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          First seen {new Date(device.firstSeenAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })}
+          {formatDeviceFirstSeen(device.firstSeenAt)}
           {' · '}
-          Last {new Date(device.lastSeenAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+          {formatDeviceLastSeen(device.lastSeenAt)}
         </p>
       </div>
 
@@ -211,14 +227,4 @@ function EmptyActiveDevices() {
       </p>
     </div>
   )
-}
-
-function uaShort(ua: string): string {
-  if (!ua) return 'Unknown'
-  if (/edg\//i.test(ua))         return 'Edge'
-  if (/chrome\//i.test(ua))      return 'Chrome'
-  if (/safari\//i.test(ua) && /version\//i.test(ua)) return 'Safari'
-  if (/firefox\//i.test(ua))     return 'Firefox'
-  if (/opera|opr\//i.test(ua))   return 'Opera'
-  return 'Browser'
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Search, ShieldCheck, User, Pencil } from 'lucide-react'
+import { Users, Search, ShieldCheck, User, Pencil, MoreVertical, Monitor, Smartphone, RotateCcw, type LucideIcon } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,14 +11,16 @@ import {
 } from '../../features/admin/components/AdminTable'
 import {
   getAdminUsers,
+  resetUserDevices,
   setUserRole,
   updateAdminUser,
+  type AdminDeviceResetKind,
   type AdminUser,
 } from '@s-class/api/admin.service'
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 'grid-cols-[1fr_6rem_8rem_7rem_2rem]'
+const GRID_COLS = 'grid-cols-[1fr_6rem_8rem_7rem_4.5rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'User' },
@@ -35,6 +37,11 @@ type RoleFilter = 'all' | 'admin' | 'user'
 interface RoleConfirm {
   userId: string
   newRole: 'user' | 'admin'
+}
+
+interface DeviceResetConfirm {
+  userId: string
+  deviceKind: AdminDeviceResetKind
 }
 
 interface EditUser {
@@ -57,6 +64,9 @@ export function AdminUsersPage() {
   const [editUser,          setEditUser]          = useState<EditUser | null>(null)
   const [savingEdit,        setSavingEdit]        = useState(false)
   const [editSaveAttempted, setEditSaveAttempted] = useState(false)
+  const [resetMenuUserId,   setResetMenuUserId]   = useState<string | null>(null)
+  const [resetConfirm,      setResetConfirm]      = useState<DeviceResetConfirm | null>(null)
+  const [resettingDevice,   setResettingDevice]   = useState<string | null>(null)
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -129,6 +139,31 @@ export function AdminUsersPage() {
       toast.error(err, 'Failed to update user.')
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  // ── Device reset ─────────────────────────────────────────────────────────────
+  function requestDeviceReset(userId: string, deviceKind: AdminDeviceResetKind) {
+    setResetMenuUserId(null)
+    setResetConfirm({ userId, deviceKind })
+  }
+
+  async function handleDeviceReset() {
+    if (!resetConfirm) return
+    const { userId, deviceKind } = resetConfirm
+    const key = `${userId}:${deviceKind}`
+    setResetConfirm(null)
+    setResettingDevice(key)
+    try {
+      const result = await resetUserDevices(userId, deviceKind)
+      const user = users.find((u) => u.id === userId)
+      toast.success(
+        `${deviceResetLabel(deviceKind)} reset for ${user?.name ?? 'user'} (${result.resetCount} active ${result.resetCount === 1 ? 'row' : 'rows'} deactivated).`,
+      )
+    } catch (err) {
+      toast.error(err, 'Failed to reset device slot.')
+    } finally {
+      setResettingDevice(null)
     }
   }
 
@@ -240,18 +275,33 @@ export function AdminUsersPage() {
                 user={user}
                 isTogglingRole={togglingRole.has(user.id)}
                 isConfirmingRole={roleConfirm?.userId === user.id ? roleConfirm : null}
-                onRoleClick={() =>
+                onRoleClick={() => {
+                  setEditUser(null)
+                  setResetMenuUserId(null)
+                  setResetConfirm(null)
                   setRoleConfirm({ userId: user.id, newRole: user.role === 'admin' ? 'user' : 'admin' })
-                }
+                }}
                 onRoleConfirm={() => handleRoleChange(user.id, roleConfirm!.newRole)}
                 onRoleCancel={() => setRoleConfirm(null)}
                 editState={editUser?.userId === user.id ? editUser : null}
-                onEditClick={() => { setEditSaveAttempted(false); setEditUser({ userId: user.id, firstName: user.firstName, lastName: user.lastName, mobileNumber: user.mobileNumber, school: user.school, schoolId: user.schoolId }) }}
+                onEditClick={() => { setEditSaveAttempted(false); setResetMenuUserId(null); setResetConfirm(null); setEditUser({ userId: user.id, firstName: user.firstName, lastName: user.lastName, mobileNumber: user.mobileNumber, school: user.school, schoolId: user.schoolId }) }}
                 onEditChange={(field, value) => setEditUser((prev) => prev ? { ...prev, [field]: value } : prev)}
                 onEditSave={handleEditSave}
                 onEditCancel={() => { setEditUser(null); setEditSaveAttempted(false) }}
                 isSavingEdit={savingEdit && editUser?.userId === user.id}
                 editSaveAttempted={editSaveAttempted && editUser?.userId === user.id}
+                resetMenuOpen={resetMenuUserId === user.id}
+                onResetMenuToggle={() => {
+                  setEditUser(null)
+                  setRoleConfirm(null)
+                  setResetConfirm(null)
+                  setResetMenuUserId((current) => current === user.id ? null : user.id)
+                }}
+                resetConfirm={resetConfirm?.userId === user.id ? resetConfirm : null}
+                onResetRequest={(deviceKind) => requestDeviceReset(user.id, deviceKind)}
+                onResetConfirm={handleDeviceReset}
+                onResetCancel={() => setResetConfirm(null)}
+                isResetting={resettingDevice?.startsWith(`${user.id}:`) ?? false}
               />
             ))}
           </div>
@@ -284,12 +334,20 @@ interface UserRowProps {
   onEditCancel: () => void
   isSavingEdit: boolean
   editSaveAttempted: boolean
+  resetMenuOpen: boolean
+  onResetMenuToggle: () => void
+  resetConfirm: DeviceResetConfirm | null
+  onResetRequest: (deviceKind: AdminDeviceResetKind) => void
+  onResetConfirm: () => void
+  onResetCancel: () => void
+  isResetting: boolean
 }
 
 function UserRow({
   user, isTogglingRole, isConfirmingRole,
   onRoleClick, onRoleConfirm, onRoleCancel,
   editState, onEditClick, onEditChange, onEditSave, onEditCancel, isSavingEdit, editSaveAttempted,
+  resetMenuOpen, onResetMenuToggle, resetConfirm, onResetRequest, onResetConfirm, onResetCancel, isResetting,
 }: UserRowProps) {
   return (
     <div className="divide-y">
@@ -349,17 +407,49 @@ function UserRow({
           {formatAdminDate(user.createdAt)}
         </span>
 
-        {/* Edit button */}
-        <Tip label="Edit user" align="right">
-          <button
-            type="button"
-            onClick={onEditClick}
-            className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            <Pencil className="size-3.5" />
-          </button>
-        </Tip>
+        {/* Row actions */}
+        <div className="flex items-center justify-end gap-1">
+          <Tip label="Edit user">
+            <button
+              type="button"
+              onClick={onEditClick}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Device reset actions" align="right">
+            <button
+              type="button"
+              onClick={onResetMenuToggle}
+              disabled={isResetting}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <MoreVertical className="size-3.5" />
+            </button>
+          </Tip>
+        </div>
       </div>
+
+      {resetMenuOpen && (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-primary/20 bg-muted/30 px-4 py-3">
+          <ResetActionButton
+            icon={Monitor}
+            label="Reset Desktop Device"
+            onClick={() => onResetRequest('desktop')}
+          />
+          <ResetActionButton
+            icon={Smartphone}
+            label="Reset Mobile Device"
+            onClick={() => onResetRequest('mobile')}
+          />
+          <ResetActionButton
+            icon={RotateCcw}
+            label="Reset All Devices"
+            onClick={() => onResetRequest('all')}
+          />
+        </div>
+      )}
 
       {/* Inline edit form */}
       {editState && (
@@ -468,11 +558,63 @@ function UserRow({
           </div>
         </div>
       )}
+
+      {resetConfirm && (
+        <div className="flex items-center justify-between gap-4 border-t border-destructive/20 bg-destructive/5 px-4 py-3">
+          <p className="text-sm">
+            {deviceResetConfirmMessage(user.name, resetConfirm.deviceKind)}
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={onResetCancel}>Cancel</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onResetConfirm}
+              className="text-destructive hover:text-destructive"
+            >
+              Confirm reset
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function ResetActionButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <Button variant="outline" size="sm" onClick={onClick} className="gap-1.5">
+      <Icon className="size-3.5" />
+      {label}
+    </Button>
+  )
+}
+
+function deviceResetLabel(deviceKind: AdminDeviceResetKind): string {
+  if (deviceKind === 'desktop') return 'Desktop device slot'
+  if (deviceKind === 'mobile') return 'Mobile device slot'
+  return 'All device slots'
+}
+
+function deviceResetConfirmMessage(userName: string, deviceKind: AdminDeviceResetKind): string {
+  if (deviceKind === 'desktop') {
+    return `Reset the active desktop device for ${userName}? This deactivates the desktop slot and keeps the old device row for audit history.`
+  }
+  if (deviceKind === 'mobile') {
+    return `Reset the active mobile device for ${userName}? This deactivates the mobile slot and keeps the old device row for audit history.`
+  }
+  return `Reset all active devices for ${userName}? This deactivates desktop and mobile slots and keeps old device rows for audit history.`
+}
 
 function Initials({ name }: { name: string }) {
   const initials = name
@@ -487,5 +629,3 @@ function Initials({ name }: { name: string }) {
     </span>
   )
 }
-
-

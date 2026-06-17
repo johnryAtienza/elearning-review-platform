@@ -217,6 +217,14 @@ export interface AdminUser {
   createdAt: string
 }
 
+export type AdminDeviceResetKind = 'desktop' | 'mobile' | 'all'
+
+interface AdminDeviceResetResponse {
+  status: 'ok'
+  deviceKind: AdminDeviceResetKind
+  resetCount: number
+}
+
 // ── Raw DB shapes ─────────────────────────────────────────────────────────────
 //
 // Internal row interfaces match the renamed columns from the Phase 1 migration
@@ -920,6 +928,48 @@ export async function updateAdminUser(
     .eq('id', userId)
 
   if (error) throw new ApiError(500, 'ADMIN_USER_UPDATE_FAILED', error.message)
+}
+
+export async function resetUserDevices(
+  userId: string,
+  deviceKind: AdminDeviceResetKind = 'all',
+): Promise<AdminDeviceResetResponse> {
+  const { data, error } = await supabase.functions.invoke<AdminDeviceResetResponse>(
+    'admin-devices',
+    {
+      body: {
+        action: 'reset_user_devices',
+        userId,
+        deviceKind,
+      },
+    },
+  )
+
+  if (error) {
+    let status = 500
+    let code = 'ADMIN_DEVICE_RESET_FAILED'
+    let message = error.message || 'Failed to reset device slots.'
+
+    const context = (error as { context?: unknown }).context
+    if (context instanceof Response) {
+      status = context.status
+      try {
+        const payload = await context.clone().json() as { error?: string; code?: string }
+        if (payload.error) message = payload.error
+        if (payload.code)  code    = payload.code
+      } catch {
+        // Keep the default function error message.
+      }
+    }
+
+    throw new ApiError(status, code, message, error)
+  }
+
+  if (!data) {
+    throw new ApiError(500, 'ADMIN_DEVICE_RESET_FAILED', 'Device reset returned an empty response.')
+  }
+
+  return data
 }
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────

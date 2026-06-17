@@ -136,14 +136,13 @@ export const useAuthStore = create<AuthState>()(
           await get().syncSubscription()
           void useSavedSubjectsStore.getState().fetch()
           void useQuizHistoryStore.getState().fetch()
-          // Phase G — register/touch this device. On limit_reached, sign
-          // the user out locally and surface the modal so they can revoke
-          // an existing device before retrying.
+          // Phase G — register/touch this device. On limit_reached, block the
+          // app store but keep the Supabase session alive temporarily so the
+          // modal can call revoke-device with a valid JWT.
           try {
             await registerCurrentDevice()
           } catch (err) {
             if (err instanceof DeviceLimitError) {
-              await logout()
               set({
                 user: null,
                 isAuthenticated: false,
@@ -181,13 +180,13 @@ export const useAuthStore = create<AuthState>()(
         await get().syncSubscription()
         void useSavedSubjectsStore.getState().fetch()
         void useQuizHistoryStore.getState().fetch()
-        // Phase G — register device. If limit hit, sign out and re-throw
-        // so LoginPage can mount DeviceLimitModal.
+        // Phase G — register device. If limit hit, block the app store and
+        // re-throw so LoginPage can mount DeviceLimitModal. Keep the Supabase
+        // session alive until cancel/retry so revoke-device has a valid JWT.
         try {
           await registerCurrentDevice()
         } catch (err) {
           if (err instanceof DeviceLimitError) {
-            await logout()
             set({
               user: null,
               isAuthenticated: false,
@@ -217,7 +216,6 @@ export const useAuthStore = create<AuthState>()(
             await registerCurrentDevice()
           } catch (err) {
             if (err instanceof DeviceLimitError) {
-              await logout()
               set({
                 user: null,
                 isAuthenticated: false,

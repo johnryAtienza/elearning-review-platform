@@ -19,6 +19,10 @@
     "./book.service": "./src/book.service.ts",
     "./booksApi": "./src/booksApi.ts",
     "./coursesApi": "./src/coursesApi.ts",
+    "./deviceDisplay": {
+      "types": "./src/deviceDisplay.ts",
+      "import": "./src/deviceDisplay.ts"
+    },
     "./subject.service": "./src/subject.service.ts",
     "./subjectApi": "./src/subjectApi.ts",
     "./devicesApi": "./src/devicesApi.ts",

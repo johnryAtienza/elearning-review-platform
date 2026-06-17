@@ -25,6 +25,7 @@ function RequiredMark() {
 
 export function RegisterPage() {
   const register            = useAuthStore((s) => s.register)
+  const logout              = useAuthStore((s) => s.logout)
   const confirmationPending = useAuthStore((s) => s.confirmationPending)
   const navigate            = useNavigate()
   const location            = useLocation()
@@ -137,8 +138,8 @@ export function RegisterPage() {
       {limitDevices && (
         <DeviceLimitModal
           devices={limitDevices}
-          onRevoked={() => setLimitDevices(null)}
-          onCancel={() => setLimitDevices(null)}
+          onRevoked={() => { setLimitDevices(null); void logout() }}
+          onCancel={() => { setLimitDevices(null); void logout() }}
         />
       )}
 

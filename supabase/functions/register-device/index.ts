@@ -10,8 +10,9 @@
  *
  * Flow:
  *   1. Verify JWT.
- *   2. Look up an existing active row matching (user_id, fingerprint).
- *      If found → update last_seen_at, return { status: 'ok', device }.
+ *   2. Look up an existing row matching (user_id, device_kind, fingerprint).
+ *      FingerprintJS visitorIds are accepted only as migration aliases.
+ *      If found → migrate alias to stable ID, update last_seen_at, return ok.
  *   3. Count active rows of the same device_kind. If >= 1 → return
  *      { status: 'limit_reached', devices: [...activeList] }.
  *      The client shows DeviceLimitModal; user revokes one then retries.
@@ -23,7 +24,8 @@
  * POST /functions/v1/register-device
  * Authorization: Bearer <supabase-jwt>
  * Body: {
- *   fingerprint: string                // FingerprintJS visitorId
+ *   fingerprint: string                // Stable browser-install ID
+ *   fingerprintAliases?: string[]      // Legacy FingerprintJS visitorIds
  *   deviceKind:  'mobile' | 'desktop'  // classified client-side from UA
  *   userAgent?:  string
  * }
@@ -46,6 +48,26 @@ const CORS_HEADERS = {
 
 type DeviceKind = 'mobile' | 'desktop'
 
+interface RegisterBody {
+  fingerprint?: unknown
+  fingerprintAliases?: unknown
+  deviceKind?: unknown
+  userAgent?: unknown
+}
+
+interface DeviceRow {
+  id: string
+  user_id: string
+  fingerprint: string
+  device_kind: DeviceKind
+  user_agent: string
+  ip: string | null
+  label: string | null
+  is_active: boolean
+  first_seen_at: string
+  last_seen_at: string
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
   if (req.method !== 'POST')   return json({ error: 'Method not allowed' }, 405)
@@ -67,11 +89,18 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Parse body ──────────────────────────────────────────────────────────────
-  let body: { fingerprint?: unknown; deviceKind?: unknown; userAgent?: unknown }
+  let body: RegisterBody
   try { body = await req.json() }
   catch { return json({ error: 'Invalid JSON body' }, 400) }
 
   const fingerprint = typeof body.fingerprint === 'string' ? body.fingerprint.trim() : ''
+  const fingerprintAliases = Array.isArray(body.fingerprintAliases)
+    ? body.fingerprintAliases
+      .filter((value): value is string => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter((value) => value && value !== fingerprint)
+      .slice(0, 5)
+    : []
   const deviceKind  = body.deviceKind === 'mobile' || body.deviceKind === 'desktop'
     ? (body.deviceKind as DeviceKind)
     : ''
@@ -85,18 +114,22 @@ Deno.serve(async (req: Request) => {
            ?? req.headers.get('cf-connecting-ip')
            ?? null
 
+  const fingerprints = Array.from(new Set([fingerprint, ...fingerprintAliases]))
+
   // ── 1. Already-known device? Touch last_seen_at and return ok. ─────────────
-  const { data: existing, error: lookupErr } = await adminClient
+  const { data: existingRows, error: lookupErr } = await adminClient
     .from('user_devices')
     .select('*')
     .eq('user_id', user.id)
-    .eq('fingerprint', fingerprint)
-    .maybeSingle()
+    .eq('device_kind', deviceKind)
+    .in('fingerprint', fingerprints)
 
   if (lookupErr) {
     console.error('[register-device] Lookup error:', lookupErr)
     return json({ error: 'Failed to look up device' }, 500)
   }
+
+  const existing = chooseExistingDevice((existingRows ?? []) as DeviceRow[], fingerprint)
 
   if (existing) {
     // Re-activate if previously revoked AND we still have room; if no room,
@@ -110,6 +143,7 @@ Deno.serve(async (req: Request) => {
       const { data: reactivated, error: reactErr } = await adminClient
         .from('user_devices')
         .update({
+          fingerprint,
           is_active:     true,
           device_kind:   deviceKind,   // user-agent may have changed
           user_agent:    userAgent || existing.user_agent,
@@ -128,13 +162,14 @@ Deno.serve(async (req: Request) => {
         console.error('[register-device] Reactivate error:', reactErr)
         return json({ error: 'Failed to reactivate device' }, 500)
       }
-      return json({ status: 'ok', device: reactivated })
+      return json({ status: 'ok', device: toUserDevice(reactivated as DeviceRow) })
     }
 
     // Already active — just touch.
     const { data: touched, error: touchErr } = await adminClient
       .from('user_devices')
       .update({
+        fingerprint,
         last_seen_at: new Date().toISOString(),
         user_agent:   userAgent || existing.user_agent,
         ip:           ip ?? existing.ip,
@@ -146,7 +181,7 @@ Deno.serve(async (req: Request) => {
       console.error('[register-device] Touch error:', touchErr)
       return json({ error: 'Failed to touch device' }, 500)
     }
-    return json({ status: 'ok', device: touched })
+    return json({ status: 'ok', device: toUserDevice(touched as DeviceRow) })
   }
 
   // ── 2. New device — enforce the cap. ───────────────────────────────────────
@@ -180,10 +215,17 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Failed to register device' }, 500)
   }
 
-  return json({ status: 'ok', device: inserted })
+  return json({ status: 'ok', device: toUserDevice(inserted as DeviceRow) })
 })
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function chooseExistingDevice(rows: DeviceRow[], primaryFingerprint: string): DeviceRow | null {
+  return rows.find((row) => row.fingerprint === primaryFingerprint)
+    ?? rows.find((row) => row.is_active)
+    ?? rows[0]
+    ?? null
+}
 
 async function hasRoomFor(
   client: ReturnType<typeof createClient>,
@@ -213,7 +255,22 @@ async function listActiveDevices(
     .eq('user_id', userId)
     .eq('is_active', true)
     .order('last_seen_at', { ascending: false })
-  return data ?? []
+  return ((data ?? []) as DeviceRow[]).map(toUserDevice)
+}
+
+function toUserDevice(row: DeviceRow) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    fingerprint: row.fingerprint,
+    deviceKind: row.device_kind,
+    userAgent: row.user_agent,
+    ip: row.ip,
+    label: row.label,
+    isActive: row.is_active,
+    firstSeenAt: row.first_seen_at,
+    lastSeenAt: row.last_seen_at,
+  }
 }
 
 function isUniqueViolation(err: unknown): boolean {

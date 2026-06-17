@@ -21,9 +21,10 @@ export interface UserDevice {
 }
 
 export interface RegisterDeviceBody {
-  fingerprint: string
-  deviceKind:  DeviceKind
-  userAgent?:  string
+  fingerprint:         string
+  fingerprintAliases?: string[]
+  deviceKind:          DeviceKind
+  userAgent?:          string
 }
 
 /** register-device returns one of these. */

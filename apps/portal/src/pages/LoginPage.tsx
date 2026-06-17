@@ -23,6 +23,7 @@ export function LoginPage() {
   const login                   = useAuthStore((s) => s.login)
   const pendingDeviceLimit      = useAuthStore((s) => s.pendingDeviceLimit)
   const clearPendingDeviceLimit = useAuthStore((s) => s.clearPendingDeviceLimit)
+  const logout                  = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const location = useLocation()
   const returnParam = safeReturnPath(new URLSearchParams(location.search).get('return'))
@@ -81,14 +82,16 @@ export function LoginPage() {
 
   // Phase G — if initialize() detected a device-limit, surface the modal too.
   const modalDevices = limitDevices ?? pendingDeviceLimit
-  function dismissLimitModal() {
+  function dismissLimitModal(endSession = true) {
     setLimitDevices(null)
     clearPendingDeviceLimit()
+    if (endSession) void logout()
   }
   async function retryAfterRevoke() {
-    dismissLimitModal()
+    const canRetry = Boolean(email && password)
+    dismissLimitModal(!canRetry)
     // Re-submit the form silently if we have credentials still in state.
-    if (email && password) {
+    if (canRetry) {
       setLoading(true)
       try {
         await login(email, password)

@@ -3,6 +3,11 @@ import { Smartphone, Laptop, X, Loader2, AlertTriangle, LogOut } from 'lucide-re
 import { Button } from '@s-class/ui/button'
 import { Badge } from '@s-class/ui/badge'
 import { revokeDevice } from '@s-class/api/devicesApi'
+import {
+  formatDeviceLastSeen,
+  getDeviceMetaLabel,
+  getDeviceName,
+} from '@s-class/api/deviceDisplay'
 import type { UserDevice } from '@s-class/types/devices'
 import { cn } from '@s-class/ui/cn'
 
@@ -114,7 +119,8 @@ interface DeviceRowProps {
 
 function DeviceRow({ device, isBusy, disabled, onRevoke }: DeviceRowProps) {
   const Icon = device.deviceKind === 'mobile' ? Smartphone : Laptop
-  const browser = uaShort(device.userAgent)
+  const name = getDeviceName(device)
+  const meta = getDeviceMetaLabel(device.userAgent)
   return (
     <div className={cn(
       'flex items-center gap-3 rounded-lg border bg-card p-3 transition-opacity',
@@ -126,11 +132,11 @@ function DeviceRow({ device, isBusy, disabled, onRevoke }: DeviceRowProps) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium capitalize">{device.deviceKind}</p>
-          <Badge variant="outline" className="text-[10px]">{browser}</Badge>
+          <p className="text-sm font-medium">{name}</p>
+          {meta && <Badge variant="outline" className="text-[10px]">{meta}</Badge>}
         </div>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          Last seen {new Date(device.lastSeenAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+          {formatDeviceLastSeen(device.lastSeenAt)}
         </p>
       </div>
 
@@ -148,16 +154,4 @@ function DeviceRow({ device, isBusy, disabled, onRevoke }: DeviceRowProps) {
       </Button>
     </div>
   )
-}
-
-// ── User-Agent → short browser label ─────────────────────────────────────────
-
-function uaShort(ua: string): string {
-  if (!ua) return 'Unknown'
-  if (/edg\//i.test(ua))         return 'Edge'
-  if (/chrome\//i.test(ua))      return 'Chrome'
-  if (/safari\//i.test(ua) && /version\//i.test(ua)) return 'Safari'
-  if (/firefox\//i.test(ua))     return 'Firefox'
-  if (/opera|opr\//i.test(ua))   return 'Opera'
-  return 'Browser'
 }

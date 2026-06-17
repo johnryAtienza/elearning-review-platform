@@ -35,37 +35,53 @@ export class DeviceLimitError extends Error {
   constructor(devices: UserDevice[]) {
     super('Device limit reached. Sign out another device first.')
     this.name = 'DeviceLimitError'
-    this.devices = devices
+    this.devices = devices.map((device) => toUserDevice(device as DeviceRow))
   }
 }
 
 // ── Raw row → app shape ──────────────────────────────────────────────────────
 
-interface DeviceRow {
-  id:             string
-  user_id:        string
-  fingerprint:    string
-  device_kind:    DeviceKind
-  user_agent:     string
-  ip:             string | null
-  label:          string | null
-  is_active:      boolean
-  first_seen_at:  string
-  last_seen_at:   string
+type DeviceRow = Partial<{
+  id:            string
+  user_id:       string
+  userId:        string
+  fingerprint:   string
+  device_kind:   DeviceKind
+  deviceKind:    DeviceKind
+  user_agent:    string | null
+  userAgent:     string | null
+  ip:            string | null
+  label:         string | null
+  is_active:     boolean
+  isActive:      boolean
+  first_seen_at: string | null
+  firstSeenAt:   string | null
+  last_seen_at:  string | null
+  lastSeenAt:    string | null
+}>
+
+function isDeviceKind(value: unknown): value is DeviceKind {
+  return value === 'mobile' || value === 'desktop'
 }
 
 function toUserDevice(row: DeviceRow): UserDevice {
+  const deviceKind = isDeviceKind(row.deviceKind)
+    ? row.deviceKind
+    : isDeviceKind(row.device_kind)
+      ? row.device_kind
+      : 'desktop'
+
   return {
-    id:           row.id,
-    userId:       row.user_id,
-    fingerprint:  row.fingerprint,
-    deviceKind:   row.device_kind,
-    userAgent:    row.user_agent,
-    ip:           row.ip,
-    label:        row.label,
-    isActive:     row.is_active,
-    firstSeenAt:  row.first_seen_at,
-    lastSeenAt:   row.last_seen_at,
+    id:          row.id ?? '',
+    userId:      row.userId ?? row.user_id ?? '',
+    fingerprint: row.fingerprint ?? '',
+    deviceKind,
+    userAgent:   row.userAgent ?? row.user_agent ?? '',
+    ip:          row.ip ?? null,
+    label:       row.label ?? null,
+    isActive:    row.isActive ?? row.is_active ?? false,
+    firstSeenAt: row.firstSeenAt ?? row.first_seen_at ?? '',
+    lastSeenAt:  row.lastSeenAt ?? row.last_seen_at ?? '',
   }
 }
 
@@ -76,7 +92,7 @@ function toUserDevice(row: DeviceRow): UserDevice {
  *
  * On success: resolves silently.
  * On limit_reached: throws `DeviceLimitError` with the current device list.
- * On other failure (network, fingerprint load): logs + resolves silently
+ * On other failure (network, identity load): logs + resolves silently
  * so login flow isn't blocked by a transient FP failure.
  */
 export async function registerCurrentDevice(): Promise<void> {
@@ -93,14 +109,15 @@ export async function registerCurrentDevice(): Promise<void> {
   try {
     identity = await getDeviceIdentity()
   } catch (err) {
-    // FingerprintJS failed — don't block the user.
-    console.warn('[devicesApi] FingerprintJS failed; skipping device registration:', err)
+    // Identity creation failed — don't block the user.
+    console.warn('[devicesApi] Device identity failed; skipping device registration:', err)
     return
   }
 
   const { data, error } = await supabase.functions.invoke<RegisterDeviceResponse>('register-device', {
     body: {
       fingerprint: identity.fingerprint,
+      fingerprintAliases: identity.fingerprintAliases,
       deviceKind:  identity.deviceKind,
       userAgent:   identity.userAgent,
     },

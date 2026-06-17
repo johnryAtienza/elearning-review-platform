@@ -1,14 +1,13 @@
 /**
- * Fingerprint wrapper + UA-based mobile/desktop classifier.
+ * Stable browser-install identity + UA-based mobile/desktop classifier.
  *
- * Wraps FingerprintJS (the free OSS build) so the rest of the app calls a
- * simple `getDeviceIdentity()` helper.
+ * The primary fingerprint is a locally persisted random ID. FingerprintJS is
+ * retained only as a migration alias for rows created before the stable ID
+ * rollout.
  *
  * Caveats:
- *  - The free FingerprintJS build returns a probabilistic visitorId. Major
- *    browser updates or OS changes can shift the value, causing what looks
- *    like the same device to be rejected by the Phase G hard cap. Mitigation:
- *    the "Sign out other devices" UI is always available.
+ *  - Clearing site data, using private/incognito mode, or switching browser
+ *    profiles intentionally creates a new browser-install ID.
  *  - Mobile/desktop is classified from `navigator.userAgent` only. Edge
  *    cases (iPad in desktop-mode, etc.) are acceptable; admins can correct
  *    via the DB if needed.
@@ -16,6 +15,8 @@
 
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 import type { DeviceKind } from '@s-class/types/devices'
+
+const INSTALL_ID_KEY = 's-class:device-install-id:v1'
 
 // Module-level promise so the FP agent loads once per page load.
 let agentPromise: ReturnType<typeof FingerprintJS.load> | null = null
@@ -26,25 +27,62 @@ function getAgent() {
 }
 
 export interface DeviceIdentity {
-  fingerprint: string
-  deviceKind:  DeviceKind
-  userAgent:   string
+  fingerprint:         string
+  fingerprintAliases:  string[]
+  deviceKind:          DeviceKind
+  userAgent:           string
 }
 
 /**
  * Compute the current device's identity.
- * Throws if FingerprintJS fails — caller should treat the throw as a
- * non-blocking soft-fail (skip registration rather than block login).
+ * FingerprintJS failures do not block registration; the stable browser-install
+ * ID is the authoritative device key.
  */
 export async function getDeviceIdentity(): Promise<DeviceIdentity> {
-  const agent  = await getAgent()
-  const result = await agent.get()
-  const ua     = navigator.userAgent ?? ''
+  const fingerprint = getOrCreateInstallId()
+  const ua          = navigator.userAgent ?? ''
+  const aliases     = await getLegacyFingerprintAliases(fingerprint)
+
   return {
-    fingerprint: result.visitorId,
-    deviceKind:  classifyKind(ua),
-    userAgent:   ua,
+    fingerprint,
+    fingerprintAliases: aliases,
+    deviceKind: classifyKind(ua),
+    userAgent: ua,
   }
+}
+
+async function getLegacyFingerprintAliases(primaryFingerprint: string): Promise<string[]> {
+  try {
+    const agent  = await getAgent()
+    const result = await agent.get()
+    const legacy = result.visitorId?.trim()
+    return legacy && legacy !== primaryFingerprint ? [legacy] : []
+  } catch (err) {
+    console.warn('[fingerprint] FingerprintJS alias unavailable:', err)
+    return []
+  }
+}
+
+function getOrCreateInstallId(): string {
+  try {
+    const existing = localStorage.getItem(INSTALL_ID_KEY)?.trim()
+    if (existing) return existing
+
+    const next = createInstallId()
+    localStorage.setItem(INSTALL_ID_KEY, next)
+    return next
+  } catch {
+    return createInstallId()
+  }
+}
+
+function createInstallId(): string {
+  if (crypto.randomUUID) return `browser-${crypto.randomUUID()}`
+
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `browser-${hex}`
 }
 
 /**

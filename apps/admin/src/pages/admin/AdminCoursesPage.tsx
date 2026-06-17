@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Tag, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Tag, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Tip, LoadError } from '../../features/admin/components/AdminTable'
+import { AdminTableSearch, Tip, LoadError, matchesAdminSearch } from '../../features/admin/components/AdminTable'
 import {
   getCoursesWithCount,
   createCourse,
@@ -78,11 +78,13 @@ export function AdminCoursesPage() {
   }
 
   const filtered = courses
-    .filter((c) =>
-      !search.trim() ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.slug.toLowerCase().includes(search.toLowerCase()),
-    )
+    .filter((c) => matchesAdminSearch(search, [
+      c.name,
+      c.slug,
+      c.description,
+      c.status,
+      c.subjectCount,
+    ]))
     .sort((a, b) => {
       const mult = sortDir === 'asc' ? 1 : -1
       if (sortKey === 'name') return mult * a.name.localeCompare(b.name)
@@ -107,23 +109,7 @@ export function AdminCoursesPage() {
       </div>
 
       {/* ── Search ── */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search courses…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 pr-9"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-      </div>
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search courses…" />
 
       {/* ── Error ── */}
       <LoadError message={error} />
@@ -159,9 +145,9 @@ export function AdminCoursesPage() {
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Tag className="size-8 opacity-40" />
                     <p className="font-medium">
-                      {search ? 'No courses match your search.' : 'No courses yet.'}
+                      {courses.length === 0 ? 'No courses yet.' : 'No results found'}
                     </p>
-                    {!search && (
+                    {courses.length === 0 && (
                       <Button size="sm" variant="outline" onClick={openCreate} className="gap-1.5">
                         <Plus className="size-3.5" />
                         Create first course

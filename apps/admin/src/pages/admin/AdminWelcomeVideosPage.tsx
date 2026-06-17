@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WelcomeVideoModal } from '../../features/admin/components/WelcomeVideoModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -38,6 +39,7 @@ export function AdminWelcomeVideosPage() {
   const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
+  const [search,    setSearch]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -96,6 +98,12 @@ export function AdminWelcomeVideosPage() {
     .sort((a, b) => a.displayOrder - b.displayOrder || (a.createdAt < b.createdAt ? 1 : -1))[0]?.id
 
   const enabledCount = items.filter((v) => v.enabled).length
+  const filtered = items.filter((video) => matchesAdminSearch(search, [
+    video.title,
+    video.videoUrl,
+    video.displayOrder,
+    getWelcomeVideoStatus(video, activeId),
+  ]))
 
   return (
     <div className="space-y-6">
@@ -114,6 +122,8 @@ export function AdminWelcomeVideosPage() {
           New Welcome Video
         </Button>
       </div>
+
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search welcome videos…" />
 
       <LoadError message={loadError} />
 
@@ -147,9 +157,15 @@ export function AdminWelcomeVideosPage() {
               </Button>
             }
           />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={PlayCircle}
+            title="No results found"
+            description="Try a different search."
+          />
         ) : (
           <div className="divide-y">
-            {items.map((v) => (
+            {filtered.map((v) => (
               <WelcomeVideoRow
                 key={v.id}
                 video={v}
@@ -196,6 +212,8 @@ function WelcomeVideoRow({
   video, isActive, isToggling, isDeleting, isConfirmingDelete,
   onEdit, onToggleEnabled, onConfirmDelete, onCancelDelete, onDelete,
 }: RowProps) {
+  const status = getWelcomeVideoStatus(video, isActive ? video.id : undefined)
+
   return (
     <div className="divide-y">
       <div className={`${ADMIN_ROW_BASE} ${GRID_COLS}`}>
@@ -224,9 +242,9 @@ function WelcomeVideoRow({
         </span>
 
         <span className="flex justify-center">
-          {!video.enabled ? (
+          {status === 'Disabled' ? (
             <Badge variant="secondary">Disabled</Badge>
-          ) : isActive ? (
+          ) : status === 'Live' ? (
             <Badge variant="success">Live</Badge>
           ) : (
             <Badge variant="outline">Standby</Badge>
@@ -276,4 +294,9 @@ function WelcomeVideoRow({
       )}
     </div>
   )
+}
+
+function getWelcomeVideoStatus(video: AdminWelcomeVideo, activeId: string | undefined): 'Disabled' | 'Live' | 'Standby' {
+  if (!video.enabled) return 'Disabled'
+  return activeId === video.id ? 'Live' : 'Standby'
 }

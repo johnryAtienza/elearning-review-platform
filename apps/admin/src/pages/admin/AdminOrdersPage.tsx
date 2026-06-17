@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Package, Loader2, ExternalLink, Search } from 'lucide-react'
+import { Package, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { OrderDetailModal, StatusBadge } from '../../features/admin/components/OrderDetailModal'
 import {
-  AdminTableHeader, EmptyState, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, AdminTableSearch, EmptyState, ADMIN_ROW_BASE, Tip, LoadError,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import { getAdminOrders } from '@s-class/api/admin.service'
@@ -49,13 +49,14 @@ export function AdminOrdersPage() {
     const q = search.trim().toLowerCase()
     return orders.filter((o) => {
       if (filter !== 'all' && o.status !== filter) return false
-      if (!q) return true
-      return (
-        o.id.toLowerCase().includes(q)
-        || o.bookTitle?.toLowerCase().includes(q)
-        || o.shippingAddress.fullName.toLowerCase().includes(q)
-        || o.trackingNo?.toLowerCase().includes(q)
-      )
+      return matchesAdminSearch(q, [
+        o.id,
+        o.bookTitle,
+        o.shippingAddress.fullName,
+        o.status,
+        formatPHP(o.totalCentavos),
+        o.trackingNo,
+      ])
     })
   }, [orders, search, filter])
 
@@ -89,15 +90,7 @@ export function AdminOrdersPage() {
 
       {/* Search + status filter */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by order id, book, customer, tracking…"
-            className="pl-9"
-          />
-        </div>
+        <AdminTableSearch value={search} onChange={setSearch} placeholder="Search orders…" />
         <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map((s) => (
             <Button
@@ -135,7 +128,7 @@ export function AdminOrdersPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Package}
-            title={orders.length === 0 ? 'No orders yet' : 'No orders match your filter'}
+            title={orders.length === 0 ? 'No orders yet' : 'No results found'}
             description={orders.length === 0
               ? 'Orders appear here when a customer completes checkout.'
               : 'Try a different search or status filter.'}

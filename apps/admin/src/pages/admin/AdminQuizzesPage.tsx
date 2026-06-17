@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/utils/cn'
 import { QuizModal } from '../../features/admin/components/QuizModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -71,6 +72,8 @@ export function AdminQuizzesPage() {
   const [categoryModal,      setCategoryModal]      = useState<CategoryModalState>({ open: false })
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [confirmCategoryId,  setConfirmCategoryId]  = useState<string | null>(null)
+  const [problemSetSearch,   setProblemSetSearch]   = useState('')
+  const [categorySearch,     setCategorySearch]     = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -153,6 +156,26 @@ export function AdminQuizzesPage() {
       .catch(() => {/* silently ignore refresh failure */})
   }
 
+  const filteredQuizzes = quizzes.filter((quiz) => matchesAdminSearch(problemSetSearch, [
+    quiz.title,
+    quiz.lessonTitle,
+    quiz.courseTitle,
+    quiz.categoryName,
+    quiz.description,
+    quiz.status,
+    quiz.questionCount,
+    `${quiz.questionCount} Q`,
+    quiz.sortOrder,
+  ]))
+
+  const filteredCategories = categories.filter((category) => matchesAdminSearch(categorySearch, [
+    category.name,
+    category.sortOrder,
+    `Order ${category.sortOrder}`,
+    category.problemSetCount,
+    `${category.problemSetCount} set${category.problemSetCount === 1 ? '' : 's'}`,
+  ]))
+
   return (
     <div className="space-y-6">
 
@@ -206,7 +229,10 @@ export function AdminQuizzesPage() {
 
         {activeTab === 'categories' ? (
           <ProblemSetCategoriesPanel
-            categories={categories}
+            categories={filteredCategories}
+            totalCategories={categories.length}
+            search={categorySearch}
+            onSearchChange={setCategorySearch}
             loading={loading}
             deletingCategoryId={deletingCategoryId}
             confirmCategoryId={confirmCategoryId}
@@ -218,7 +244,13 @@ export function AdminQuizzesPage() {
             onDelete={handleDeleteCategory}
           />
         ) : (
-          <div className="p-4 sm:p-6">
+          <div className="space-y-4 p-4 sm:p-6">
+            <AdminTableSearch
+              value={problemSetSearch}
+              onChange={setProblemSetSearch}
+              placeholder="Search problem sets…"
+            />
+
             <div className="rounded-xl border shadow-sm overflow-hidden">
               <AdminTableHeader cols={HEADER_COLS} gridCols={GRID_COLS} />
 
@@ -255,9 +287,16 @@ export function AdminQuizzesPage() {
                   }
                 />
 
+              ) : filteredQuizzes.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="No results found"
+                  description="Try a different search."
+                />
+
               ) : (
                 <div className="divide-y">
-                  {quizzes.map((quiz) => (
+                  {filteredQuizzes.map((quiz) => (
                     <QuizRow
                       key={quiz.id}
                       quiz={quiz}
@@ -341,6 +380,9 @@ function ProblemSetPageTab({ tab, active, onClick }: ProblemSetPageTabProps) {
 
 interface ProblemSetCategoriesPanelProps {
   categories: AdminProblemSetCategory[]
+  totalCategories: number
+  search: string
+  onSearchChange: (value: string) => void
   loading: boolean
   deletingCategoryId: string | null
   confirmCategoryId: string | null
@@ -354,6 +396,9 @@ interface ProblemSetCategoriesPanelProps {
 
 function ProblemSetCategoriesPanel({
   categories,
+  totalCategories,
+  search,
+  onSearchChange,
   loading,
   deletingCategoryId,
   confirmCategoryId,
@@ -376,7 +421,7 @@ function ProblemSetCategoriesPanel({
         </div>
       ))}
     </div>
-  ) : categories.length === 0 ? (
+  ) : totalCategories === 0 ? (
     <EmptyState
       icon={Tags}
       title="No categories yet"
@@ -387,6 +432,12 @@ function ProblemSetCategoriesPanel({
           New Category
         </Button>
       }
+    />
+  ) : categories.length === 0 ? (
+    <EmptyState
+      icon={Tags}
+      title="No results found"
+      description="Try a different search."
     />
   ) : (
     <div className="divide-y">
@@ -465,7 +516,10 @@ function ProblemSetCategoriesPanel({
         </div>
       )}
 
-      {embedded ? <div className="rounded-xl border shadow-sm overflow-hidden">{body}</div> : body}
+      <div className="space-y-4">
+        <AdminTableSearch value={search} onChange={onSearchChange} placeholder="Search categories…" />
+        {embedded ? <div className="rounded-xl border shadow-sm overflow-hidden">{body}</div> : body}
+      </div>
     </section>
   )
 }

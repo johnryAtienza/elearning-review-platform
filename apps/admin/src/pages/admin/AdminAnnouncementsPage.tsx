@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AnnouncementModal } from '../../features/admin/components/AnnouncementModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -38,6 +39,7 @@ export function AdminAnnouncementsPage() {
   const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
+  const [search,    setSearch]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -91,6 +93,13 @@ export function AdminAnnouncementsPage() {
   }
 
   const enabledCount = items.filter((a) => a.enabled).length
+  const filtered = items.filter((announcement) => matchesAdminSearch(search, [
+    announcement.title,
+    announcement.body,
+    formatAdminDate(announcement.publishedAt),
+    announcement.displayOrder,
+    getAnnouncementStatus(announcement),
+  ]))
 
   return (
     <div className="space-y-6">
@@ -107,6 +116,8 @@ export function AdminAnnouncementsPage() {
           New Announcement
         </Button>
       </div>
+
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search announcements…" />
 
       <LoadError message={loadError} />
 
@@ -140,9 +151,15 @@ export function AdminAnnouncementsPage() {
               </Button>
             }
           />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title="No results found"
+            description="Try a different search."
+          />
         ) : (
           <div className="divide-y">
-            {items.map((a) => (
+            {filtered.map((a) => (
               <AnnouncementRow
                 key={a.id}
                 announcement={a}
@@ -187,7 +204,7 @@ function AnnouncementRow({
   announcement, isToggling, isDeleting, isConfirmingDelete,
   onEdit, onToggleEnabled, onConfirmDelete, onCancelDelete, onDelete,
 }: RowProps) {
-  const isFuture = new Date(announcement.publishedAt).getTime() > Date.now()
+  const status = getAnnouncementStatus(announcement)
 
   return (
     <div className="divide-y">
@@ -209,9 +226,9 @@ function AnnouncementRow({
         </span>
 
         <span className="flex justify-center">
-          {!announcement.enabled ? (
+          {status === 'Disabled' ? (
             <Badge variant="secondary">Disabled</Badge>
-          ) : isFuture ? (
+          ) : status === 'Scheduled' ? (
             <Badge variant="outline">Scheduled</Badge>
           ) : (
             <Badge variant="success">Live</Badge>
@@ -261,4 +278,9 @@ function AnnouncementRow({
       )}
     </div>
   )
+}
+
+function getAnnouncementStatus(announcement: AdminAnnouncement): 'Disabled' | 'Scheduled' | 'Live' {
+  if (!announcement.enabled) return 'Disabled'
+  return new Date(announcement.publishedAt).getTime() > Date.now() ? 'Scheduled' : 'Live'
 }

@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LessonModal } from '../../features/admin/components/LessonModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
-  filterTabClass, Tip, LoadError, type ColConfig,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE,
+  filterTabClass, Tip, LoadError, matchesAdminSearch, type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
   getAdminLessons,
@@ -52,6 +52,7 @@ export function AdminLessonsPage() {
   const [loading,   setLoading]   = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter,    setFilter]    = useState<string>('all')
+  const [search,    setSearch]    = useState('')
   const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
@@ -96,7 +97,19 @@ export function AdminLessonsPage() {
     toast.success(isEdit ? `"${saved.title}" updated` : `"${saved.title}" created`)
   }
 
-  const filtered = filter === 'all' ? lessons : lessons.filter((l) => l.courseId === filter)
+  const subjectFiltered = filter === 'all' ? lessons : lessons.filter((l) => l.courseId === filter)
+  const filtered = subjectFiltered.filter((lesson) => matchesAdminSearch(search, [
+    lesson.title,
+    lesson.courseTitle,
+    lesson.weekNumber,
+    lesson.weekNumber === null ? null : `Week ${lesson.weekNumber}`,
+    lesson.dayNumber,
+    lesson.dayNumber === null ? null : `Day ${lesson.dayNumber}`,
+    lesson.isFreePreview ? 'Free Preview Yes' : 'Free Preview No',
+    lesson.durationMinutes,
+    formatLessonDuration(lesson.durationMinutes),
+    lesson.videoUrl ? 'Video uploaded' : 'No video',
+  ]))
 
   return (
     <div className="space-y-6">
@@ -134,6 +147,8 @@ export function AdminLessonsPage() {
         </div>
       )}
 
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search lessons…" />
+
       {/* ── Load error ── */}
       <LoadError message={loadError} />
 
@@ -159,7 +174,7 @@ export function AdminLessonsPage() {
             ))}
           </div>
 
-        ) : filtered.length === 0 ? (
+        ) : lessons.length === 0 || (subjectFiltered.length === 0 && !search) ? (
           <EmptyState
             icon={BookMarked}
             title={filter !== 'all' ? 'No lessons in this subject' : 'No lessons yet'}
@@ -170,6 +185,13 @@ export function AdminLessonsPage() {
                 New Lesson
               </Button>
             }
+          />
+
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={BookMarked}
+            title="No results found"
+            description="Try a different search."
           />
 
         ) : (

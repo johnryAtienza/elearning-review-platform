@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Search, ShieldCheck, User, Pencil, MoreVertical, Monitor, Smartphone, RotateCcw, type LucideIcon } from 'lucide-react'
+import { Users, ShieldCheck, User, Pencil, MoreVertical, Monitor, Smartphone, RotateCcw, type LucideIcon } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  AdminTableHeader, filterTabClass, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
+  AdminTableHeader, AdminTableSearch, filterTabClass, ADMIN_ROW_BASE, Tip, LoadError, formatAdminDate,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -172,10 +173,13 @@ export function AdminUsersPage() {
     const q = search.trim().toLowerCase()
     return users.filter((u) => {
       const matchesRole = roleFilter === 'all' || u.role === roleFilter
-      const matchesSearch =
-        !q ||
-        u.name.toLowerCase().includes(q) ||
-        (u.email ?? '').toLowerCase().includes(q)
+      const matchesSearch = matchesAdminSearch(q, [
+        u.name,
+        u.email,
+        u.role,
+        u.isSubscribed ? 'Standard Subscribed' : 'Free',
+        u.mobileNumber,
+      ])
       return matchesRole && matchesSearch
     })
   }, [users, search, roleFilter])
@@ -198,15 +202,12 @@ export function AdminUsersPage() {
 
       {/* ── Search + filters ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or email…"
-            className="pl-9"
-          />
-        </div>
+        <AdminTableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search users…"
+          className="sm:max-w-xs"
+        />
 
         <div className="flex items-center gap-2">
           {(['all', 'admin', 'user'] as RoleFilter[]).map((f) => (
@@ -254,9 +255,9 @@ export function AdminUsersPage() {
             </div>
             <div>
               <p className="text-sm font-medium">
-                {search || roleFilter !== 'all' ? 'No users match your filters' : 'No users yet'}
+                {users.length === 0 ? 'No users yet' : 'No results found'}
               </p>
-              {(search || roleFilter !== 'all') && (
+              {users.length > 0 && (search || roleFilter !== 'all') && (
                 <button
                   onClick={() => { setSearch(''); setRoleFilter('all') }}
                   className="text-xs text-primary hover:underline mt-1"

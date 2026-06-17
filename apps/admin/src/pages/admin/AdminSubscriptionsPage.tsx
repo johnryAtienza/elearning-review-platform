@@ -8,7 +8,6 @@ import {
   Loader2,
   Power,
   RefreshCw,
-  Search,
   X,
   XCircle,
   type LucideIcon,
@@ -20,7 +19,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  AdminTableHeader, ADMIN_ROW_BASE, filterTabClass, LoadError, formatAdminDate,
+  AdminTableHeader, AdminTableSearch, ADMIN_ROW_BASE, filterTabClass, LoadError, formatAdminDate,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -168,7 +168,14 @@ export function AdminSubscriptionsPage() {
       const matchesStatus =
         filter === 'all' ||
         sub.effectiveStatus === filter
-      const matchesSearch = !q || (sub.userName ?? '').toLowerCase().includes(q)
+      const matchesSearch = matchesAdminSearch(q, [
+        sub.userName,
+        planLabel(sub.planId, sub.tier),
+        sub.tier,
+        sub.effectiveStatus,
+        formatExpiry(sub.expiresAt),
+        sub.isActive ? 'Active' : 'Inactive',
+      ])
       return matchesStatus && matchesSearch
     })
   }, [subs, search, filter])
@@ -187,15 +194,12 @@ export function AdminSubscriptionsPage() {
       </div>
 
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by user name..."
-            className="pl-9"
-          />
-        </div>
+        <AdminTableSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search subscriptions…"
+          className="sm:max-w-xs"
+        />
 
         <div className="flex items-center gap-2">
           {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((status) => (
@@ -237,9 +241,9 @@ export function AdminSubscriptionsPage() {
             </div>
             <div>
               <p className="text-sm font-medium">
-                {search || filter !== 'all' ? 'No subscriptions match your filters' : 'No subscriptions yet'}
+                {subs.length === 0 ? 'No subscriptions yet' : 'No results found'}
               </p>
-              {(search || filter !== 'all') && (
+              {subs.length > 0 && (search || filter !== 'all') && (
                 <button
                   onClick={() => {
                     setSearch('')

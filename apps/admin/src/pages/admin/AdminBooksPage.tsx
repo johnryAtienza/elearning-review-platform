@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BookModal } from '../../features/admin/components/BookModal'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -43,6 +44,7 @@ export function AdminBooksPage() {
   const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
+  const [search,    setSearch]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -99,6 +101,13 @@ export function AdminBooksPage() {
   }
 
   const publishedCount = books.filter((b) => b.status === 'published').length
+  const filtered = books.filter((book) => matchesAdminSearch(search, [
+    book.title,
+    book.author,
+    book.stock,
+    formatPHP(book.priceCentavos),
+    book.status,
+  ]))
 
   return (
     <div className="space-y-6">
@@ -116,6 +125,8 @@ export function AdminBooksPage() {
           New Book
         </Button>
       </div>
+
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search books…" />
 
       <LoadError message={loadError} />
 
@@ -151,9 +162,15 @@ export function AdminBooksPage() {
               </Button>
             }
           />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={BookOpen}
+            title="No results found"
+            description="Try a different search."
+          />
         ) : (
           <div className="divide-y">
-            {books.map((book) => (
+            {filtered.map((book) => (
               <BookRow
                 key={book.id}
                 book={book}

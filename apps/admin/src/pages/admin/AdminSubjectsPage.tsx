@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SubjectModal } from '../../features/admin/components/SubjectModal'
 import { SubjectThumbnail } from '@/components/SubjectThumbnail'
 import {
-  AdminTableHeader, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
 import {
@@ -51,6 +52,7 @@ export function AdminSubjectsPage() {
   const [deleting,  setDeleting]  = useState<Set<string>>(new Set())
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [modal,     setModal]     = useState<ModalState>({ open: false })
+  const [search,    setSearch]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -110,6 +112,14 @@ export function AdminSubjectsPage() {
   }
 
   const publishedCount = subjects.filter((s) => s.isPublished).length
+  const filtered = subjects.filter((subject) => matchesAdminSearch(search, [
+    subject.title,
+    subject.category,
+    subject.description,
+    subject.sortOrder,
+    subject.lessonCount,
+    subject.isPublished ? 'Published' : 'Draft',
+  ]))
 
   return (
     <div className="space-y-6">
@@ -127,6 +137,8 @@ export function AdminSubjectsPage() {
           New Subject
         </Button>
       </div>
+
+      <AdminTableSearch value={search} onChange={setSearch} placeholder="Search subjects…" />
 
       {/* ── Load error ── */}
       <LoadError message={loadError} />
@@ -165,9 +177,16 @@ export function AdminSubjectsPage() {
             }
           />
 
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={BookOpen}
+            title="No results found"
+            description="Try a different search."
+          />
+
         ) : (
           <div className="divide-y">
-            {subjects.map((subject) => (
+            {filtered.map((subject) => (
               <SubjectRow
                 key={subject.id}
                 subject={subject}

@@ -9,9 +9,10 @@
  *      copy-pasting the same markup across every admin page.
  */
 
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Search, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 // ── Column configuration ───────────────────────────────────────────────────────
 
@@ -63,6 +64,56 @@ export function AdminTableHeader({ cols, gridCols }: AdminTableHeaderProps) {
         </span>
       ))}
     </div>
+  )
+}
+
+// ── AdminTableSearch ─────────────────────────────────────────────────────────
+
+interface AdminTableSearchProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  className?: string
+}
+
+export function AdminTableSearch({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: AdminTableSearchProps) {
+  return (
+    <div className={cn('relative w-full max-w-sm', className)}>
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="pl-9 pr-9"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Clear search"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+export function matchesAdminSearch(
+  query: string,
+  fields: Array<string | number | boolean | null | undefined>,
+): boolean {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return true
+
+  return fields.some((field) =>
+    String(field ?? '').toLowerCase().includes(normalizedQuery),
   )
 }
 

@@ -133,6 +133,7 @@ export interface SubjectOption {
 }
 
 export type AdminSubscriptionEffectiveStatus = 'active' | 'expired' | 'inactive'
+export type AdminSubscriptionManualDuration = 1 | 3 | 6
 
 interface SubscriptionEntitlementFields {
   isActive: boolean
@@ -143,11 +144,14 @@ export function getAdminSubscriptionEffectiveStatus(
   subscription: SubscriptionEntitlementFields,
   now: Date = new Date(),
 ): AdminSubscriptionEffectiveStatus {
-  if (!subscription.isActive) return 'inactive'
-  if (!subscription.expiresAt) return 'active'
+  if (subscription.expiresAt) {
+    const expiresAt = new Date(subscription.expiresAt)
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= now.getTime()) {
+      return 'expired'
+    }
+  }
 
-  const expiresAt = new Date(subscription.expiresAt)
-  return expiresAt.getTime() > now.getTime() ? 'active' : 'expired'
+  return subscription.isActive ? 'active' : 'inactive'
 }
 
 export function isAdminSubscriptionEntitled(
@@ -162,15 +166,22 @@ export interface AdminSubscription {
   userId: string
   userName: string | null
   planId: string
+  tier: string | null
   isActive: boolean
   effectiveStatus: AdminSubscriptionEffectiveStatus
   isEntitled: boolean
   startedAt: string
   expiresAt: string | null
+  durationMonths: number | null
   createdAt: string
 }
 
-type AdminSubscriptionAccessAction = 'disable_access' | 'restore_access'
+type AdminSubscriptionAccessAction =
+  | 'disable_access'
+  | 'restore_access'
+  | 'renew'
+  | 'extend'
+  | 'set_custom_expiry'
 
 interface AdminSubscriptionAccessResponse {
   subscription: {
@@ -181,6 +192,14 @@ interface AdminSubscriptionAccessResponse {
     tier: string | null
     durationMonths: number | null
   }
+}
+
+interface AdminSubscriptionAccessRequest {
+  action: AdminSubscriptionAccessAction
+  userId: string
+  reason?: string
+  durationMonths?: AdminSubscriptionManualDuration
+  expiresAt?: string
 }
 
 export interface AdminUser {
@@ -297,15 +316,18 @@ interface SubscriptionRow {
   id: string
   user_id: string
   plan_id: string
+  tier: string | null
   is_active: boolean
   started_at: string
   expires_at: string | null
+  duration_months: number | null
   created_at: string
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 export async function getAdminStats(): Promise<AdminStats> {
+  const nowIso = new Date().toISOString()
   const [coursesRes, lessonsRes, usersRes, subsRes, completionsRes, completionsCountRes] = await Promise.all([
     // Note: `coursesRes` here counts SUBJECTS, not parent Courses. The variable
     // name matches the still-unchanged AdminStats.totalCourses field, which
@@ -316,7 +338,8 @@ export async function getAdminStats(): Promise<AdminStats> {
     supabase
       .from('subscriptions')
       .select('id', { count: 'exact', head: true })
-      .eq('is_active', true),
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
     supabase
       .from('lesson_progress')
       .select('user_id')
@@ -913,7 +936,7 @@ export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
   const [subsRes, usersRes] = await Promise.all([
     supabase
       .from('subscriptions')
-      .select('id, user_id, plan_id, is_active, started_at, expires_at, created_at')
+      .select('id, user_id, plan_id, tier, is_active, started_at, expires_at, duration_months, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('admin_user_list')
@@ -938,23 +961,34 @@ export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
       userId:          row.user_id,
       userName:        nameMap.get(row.user_id) ?? null,
       planId:          row.plan_id,
+      tier:            row.tier,
       isActive:        row.is_active,
       effectiveStatus,
       isEntitled:      effectiveStatus === 'active',
       startedAt:       row.started_at,
       expiresAt:       row.expires_at,
+      durationMonths:  row.duration_months,
       createdAt:       row.created_at,
     }
   })
 }
 
 async function invokeAdminSubscriptionAccess(
-  action: AdminSubscriptionAccessAction,
-  userId: string,
-  reason?: string,
+  request: AdminSubscriptionAccessRequest,
 ): Promise<AdminSubscriptionAccessResponse> {
-  const body: { action: AdminSubscriptionAccessAction; userId: string; reason?: string } = { action, userId }
-  if (reason) body.reason = reason
+  const body: {
+    action: AdminSubscriptionAccessAction
+    userId: string
+    reason?: string
+    durationMonths?: AdminSubscriptionManualDuration
+    expiresAt?: string
+  } = {
+    action: request.action,
+    userId: request.userId,
+  }
+  if (request.reason) body.reason = request.reason
+  if (request.durationMonths) body.durationMonths = request.durationMonths
+  if (request.expiresAt) body.expiresAt = request.expiresAt
 
   const { data, error } = await supabase.functions.invoke<AdminSubscriptionAccessResponse>(
     'admin-subscriptions',
@@ -998,10 +1032,10 @@ export async function setSubscriptionActive(id: string, isActive: boolean): Prom
   if (error) throw new ApiError(500, 'ADMIN_SUBSCRIPTION_FETCH_FAILED', error.message)
   if (!data) throw new ApiError(404, 'SUBSCRIPTION_NOT_FOUND', 'Subscription not found.')
 
-  await invokeAdminSubscriptionAccess(
-    isActive ? 'restore_access' : 'disable_access',
-    (data as { user_id: string }).user_id,
-  )
+  await invokeAdminSubscriptionAccess({
+    action: isActive ? 'restore_access' : 'disable_access',
+    userId: (data as { user_id: string }).user_id,
+  })
 }
 
 /**
@@ -1010,7 +1044,52 @@ export async function setSubscriptionActive(id: string, isActive: boolean): Prom
  * an explicit admin renewal path so every access change is audited.
  */
 export async function setUserSubscriptionStatus(userId: string, isActive: boolean): Promise<void> {
-  await invokeAdminSubscriptionAccess(isActive ? 'restore_access' : 'disable_access', userId)
+  await invokeAdminSubscriptionAccess({
+    action: isActive ? 'restore_access' : 'disable_access',
+    userId,
+  })
+}
+
+export async function renewAdminSubscription(
+  userId: string,
+  durationMonths: AdminSubscriptionManualDuration,
+  reason?: string,
+): Promise<AdminSubscriptionAccessResponse['subscription']> {
+  const { subscription } = await invokeAdminSubscriptionAccess({
+    action: 'renew',
+    userId,
+    durationMonths,
+    reason,
+  })
+  return subscription
+}
+
+export async function extendAdminSubscription(
+  userId: string,
+  durationMonths: AdminSubscriptionManualDuration,
+  reason?: string,
+): Promise<AdminSubscriptionAccessResponse['subscription']> {
+  const { subscription } = await invokeAdminSubscriptionAccess({
+    action: 'extend',
+    userId,
+    durationMonths,
+    reason,
+  })
+  return subscription
+}
+
+export async function setAdminSubscriptionCustomExpiry(
+  userId: string,
+  expiresAt: string,
+  reason?: string,
+): Promise<AdminSubscriptionAccessResponse['subscription']> {
+  const { subscription } = await invokeAdminSubscriptionAccess({
+    action: 'set_custom_expiry',
+    userId,
+    expiresAt,
+    reason,
+  })
+  return subscription
 }
 
 // ── Books (Phase C) ───────────────────────────────────────────────────────────

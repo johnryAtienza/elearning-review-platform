@@ -1,10 +1,8 @@
 /**
  * admin-subscriptions - Supabase Edge Function
  *
- * Admin-only service-role mutation path for subscription access controls.
- *
- * This function intentionally supports only disable/restore for now. Renew and
- * extend will be added after the backend hardening is deployed and verified.
+ * Admin-only service-role mutation path for subscription access controls,
+ * renewals, extensions, and explicit expiry management.
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -16,14 +14,29 @@ const CORS_HEADERS = {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const VALID_ACTIONS = new Set(['disable_access', 'restore_access'])
+const VALID_ACTIONS = new Set([
+  'disable_access',
+  'restore_access',
+  'renew',
+  'extend',
+  'set_custom_expiry',
+])
+const VALID_DURATION_MONTHS = new Set([1, 3, 6])
 
-type AdminSubscriptionAction = 'disable_access' | 'restore_access'
+type DurationMonths = 1 | 3 | 6
+type AdminSubscriptionAction =
+  | 'disable_access'
+  | 'restore_access'
+  | 'renew'
+  | 'extend'
+  | 'set_custom_expiry'
 
 interface Body {
   action?: unknown
   userId?: unknown
   reason?: unknown
+  durationMonths?: unknown
+  expiresAt?: unknown
 }
 
 interface SubscriptionRow {
@@ -33,6 +46,12 @@ interface SubscriptionRow {
   expires_at: string | null
   tier: string | null
   duration_months: number | null
+}
+
+interface ExtendSubscriptionResult {
+  new_expires_at: string | null
+  previous_expires_at: string | null
+  days_added: number
 }
 
 Deno.serve(async (req: Request) => {
@@ -100,31 +119,131 @@ Deno.serve(async (req: Request) => {
 
   const previous = subscription as SubscriptionRow
   const typedAction = action as AdminSubscriptionAction
+  const now = Date.now()
+  let next: SubscriptionRow
+  let metadata: Record<string, unknown> = {
+    source:                   'admin-subscriptions',
+    previous_duration_months: previous.duration_months,
+  }
 
-  if (typedAction === 'restore_access' && previous.expires_at) {
-    const expiresAt = new Date(previous.expires_at)
-    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+  if (typedAction === 'disable_access' || typedAction === 'restore_access') {
+    if (typedAction === 'restore_access' && isExpired(previous, now)) {
       return json({
         error: 'Subscription is expired. Renewal is required before access can be restored.',
         code:  'SUBSCRIPTION_EXPIRED_RENEW_REQUIRED',
       }, 409)
     }
+
+    const { data: updated, error: updateError } = await adminClient
+      .from('subscriptions')
+      .update({ is_active: typedAction === 'restore_access' })
+      .eq('id', previous.id)
+      .select('id, user_id, is_active, expires_at, tier, duration_months')
+      .single()
+
+    if (updateError || !updated) {
+      console.error('[admin-subscriptions] Subscription update error:', updateError?.message)
+      return json({ error: 'Failed to update subscription', code: 'SUBSCRIPTION_UPDATE_FAILED' }, 500)
+    }
+
+    next = updated as SubscriptionRow
+  } else if (typedAction === 'renew') {
+    if (!isExpired(previous, now)) {
+      return json({
+        error: 'Only expired subscriptions can be renewed.',
+        code:  'SUBSCRIPTION_NOT_EXPIRED_USE_EXTEND',
+      }, 409)
+    }
+
+    const durationMonths = parseDurationMonths(body.durationMonths)
+    if (!durationMonths) {
+      return json({
+        error: 'durationMonths must be one of 1, 3, or 6.',
+        code:  'INVALID_DURATION_MONTHS',
+      }, 400)
+    }
+
+    const rpcResult = await extendSubscription(adminClient, userId, durationMonths)
+    if (!rpcResult.ok) return rpcResult.response
+
+    next = rpcResult.subscription
+    metadata = {
+      ...metadata,
+      duration_months: durationMonths,
+      previous_expires_at: rpcResult.result.previous_expires_at,
+      days_added: rpcResult.result.days_added,
+    }
+  } else if (typedAction === 'extend') {
+    if (!previous.expires_at) {
+      return json({
+        error: 'This subscription has no expiry date. Use Set Expiry instead.',
+        code:  'SUBSCRIPTION_NO_EXPIRY_SET_CUSTOM_REQUIRED',
+      }, 409)
+    }
+
+    if (!previous.is_active) {
+      return json({
+        error: 'Inactive subscriptions must be restored before they can be extended.',
+        code:  'SUBSCRIPTION_INACTIVE_RESTORE_REQUIRED',
+      }, 409)
+    }
+
+    if (isExpired(previous, now)) {
+      return json({
+        error: 'Subscription is expired. Renewal is required before it can be extended.',
+        code:  'SUBSCRIPTION_EXPIRED_RENEW_REQUIRED',
+      }, 409)
+    }
+
+    const durationMonths = parseDurationMonths(body.durationMonths)
+    if (!durationMonths) {
+      return json({
+        error: 'durationMonths must be one of 1, 3, or 6.',
+        code:  'INVALID_DURATION_MONTHS',
+      }, 400)
+    }
+
+    const rpcResult = await extendSubscription(adminClient, userId, durationMonths)
+    if (!rpcResult.ok) return rpcResult.response
+
+    next = rpcResult.subscription
+    metadata = {
+      ...metadata,
+      duration_months: durationMonths,
+      previous_expires_at: rpcResult.result.previous_expires_at,
+      days_added: rpcResult.result.days_added,
+    }
+  } else {
+    const nextExpiresAt = parseFutureExpiry(body.expiresAt)
+    if (!nextExpiresAt) {
+      return json({
+        error: 'expiresAt must be a valid future ISO timestamp.',
+        code:  'INVALID_EXPIRES_AT',
+      }, 400)
+    }
+
+    const { data: updated, error: updateError } = await adminClient
+      .from('subscriptions')
+      .update({
+        is_active:  true,
+        tier:       previous.tier ?? 'standard',
+        expires_at: nextExpiresAt,
+      })
+      .eq('id', previous.id)
+      .select('id, user_id, is_active, expires_at, tier, duration_months')
+      .single()
+
+    if (updateError || !updated) {
+      console.error('[admin-subscriptions] Subscription custom expiry update error:', updateError?.message)
+      return json({ error: 'Failed to update custom expiry', code: 'SUBSCRIPTION_UPDATE_FAILED' }, 500)
+    }
+
+    next = updated as SubscriptionRow
+    metadata = {
+      ...metadata,
+      requested_expires_at: nextExpiresAt,
+    }
   }
-
-  const nextIsActive = typedAction === 'restore_access'
-  const { data: updated, error: updateError } = await adminClient
-    .from('subscriptions')
-    .update({ is_active: nextIsActive })
-    .eq('id', previous.id)
-    .select('id, user_id, is_active, expires_at, tier, duration_months')
-    .single()
-
-  if (updateError || !updated) {
-    console.error('[admin-subscriptions] Subscription update error:', updateError?.message)
-    return json({ error: 'Failed to update subscription', code: 'SUBSCRIPTION_UPDATE_FAILED' }, 500)
-  }
-
-  const next = updated as SubscriptionRow
 
   const { error: auditError } = await adminClient
     .from('subscription_admin_events')
@@ -141,9 +260,8 @@ Deno.serve(async (req: Request) => {
       new_tier:             next.tier,
       reason,
       metadata: {
-        source:                   'admin-subscriptions',
-        previous_duration_months: previous.duration_months,
-        new_duration_months:      next.duration_months,
+        ...metadata,
+        new_duration_months: next.duration_months,
       },
     })
 
@@ -169,4 +287,89 @@ function json(data: unknown, status = 200): Response {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
+}
+
+function isExpired(subscription: SubscriptionRow, now = Date.now()): boolean {
+  if (!subscription.expires_at) return false
+
+  const expiresAt = new Date(subscription.expires_at)
+  if (Number.isNaN(expiresAt.getTime())) return true
+  return expiresAt.getTime() <= now
+}
+
+function parseDurationMonths(value: unknown): DurationMonths | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || !VALID_DURATION_MONTHS.has(value)) {
+    return null
+  }
+
+  return value as DurationMonths
+}
+
+function parseFutureExpiry(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+    return null
+  }
+
+  return parsed.toISOString()
+}
+
+async function extendSubscription(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  durationMonths: DurationMonths,
+): Promise<
+  | {
+      ok: true
+      result: ExtendSubscriptionResult
+      subscription: SubscriptionRow
+    }
+  | {
+      ok: false
+      response: Response
+    }
+> {
+  const { data, error } = await adminClient
+    .rpc('extend_subscription', {
+      p_user_id:         userId,
+      p_duration_months: durationMonths,
+      p_tier:            'standard',
+    })
+    .single()
+
+  if (error || !data) {
+    console.error('[admin-subscriptions] extend_subscription RPC error:', error?.message)
+    return {
+      ok: false,
+      response: json({
+        error: 'Failed to extend subscription.',
+        code:  'SUBSCRIPTION_EXTEND_FAILED',
+      }, 500),
+    }
+  }
+
+  const { data: subscription, error: fetchError } = await adminClient
+    .from('subscriptions')
+    .select('id, user_id, is_active, expires_at, tier, duration_months')
+    .eq('user_id', userId)
+    .single()
+
+  if (fetchError || !subscription) {
+    console.error('[admin-subscriptions] post-RPC fetch error:', fetchError?.message)
+    return {
+      ok: false,
+      response: json({
+        error: 'Subscription extended but the updated row could not be loaded.',
+        code:  'SUBSCRIPTION_FETCH_FAILED',
+      }, 500),
+    }
+  }
+
+  return {
+    ok: true,
+    result: data as ExtendSubscriptionResult,
+    subscription: subscription as SubscriptionRow,
+  }
 }

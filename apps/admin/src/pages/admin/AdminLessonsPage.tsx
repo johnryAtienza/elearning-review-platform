@@ -194,6 +194,7 @@ export function AdminLessonsPage() {
       {modal.open && (
         <LessonModal
           lesson={modal.lesson}
+          existingLessons={lessons}
           defaultCourseId={filter !== 'all' ? filter : undefined}
           onClose={() => setModal({ open: false })}
           onSaved={(saved) => handleSaved(saved, modal.lesson !== null)}

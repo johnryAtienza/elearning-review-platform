@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { X, Loader2, FileVideo, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,8 @@ import { cn } from '@/utils/cn'
 interface LessonModalProps {
   /** null = create mode, non-null = edit mode */
   lesson: AdminLesson | null
+  /** Loaded admin lessons, used to validate curriculum slots before submit. */
+  existingLessons: AdminLesson[]
   /** Pre-select a course (used when opening from a course filter view) */
   defaultCourseId?: string
   onClose: () => void
@@ -28,9 +30,59 @@ interface LessonModalProps {
 
 type UploadStage = 'idle' | 'creating' | 'video' | 'finalising'
 
+const MAX_LESSON_DAYS_PER_WEEK = 6
+
+function lessonWeekFullMessage(weekNumber: number): string {
+  return `This subject already has ${MAX_LESSON_DAYS_PER_WEEK} days for Week ${weekNumber}. Delete or move an existing lesson before adding another day.`
+}
+
+function duplicateSlotMessage(weekNumber: number, dayNumber: number): string {
+  return `Week ${weekNumber}, Day ${dayNumber} is already used for this subject. Choose another day or move the existing lesson first.`
+}
+
+function getLessonSlotValidationError(params: {
+  lessons: AdminLesson[]
+  currentLessonId: string | null
+  originalSlot: { courseId: string; weekNumber: number; dayNumber: number } | null
+  courseId: string
+  weekNumber: number
+  dayNumber: number
+}): string | null {
+  const { lessons, currentLessonId, originalSlot, courseId, weekNumber, dayNumber } = params
+  if (!courseId) return null
+
+  const isUnchangedExistingSlot =
+    originalSlot !== null &&
+    courseId === originalSlot.courseId &&
+    weekNumber === originalSlot.weekNumber &&
+    dayNumber === originalSlot.dayNumber
+
+  if (isUnchangedExistingSlot) return null
+
+  const otherLessons = lessons.filter((existing) => existing.id !== currentLessonId)
+  const duplicateSlot = otherLessons.some((existing) =>
+    existing.courseId === courseId &&
+    existing.weekNumber === weekNumber &&
+    existing.dayNumber === dayNumber
+  )
+
+  if (duplicateSlot) return duplicateSlotMessage(weekNumber, dayNumber)
+
+  const lessonsInWeek = otherLessons.filter((existing) =>
+    existing.courseId === courseId &&
+    existing.weekNumber === weekNumber
+  )
+
+  if (lessonsInWeek.length >= MAX_LESSON_DAYS_PER_WEEK) {
+    return lessonWeekFullMessage(weekNumber)
+  }
+
+  return null
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: LessonModalProps) {
+export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose, onSaved }: LessonModalProps) {
   const isEdit = lesson !== null
 
   // ── Form state ───────────────────────────────────────────────────────────────
@@ -43,6 +95,9 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   // 6-day week pattern (week = ceil(order/6), day = order). Admin can override.
   const defaultWeek = lesson?.weekNumber ?? Math.max(1, Math.ceil((lesson?.order ?? 1) / 6))
   const defaultDay  = lesson?.dayNumber  ?? (lesson?.order ?? 1)
+  const originalSlot = useRef(lesson
+    ? { courseId: lesson.courseId, weekNumber: defaultWeek, dayNumber: defaultDay }
+    : null)
   const [weekNumber, setWeekNumber] = useState<number>(defaultWeek)
   const [dayNumber,  setDayNumber]  = useState<number>(defaultDay)
   // Free preview unlocks the lesson for guests and free-tier users. Defaults
@@ -65,6 +120,17 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
   const [videoProgress, setVideoProgress] = useState(0)
   const [error,        setError]        = useState<string | null>(null)
 
+  const slotValidationError = useMemo(() => getLessonSlotValidationError({
+    lessons: existingLessons,
+    currentLessonId: lesson?.id ?? null,
+    originalSlot: originalSlot.current,
+    courseId,
+    weekNumber,
+    dayNumber,
+  }), [courseId, dayNumber, existingLessons, lesson?.id, weekNumber])
+  const saveDisabled = saving || coursesLoading || Boolean(slotValidationError)
+  const submitError = error === slotValidationError ? null : error
+
   // ── Load courses for dropdown (runs once on mount) ───────────────────────────
   useEffect(() => {
     getSubjectsForSelect()
@@ -83,6 +149,18 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
     if (saving) return                   // guard against double-submit
     if (!courseId)    { setError('Please select a course.'); return }
     if (!title.trim()) { setError('Title is required.');    return }
+    const submitSlotError = getLessonSlotValidationError({
+      lessons: existingLessons,
+      currentLessonId: lesson?.id ?? null,
+      originalSlot: originalSlot.current,
+      courseId,
+      weekNumber,
+      dayNumber,
+    })
+    if (submitSlotError) {
+      setError(submitSlotError)
+      return
+    }
 
     setSaving(true)
     setError(null)
@@ -143,7 +221,11 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key') || msg.includes('lessons_subject_id_order_key')) {
+      if (msg.includes('lesson_week_full')) {
+        setError(lessonWeekFullMessage(weekNumber))
+      } else if (msg.includes('lesson_duplicate_curriculum_slot')) {
+        setError(duplicateSlotMessage(weekNumber, dayNumber))
+      } else if (msg.includes('23505') || msg.includes('duplicate key') || msg.includes('lessons_course_id_order_key') || msg.includes('lessons_subject_id_order_key')) {
         setError('Another lesson was assigned the same position in this subject. Please save again.')
       } else {
         setError(msg || 'Failed to save lesson.')
@@ -257,6 +339,9 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
                 Lesson order is assigned automatically. Week + Day drive the
                 curriculum grid on the subject page.
               </p>
+              {slotValidationError && (
+                <p className="text-xs text-destructive">{slotValidationError}</p>
+              )}
             </div>
 
             {/* Free preview toggle */}
@@ -341,7 +426,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
             </div>
 
             {/* Error */}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
           </div>
 
@@ -350,7 +435,7 @@ export function LessonModal({ lesson, defaultCourseId, onClose, onSaved }: Lesso
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || coursesLoading}>
+            <Button type="submit" disabled={saveDisabled}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               {stageLabel()}
             </Button>

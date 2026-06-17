@@ -12,6 +12,7 @@ import { useAuthStore } from '@s-class/auth/authStore'
 import { useSavedSubjectsStore } from '@s-class/auth/savedSubjectsStore'
 import { subjectApi } from '@s-class/api/subjectApi'
 import { lessonApi } from '@s-class/api/lessonApi'
+import { getWatchedLessonIds } from '@s-class/api/lessonProgressApi'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
@@ -24,21 +25,23 @@ import type { Lesson } from '@/features/lessons/types'
  *
  * Reuses:
  *   - subjectApi.getById, lessonApi.getBySubject (existing provider routers)
- *   - useSavedSubjectsStore (existing store, read-only for progress)
+ *   - useSavedSubjectsStore + lesson_progress (read-only for progress)
  *   - WeekBlock + groupLessonsByWeek (extracted curriculum primitives,
  *     same code path SubjectDetailPage uses)
  *
- * No new business logic, no new data fetching, no progress-tracking writes.
+ * No progress-tracking writes.
  */
 
 // Hoisted selectors — stable references; see RootLayout.tsx for rationale.
 const selectIsAuthenticated = (s: { isAuthenticated: boolean }) => s.isAuthenticated
 const selectIsSubscribed    = (s: { isSubscribed: boolean })    => s.isSubscribed
+const selectSubscriptionTier = (s: { subscription: { tier?: string } | null }) => s.subscription?.tier
 
 export function PortalSubjectHubPage() {
   const { subjectId } = useParams<{ subjectId: string }>()
   const isAuthenticated = useAuthStore(selectIsAuthenticated)
   const isSubscribed    = useAuthStore(selectIsSubscribed)
+  const subscriptionTier = useAuthStore(selectSubscriptionTier)
   const isSaved = useSavedSubjectsStore((s) => subjectId ? s.isSaved(subjectId) : false)
   const toggle  = useSavedSubjectsStore((s) => s.toggle)
   const progress = useSavedSubjectsStore(
@@ -54,6 +57,7 @@ export function PortalSubjectHubPage() {
 
   const [subject, setSubject] = useState<Subject | undefined>()
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [watchedLessonIds, setWatchedLessonIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -69,6 +73,23 @@ export function PortalSubjectHubPage() {
   }, [lessons])
 
   const weekGroups = useMemo(() => groupLessonsByWeek(lessons), [lessons])
+  const weekGroupsWithPredecessors = useMemo(() => {
+    const previousLessons: Lesson[] = []
+
+    return weekGroups.map((group) => {
+      const item = {
+        group,
+        previousSubjectLessons: [...previousLessons],
+      }
+      previousLessons.push(...group.lessons)
+      return item
+    })
+  }, [weekGroups])
+  const watchedLessonIdSet = useMemo(
+    () => new Set(watchedLessonIds),
+    [watchedLessonIds],
+  )
+  const standardSequentialUnlock = isAuthenticated && isSubscribed && subscriptionTier === 'standard'
 
   useEffect(() => {
     if (!subjectId) return
@@ -88,6 +109,25 @@ export function PortalSubjectHubPage() {
 
     return () => { cancelled = true }
   }, [subjectId])
+
+  useEffect(() => {
+    if (!standardSequentialUnlock || lessons.length === 0) {
+      setWatchedLessonIds([])
+      return
+    }
+
+    let cancelled = false
+    getWatchedLessonIds(lessons.map((lesson) => lesson.id))
+      .then((ids) => {
+        if (!cancelled) setWatchedLessonIds(ids)
+      })
+      .catch((err: unknown) => {
+        console.error('[PortalSubjectHubPage] Failed to load watched lessons:', err)
+        if (!cancelled) setWatchedLessonIds([])
+      })
+
+    return () => { cancelled = true }
+  }, [standardSequentialUnlock, lessons])
 
   if (notFound) return <Navigate to={ROUTES.PORTAL_SUBJECTS} replace />
   if (error)    return <ErrorMessage message={error} />
@@ -254,12 +294,16 @@ export function PortalSubjectHubPage() {
             Curriculum
           </h2>
           <div className="space-y-8">
-            {weekGroups.map((group) => (
+            {weekGroupsWithPredecessors.map(({ group, previousSubjectLessons }) => (
               <WeekBlock
                 key={group.weekNumber}
                 group={group}
                 isSubscribed={isSubscribed}
                 isAuthenticated={isAuthenticated}
+                sequentialUnlockEnabled={standardSequentialUnlock}
+                watchedLessonIds={watchedLessonIdSet}
+                previousSubjectLessons={previousSubjectLessons}
+                showWatchStatus={isAuthenticated}
               />
             ))}
           </div>

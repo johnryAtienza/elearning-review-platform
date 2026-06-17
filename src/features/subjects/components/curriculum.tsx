@@ -16,6 +16,7 @@ import type { Lesson } from '@/features/lessons/types'
  * (Day 6 = Week 1 Exam, Day 12 = Week 2 Exam, etc.).
  */
 const DAYS_PER_WEEK = 6
+const EMPTY_WATCHED_LESSON_IDS: ReadonlySet<string> = new Set()
 
 export interface WeekGroup {
   weekNumber: number
@@ -28,6 +29,10 @@ export function effectiveWeek(lesson: Lesson): number {
 
 export function effectiveDay(lesson: Lesson): number {
   return lesson.dayNumber ?? lesson.order
+}
+
+function isExamLesson(lesson: Lesson): boolean {
+  return /\bexam\b/i.test(lesson.title)
 }
 
 export function groupLessonsByWeek(lessons: Lesson[]): WeekGroup[] {
@@ -51,6 +56,15 @@ interface WeekBlockProps {
   isSubscribed: boolean
   isAuthenticated: boolean
   /**
+   * Enables sequential curriculum locking for active Standard users.
+   * When enabled, lessons require prior video lessons to have an `is_watched`
+   * progress row. Weekly exams only check prior same-week lesson videos.
+   */
+  sequentialUnlockEnabled?: boolean
+  watchedLessonIds?: ReadonlySet<string>
+  previousSubjectLessons?: Lesson[]
+  showWatchStatus?: boolean
+  /**
    * When true, lesson cards render for the public preview funnel on Landing:
    * unlocked previews route to /preview/lesson/:id; locked lessons cross-origin
    * to portal /register. Used by Landing's /preview/subject/:id route.
@@ -58,7 +72,16 @@ interface WeekBlockProps {
   previewMode?: boolean
 }
 
-export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }: WeekBlockProps) {
+export function WeekBlock({
+  group,
+  isSubscribed,
+  isAuthenticated,
+  sequentialUnlockEnabled = false,
+  watchedLessonIds = EMPTY_WATCHED_LESSON_IDS,
+  previousSubjectLessons = [],
+  showWatchStatus = false,
+  previewMode,
+}: WeekBlockProps) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-bold tracking-wider uppercase text-foreground flex items-center gap-3">
@@ -75,9 +98,13 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }:
             key={lesson.id}
             lesson={lesson}
             previousWeekLessons={group.lessons.slice(0, index)}
+            previousSubjectLessons={previousSubjectLessons}
             isLastInWeek={index === group.lessons.length - 1}
             isSubscribed={isSubscribed}
             isAuthenticated={isAuthenticated}
+            sequentialUnlockEnabled={sequentialUnlockEnabled}
+            watchedLessonIds={watchedLessonIds}
+            showWatchStatus={showWatchStatus}
             previewMode={previewMode}
           />
         ))}
@@ -93,6 +120,8 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }:
 //
 // Click rules (Phase B):
 //   - Subscribers       → navigate to the lesson.
+//   - Standard sequence → when enabled, require previous lesson videos to
+//                          be watched before the next card can navigate.
 //   - Anyone, Day 1     → navigate to the lesson (free for everyone).
 //   - Free user, Day 2+ → render as a non-interactive locked card with a
 //                          link out to /subscription on the action affordance.
@@ -102,28 +131,52 @@ export function WeekBlock({ group, isSubscribed, isAuthenticated, previewMode }:
 interface DayCardProps {
   lesson: Lesson
   previousWeekLessons: Lesson[]
+  previousSubjectLessons: Lesson[]
   isLastInWeek: boolean
   isSubscribed: boolean
   isAuthenticated: boolean
+  sequentialUnlockEnabled?: boolean
+  watchedLessonIds?: ReadonlySet<string>
+  showWatchStatus?: boolean
   previewMode?: boolean
 }
 
 export function DayCard({
   lesson,
   previousWeekLessons,
+  previousSubjectLessons,
   isLastInWeek,
   isSubscribed,
   isAuthenticated,
+  sequentialUnlockEnabled = false,
+  watchedLessonIds = EMPTY_WATCHED_LESSON_IDS,
+  showWatchStatus = false,
   previewMode,
 }: DayCardProps) {
-  const isExam       = /\bexam\b/i.test(lesson.title)
+  const isExam       = isExamLesson(lesson)
   const isWeeklyExam = isExam && isLastInWeek
   const day          = effectiveDay(lesson)
   const isPreview    = lesson.isFreePreview === true
+  const isWatched    = watchedLessonIds.has(lesson.id)
   // Free-preview lessons unlock for everyone — guests, free-tier auth, and
   // subscribers alike. Premium lessons require a subscription. In Landing's
   // public preview funnel only preview-flagged lessons are actually unlocked.
-  const unlocked  = previewMode ? isPreview : (isSubscribed || isPreview)
+  const subscriptionUnlocked = previewMode ? isPreview : (isSubscribed || isPreview)
+  const previousLessonsForUnlock = isWeeklyExam
+    ? previousWeekLessons
+    : [...previousSubjectLessons, ...previousWeekLessons]
+  const sequenceLocked = sequentialUnlockEnabled
+    && subscriptionUnlocked
+    && previousLessonsForUnlock.some((previousLesson) => (
+      !isExamLesson(previousLesson) && !watchedLessonIds.has(previousLesson.id)
+    ))
+  const unlocked = subscriptionUnlocked && !sequenceLocked
+  const statusBadge = showWatchStatus && unlocked
+    ? getWatchStatusBadge({
+      isWatched,
+      isExam: isWeeklyExam,
+    })
+    : null
 
   const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
@@ -133,14 +186,17 @@ export function DayCard({
       <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
         Day {day}
       </span>
-      {isExam
-        ? <Badge variant="warning">Exam</Badge>
-        : isPreview && !isSubscribed
-          ? <Badge variant="success">Free Preview</Badge>
-          : !unlocked
-            ? <Lock className="size-3.5 text-muted-foreground" aria-label="Enroll to unlock" />
-            : null
-      }
+      <div className="flex items-center gap-1.5">
+        {isExam && <Badge variant="warning">Exam</Badge>}
+        {!isExam && isPreview && !isSubscribed && <Badge variant="success">Free Preview</Badge>}
+        {statusBadge}
+        {!unlocked && (
+          <Lock
+            className="size-3.5 text-muted-foreground"
+            aria-label={sequenceLocked ? 'Complete previous lesson to unlock' : 'Enroll to unlock'}
+          />
+        )}
+      </div>
     </div>
   )
 
@@ -148,6 +204,7 @@ export function DayCard({
     <h4 className={cn(
       'text-sm font-semibold leading-snug line-clamp-2 transition-colors',
       unlocked && 'group-hover:text-primary',
+      !unlocked && 'text-muted-foreground',
     )}>
       {lesson.title}
     </h4>
@@ -210,6 +267,27 @@ export function DayCard({
     )
   }
 
+  // Sequentially locked for active Standard users → disabled curriculum card.
+  // This is intentionally separate from the subscription lock below.
+  if (sequenceLocked) {
+    return (
+      <div
+        className={cn(
+          cardBase,
+          'bg-card/45 border-dashed opacity-70 cursor-not-allowed',
+        )}
+        aria-disabled="true"
+      >
+        {header}
+        {title}
+        {contentTypes}
+        <p className="text-[11px] font-semibold text-muted-foreground mt-1">
+          Complete previous lesson to unlock
+        </p>
+      </div>
+    )
+  }
+
   // Locked → route to enrollment. In preview mode we always land on Landing,
   // so the target lives on a different origin (portal /register); use a
   // full-page <a href> via getAbsoluteUrl so the cross-origin hop is correct.
@@ -253,5 +331,27 @@ export function DayCard({
         Enroll Now to unlock →
       </p>
     </Link>
+  )
+}
+
+function getWatchStatusBadge({
+  isWatched,
+  isExam,
+}: {
+  isWatched: boolean
+  isExam: boolean
+}) {
+  if (isWatched) {
+    return (
+      <Badge variant="success" className="px-2 py-0 text-[10px]">
+        Completed
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant={isExam ? 'pro' : 'secondary'} className="px-2 py-0 text-[10px]">
+      {isExam ? 'Ready' : 'Not Started'}
+    </Badge>
   )
 }

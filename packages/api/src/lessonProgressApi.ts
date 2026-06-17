@@ -24,6 +24,28 @@ export async function getLessonWatchedStatus(lessonId: string): Promise<boolean>
 }
 
 /**
+ * Returns lesson IDs that the current user has marked as watched.
+ * Used by curriculum views that need per-card unlock decisions.
+ */
+export async function getWatchedLessonIds(lessonIds: string[]): Promise<string[]> {
+  const uniqueLessonIds = Array.from(new Set(lessonIds)).filter(Boolean)
+  if (uniqueLessonIds.length === 0) return []
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('lesson_progress')
+    .select('lesson_id')
+    .eq('is_watched', true)
+    .in('lesson_id', uniqueLessonIds)
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => String(row.lesson_id))
+}
+
+/**
  * Upserts an `is_watched = true` row for the current user + lesson.
  * Idempotent — safe to call multiple times.
  */

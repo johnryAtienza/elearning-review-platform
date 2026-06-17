@@ -189,7 +189,6 @@ export function DayCard({
       <div className="flex items-center gap-1.5">
         {isExam && <Badge variant="warning">Exam</Badge>}
         {!isExam && isPreview && !isSubscribed && <Badge variant="success">Free Preview</Badge>}
-        {statusBadge}
         {!unlocked && (
           <Lock
             className="size-3.5 text-muted-foreground"
@@ -208,6 +207,17 @@ export function DayCard({
     )}>
       {lesson.title}
     </h4>
+  )
+
+  const titleBlock = (
+    <div className="space-y-1.5">
+      {title}
+      {statusBadge && (
+        <div className="flex items-center">
+          {statusBadge}
+        </div>
+      )}
+    </div>
   )
 
   const regularContentTypes = (
@@ -261,7 +271,7 @@ export function DayCard({
         )}
       >
         {header}
-        {title}
+        {titleBlock}
         {contentTypes}
       </Link>
     )
@@ -279,7 +289,7 @@ export function DayCard({
         aria-disabled="true"
       >
         {header}
-        {title}
+        {titleBlock}
         {contentTypes}
         <p className="text-[11px] font-semibold text-muted-foreground mt-1">
           Complete previous lesson to unlock
@@ -303,7 +313,7 @@ export function DayCard({
         aria-label={`${lesson.title} — Enroll to unlock`}
       >
         {header}
-        {title}
+        {titleBlock}
         {contentTypes}
         <p className="text-[11px] font-semibold text-primary mt-1">
           Enroll Now to unlock →
@@ -325,7 +335,7 @@ export function DayCard({
       aria-label={`${lesson.title} — Enroll to unlock`}
     >
       {header}
-      {title}
+      {titleBlock}
       {contentTypes}
       <p className="text-[11px] font-semibold text-primary mt-1">
         Enroll Now to unlock →

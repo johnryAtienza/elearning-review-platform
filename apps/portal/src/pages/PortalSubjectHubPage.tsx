@@ -111,7 +111,7 @@ export function PortalSubjectHubPage() {
   }, [subjectId])
 
   useEffect(() => {
-    if (!standardSequentialUnlock || lessons.length === 0) {
+    if (!isAuthenticated || lessons.length === 0) {
       setWatchedLessonIds([])
       return
     }
@@ -127,7 +127,7 @@ export function PortalSubjectHubPage() {
       })
 
     return () => { cancelled = true }
-  }, [standardSequentialUnlock, lessons])
+  }, [isAuthenticated, lessons])
 
   if (notFound) return <Navigate to={ROUTES.PORTAL_SUBJECTS} replace />
   if (error)    return <ErrorMessage message={error} />

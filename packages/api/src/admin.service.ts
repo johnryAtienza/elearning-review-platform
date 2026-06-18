@@ -117,6 +117,44 @@ export interface AdminQuizFull extends AdminQuiz {
   questions: AdminQuizQuestion[]
 }
 
+export interface AdminScoringBand {
+  id: string
+  minScore: number
+  maxScore: number
+  classLabel: string
+  description: string
+  sortOrder: number
+  createdAt: string
+}
+
+export interface AdminScoringTemplate {
+  id: string
+  lessonId: string
+  lessonTitle: string
+  courseTitle: string
+  title: string
+  maxScore: number
+  bands: AdminScoringBand[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminScoringBandInput {
+  minScore: number
+  maxScore: number
+  classLabel: string
+  description: string
+  sortOrder?: number
+}
+
+export interface AdminScoringTemplateInput {
+  templateId?: string | null
+  lessonId: string
+  title: string
+  maxScore: number
+  bands: AdminScoringBandInput[]
+}
+
 export interface LessonFormData {
   courseId: string
   title: string
@@ -288,6 +326,28 @@ interface QuizQuestionRow {
   order: number
   answer_text: string | null
   answer_image_url: string | null
+}
+
+interface LessonScoringBandRow {
+  id: string
+  template_id: string
+  min_score: number
+  max_score: number
+  class_label: string
+  description: string | null
+  sort_order: number | null
+  created_at: string
+}
+
+interface LessonScoringTemplateRow {
+  id: string
+  lesson_id: string
+  title: string
+  max_score: number
+  created_at: string
+  updated_at: string
+  lessons: { title: string; subjects: { title: string } | null } | null
+  bands: LessonScoringBandRow[]
 }
 
 interface LessonRow {
@@ -862,6 +922,167 @@ export async function deleteAdminQuiz(quizId: string): Promise<void> {
     .eq('id', quizId)
 
   if (error) throw new ApiError(500, 'ADMIN_QUIZ_DELETE_FAILED', error.message)
+}
+
+// ── Lesson scoring templates ─────────────────────────────────────────────────
+
+function mapScoringTemplate(row: LessonScoringTemplateRow): AdminScoringTemplate {
+  const bands = [...(row.bands ?? [])]
+    .map((band) => ({
+      id:          band.id,
+      minScore:    band.min_score,
+      maxScore:    band.max_score,
+      classLabel:  band.class_label,
+      description: band.description ?? '',
+      sortOrder:   band.sort_order ?? 0,
+      createdAt:   band.created_at,
+    }))
+    .sort((a, b) =>
+      a.sortOrder - b.sortOrder
+      || b.minScore - a.minScore
+      || b.maxScore - a.maxScore
+      || a.classLabel.localeCompare(b.classLabel)
+    )
+
+  return {
+    id:          row.id,
+    lessonId:    row.lesson_id,
+    lessonTitle: row.lessons?.title ?? 'Unknown lesson',
+    // AdminScoringTemplate.courseTitle field name matches the existing admin
+    // quiz types; the value is the parent subject title.
+    courseTitle: row.lessons?.subjects?.title ?? 'Unknown subject',
+    title:       row.title,
+    maxScore:    row.max_score,
+    bands,
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
+  }
+}
+
+function scoringTemplateError(error: { code?: string; message: string }): ApiError {
+  if (error.code === '23505') {
+    return new ApiError(
+      409,
+      'ADMIN_SCORING_TEMPLATE_DUPLICATE_LESSON',
+      'This lesson already has a scoring template.',
+      error,
+    )
+  }
+
+  if (error.code === '23P01') {
+    return new ApiError(
+      422,
+      'ADMIN_SCORING_TEMPLATE_BANDS_OVERLAP',
+      'Grade band score ranges cannot overlap.',
+      error,
+    )
+  }
+
+  if (error.code === '23514') {
+    return new ApiError(
+      422,
+      'ADMIN_SCORING_TEMPLATE_INVALID',
+      error.message,
+      error,
+    )
+  }
+
+  if (error.code === '23503') {
+    return new ApiError(
+      422,
+      'ADMIN_SCORING_TEMPLATE_INVALID_LESSON',
+      error.message,
+      error,
+    )
+  }
+
+  if (error.code === '42501') {
+    return new ApiError(
+      403,
+      'ADMIN_SCORING_TEMPLATE_FORBIDDEN',
+      error.message,
+      error,
+    )
+  }
+
+  if (error.code === 'P0002') {
+    return new ApiError(
+      404,
+      'ADMIN_SCORING_TEMPLATE_NOT_FOUND',
+      error.message,
+      error,
+    )
+  }
+
+  return new ApiError(
+    500,
+    'ADMIN_SCORING_TEMPLATE_SAVE_FAILED',
+    error.message,
+    error,
+  )
+}
+
+export async function getAdminScoringTemplates(): Promise<AdminScoringTemplate[]> {
+  const { data, error } = await supabase
+    .from('lesson_scoring_templates')
+    .select(`
+      id,
+      lesson_id,
+      title,
+      max_score,
+      created_at,
+      updated_at,
+      lessons(title, subjects(title)),
+      bands:lesson_scoring_bands(
+        id,
+        template_id,
+        min_score,
+        max_score,
+        class_label,
+        description,
+        sort_order,
+        created_at
+      )
+    `)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new ApiError(500, 'ADMIN_SCORING_TEMPLATES_FAILED', error.message)
+
+  return (data as unknown as LessonScoringTemplateRow[])
+    .map(mapScoringTemplate)
+    .sort((a, b) =>
+      a.courseTitle.localeCompare(b.courseTitle)
+      || a.lessonTitle.localeCompare(b.lessonTitle)
+      || a.title.localeCompare(b.title)
+    )
+}
+
+export async function saveAdminScoringTemplate(input: AdminScoringTemplateInput): Promise<string> {
+  const { data, error } = await supabase.rpc('save_lesson_scoring_template', {
+    p_template_id: input.templateId ?? null,
+    p_lesson_id:   input.lessonId,
+    p_title:       input.title,
+    p_max_score:   input.maxScore,
+    p_bands: input.bands.map((band, index) => ({
+      min_score:   band.minScore,
+      max_score:   band.maxScore,
+      class_label: band.classLabel,
+      description: band.description,
+      sort_order:  band.sortOrder ?? index + 1,
+    })),
+  })
+
+  if (error) throw scoringTemplateError(error)
+  return data as string
+}
+
+export async function deleteAdminScoringTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('lesson_scoring_templates')
+    .delete()
+    .eq('id', templateId)
+
+  if (error) throw new ApiError(500, 'ADMIN_SCORING_TEMPLATE_DELETE_FAILED', error.message)
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────

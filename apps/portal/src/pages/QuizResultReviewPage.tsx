@@ -146,6 +146,7 @@ function AttemptReview({
       questions={questions}
       answers={attempt.answers}
       result={result}
+      grade={attempt.grade}
       onRetry={onRetry}
     />
   )

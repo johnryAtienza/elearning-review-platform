@@ -12,6 +12,7 @@ import { answerLabel } from '@/features/quiz/utils'
 import { ResultSummary } from './ResultSummary'
 import { ROUTES } from '@/constants/routes'
 import { MathText } from '@/components/MathText'
+import type { QuizGradeSnapshot } from '@s-class/types/quiz'
 
 function randomIndex(maxExclusive: number): number {
   const values = new Uint32Array(1)
@@ -67,6 +68,7 @@ export function QuizComponent({
   }, [questions, randomize])
 
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [grade, setGrade] = useState<QuizGradeSnapshot | null>(null)
 
   const currentQuestion = shuffled[currentIndex]
   const isLast         = currentIndex === shuffled.length - 1
@@ -74,6 +76,7 @@ export function QuizComponent({
 
   function handleNext() {
     if (isLast) {
+      setGrade(null)
       submitQuiz(shuffled)
       if (!locked && persistResults) {
         const score = shuffled.reduce(
@@ -88,14 +91,15 @@ export function QuizComponent({
   }
 
   async function persistAttempt(score: number) {
-    const ok = await saveQuizResult({
+    const saved = await saveQuizResult({
       quizId,
       lessonId,
       score,
       total: shuffled.length,
       answers,
     })
-    if (ok) {
+    if (saved.ok) {
+      setGrade(saved.grade)
       void useSavedSubjectsStore.getState().fetch()
       void useQuizHistoryStore.getState().fetch()
     }
@@ -108,6 +112,7 @@ export function QuizComponent({
   function handleReset() {
     resetQuiz()
     setCurrentIndex(0)
+    setGrade(null)
   }
 
   // Section header — always shown so the user knows a problem set exists
@@ -154,6 +159,7 @@ export function QuizComponent({
           questions={shuffled}
           answers={answers}
           result={result}
+          grade={grade}
           onRetry={handleReset}
         />
       ) : (

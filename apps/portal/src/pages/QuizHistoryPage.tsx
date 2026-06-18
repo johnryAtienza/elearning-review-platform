@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useQuizHistoryStore } from '@s-class/auth/quizHistoryStore'
 import { ROUTES } from '@/constants/routes'
 import type { QuizAttempt } from '@s-class/api/quizResultsApi'
+import { cn } from '@/utils/cn'
 
 export function QuizHistoryPage() {
   const { attempts, loading, initialized, fetch } = useQuizHistoryStore()
@@ -57,6 +58,7 @@ export function QuizHistoryPage() {
 
 export function AttemptRow({ attempt }: { attempt: QuizAttempt }) {
   const pct = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0
+  const gradeTone = attempt.grade ? getAttemptGradeTone(attempt.grade.classLabel) : null
   const date = new Date(attempt.submittedAt).toLocaleString(undefined, {
     year:  'numeric',
     month: 'short',
@@ -79,6 +81,18 @@ export function AttemptRow({ attempt }: { attempt: QuizAttempt }) {
           <p className="text-xs text-muted-foreground truncate">
             {attempt.lessonTitle} · {attempt.courseTitle} · {date}
           </p>
+          {attempt.grade && gradeTone && (
+            <div className="flex max-w-full flex-wrap items-center gap-1.5 pt-1">
+              <span className={cn('inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold', gradeTone.badge)}>
+                {attempt.grade.classLabel}
+              </span>
+              {attempt.grade.description && (
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  {attempt.grade.description}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm font-bold tabular-nums">
@@ -90,6 +104,24 @@ export function AttemptRow({ attempt }: { attempt: QuizAttempt }) {
       </Link>
     </li>
   )
+}
+
+function getAttemptGradeTone(classLabel: string): { badge: string } {
+  const normalized = classLabel.trim().toLowerCase()
+  const classLetter = normalized.match(/\bclass\s+([a-z])\b/)?.[1]
+
+  switch (classLetter) {
+    case 's':
+      return { badge: 'bg-warning/15 text-warning' }
+    case 'a':
+      return { badge: 'bg-success/15 text-success' }
+    case 'b':
+      return { badge: 'bg-warning/15 text-warning' }
+    case 'c':
+      return { badge: 'bg-destructive/15 text-destructive' }
+    default:
+      return { badge: 'bg-primary/10 text-primary' }
+  }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────

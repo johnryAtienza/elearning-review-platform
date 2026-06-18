@@ -5,17 +5,20 @@ import { cn } from '@/utils/cn'
 import type { QuizQuestion } from '@/features/quiz/types'
 import { answerLabel, PASSING_SCORE_PCT } from '@/features/quiz/utils'
 import { MathText } from '@/components/MathText'
+import type { QuizGradeSnapshot } from '@s-class/types/quiz'
 
 interface ResultSummaryProps {
   questions: QuizQuestion[]
   answers: Record<string, number>
   result: { score: number; total: number; correct: Set<string>; wrong: Set<string> }
+  grade?: QuizGradeSnapshot | null
   onRetry: () => void
 }
 
-export function ResultSummary({ questions, answers, result, onRetry }: ResultSummaryProps) {
+export function ResultSummary({ questions, answers, result, grade, onRetry }: ResultSummaryProps) {
   const pct = Math.round((result.score / result.total) * 100)
   const passed = pct >= PASSING_SCORE_PCT
+  const gradeTone = grade ? getGradeTone(grade.classLabel) : null
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
 
   return (
@@ -23,17 +26,32 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
       {/* Score card */}
       <div
         className={cn(
-          'rounded-xl border p-6 text-center space-y-1',
+          'rounded-xl border p-6 text-center space-y-3',
           passed ? 'border-success/30 bg-success/10' : 'border-destructive/30 bg-destructive/10'
         )}
       >
-        <p className={cn('text-4xl font-bold', passed ? 'text-success' : 'text-destructive')}>
-          {pct}%
-        </p>
-        <p className={cn('text-sm font-medium', passed ? 'text-success' : 'text-destructive')}>
-          {result.score} / {result.total} correct &mdash;{' '}
-          {passed ? 'Great work!' : 'Keep reviewing and try again.'}
-        </p>
+        <div className="space-y-1">
+          <p className={cn('text-4xl font-bold', passed ? 'text-success' : 'text-destructive')}>
+            {pct}%
+          </p>
+          <p className={cn('text-sm font-medium', passed ? 'text-success' : 'text-destructive')}>
+            {result.score} / {result.total} correct &mdash;{' '}
+            {passed ? 'Great work!' : 'Keep reviewing and try again.'}
+          </p>
+        </div>
+
+        {grade && gradeTone && (
+          <div className={cn('mx-auto inline-flex min-w-48 max-w-full flex-col items-center rounded-lg border px-4 py-3', gradeTone.box)}>
+            <p className={cn('text-lg font-bold leading-tight', gradeTone.text)}>
+              {grade.classLabel}
+            </p>
+            {grade.description && (
+              <p className="mt-1 text-sm font-medium text-foreground/80">
+                {grade.description}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Per-question breakdown */}
@@ -165,6 +183,39 @@ export function ResultSummary({ questions, answers, result, onRetry }: ResultSum
       )}
     </div>
   )
+}
+
+function getGradeTone(classLabel: string): { box: string; text: string } {
+  const normalized = classLabel.trim().toLowerCase()
+  const classLetter = normalized.match(/\bclass\s+([a-z])\b/)?.[1]
+
+  switch (classLetter) {
+    case 's':
+      return {
+        box:  'border-warning/40 bg-warning/15',
+        text: 'text-warning',
+      }
+    case 'a':
+      return {
+        box:  'border-success/40 bg-success/15',
+        text: 'text-success',
+      }
+    case 'b':
+      return {
+        box:  'border-warning/40 bg-warning/15',
+        text: 'text-warning',
+      }
+    case 'c':
+      return {
+        box:  'border-destructive/40 bg-destructive/15',
+        text: 'text-destructive',
+      }
+    default:
+      return {
+        box:  'border-primary/30 bg-primary/10',
+        text: 'text-primary',
+      }
+  }
 }
 
 // ── ImageLightbox ─────────────────────────────────────────────────────────────

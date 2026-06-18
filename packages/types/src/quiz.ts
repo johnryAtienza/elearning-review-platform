@@ -56,3 +56,15 @@ export interface QuizResult {
   correct: Set<string>
   wrong: Set<string>
 }
+
+export interface QuizGradeSnapshot {
+  templateId: string | null
+  templateTitle: string | null
+  templateMaxScore: number | null
+  classLabel: string
+  description: string | null
+  minScore: number | null
+  maxScore: number | null
+  scorePercentage: number | null
+  snapshot: Record<string, unknown> | null
+}

@@ -22,5 +22,5 @@
 /books                    https://s-class.com.ph/books  301
 /book/:bookId             https://s-class.com.ph/book/:bookId  301
 
-# Keep the legacy portal project from being a separate student entry point.
+# If this file is used during isolated Portal checks, keep student entry on apex.
 /*                        https://s-class.com.ph/portal  301

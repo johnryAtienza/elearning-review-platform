@@ -1,9 +1,15 @@
-# Cloudflare Pages — per-app deployment setup
+# Cloudflare Pages — deployment setup
 
-This is the dashboard checklist for the app-shell Cloudflare Pages setup. Landing
-and the student portal now share `s-class.com.ph` (`/`, `/login`, `/portal`);
-admin remains separate at `admin.s-class.com.ph`. The `s-class-portal` project is
-kept only for local parity and temporary legacy redirects.
+This is the dashboard checklist for the Cloudflare Pages setup. Production now
+has two deployed Pages projects:
+
+- Landing/Website: `s-class.com.ph` (`/`, `/login`, `/portal/*`)
+- Admin: `admin.s-class.com.ph`
+
+Student portal routes are served by the Landing/Website app under `/portal/*`.
+The standalone Portal Pages deployment has been retired. `apps/portal` remains
+in the repo as source code for portal pages/components and as an isolated local
+testing workspace via `npm run dev:portal`.
 
 You'll do these steps in the Cloudflare dashboard. The repo is already prepped (per-app `vite.config.ts`, `functions/`, `_redirects`).
 
@@ -12,12 +18,11 @@ You'll do these steps in the Cloudflare dashboard. The repo is already prepped (
 ## Prerequisites
 
 - DNS for `s-class.com.ph` is on Cloudflare (Phase 0 done).
-- Legacy Pages project (the one serving the current single-SPA) is still running. Don't touch it until the new projects are verified.
 - You have admin access to the R2 bucket used today.
 
 ---
 
-## Common values (apply to all 3 projects)
+## Common values (apply to both deployed projects)
 
 | Field | Value |
 |---|---|
@@ -27,7 +32,7 @@ You'll do these steps in the Cloudflare dashboard. The repo is already prepped (
 | Root directory | `/` *(monorepo root, NOT the app subdir — workspaces need root install)* |
 | `NPM_CONFIG_LEGACY_PEER_DEPS` env var | `false` *(only set if install fails; usually unneeded)* |
 
-### Environment variables (set on every project)
+### Environment variables (set on both deployed projects)
 
 | Key | Value | Notes |
 |---|---|---|
@@ -43,9 +48,9 @@ Set these in **Settings → Environment variables → Production** (and copy to 
 **Preview / staging env vars**: in **Settings → Environment variables → Preview**, override:
 
 - `VITE_APP_ENV=staging`
-- `VITE_LANDING_URL` / `VITE_ADMIN_URL` → the matching `*.pages.dev` URLs for that branch (for example, `https://my-branch.s-class-landing.pages.dev`). The student portal uses `VITE_LANDING_URL` under `/portal`; `VITE_PORTAL_URL` is deprecated.
+- `VITE_LANDING_URL` / `VITE_ADMIN_URL` → the matching Landing/Admin `*.pages.dev` URLs for that branch (for example, `https://my-branch.s-class-landing.pages.dev`). The student portal uses `VITE_LANDING_URL` under `/portal`; `VITE_PORTAL_URL` is deprecated and should not be set.
 
-### R2 binding (set on every project — for Pages Functions)
+### R2 binding (set on both deployed projects — for Pages Functions)
 
 In **Settings → Functions → R2 bucket bindings**:
 
@@ -77,23 +82,7 @@ After first deploy, verify on `https://s-class-landing.pages.dev`:
 
 ---
 
-## Project 2: `s-class-portal` (legacy redirect compatibility)
-
-| Field | Value |
-|---|---|
-| Project name | `s-class-portal` |
-| Build command | `npm install && npm run build:portal` |
-| Build output directory | `apps/portal/dist` |
-| Custom domains (after first deploy) | none for normal student access |
-
-After first deploy, verify on `https://s-class-portal.pages.dev`:
-- `/portal` and `/portal/dashboard` render the same route tree for local/preview parity
-- old paths like `/dashboard`, `/quizzes`, `/courses`, `/course/:id`, `/lesson/:id`, and `/subscription` redirect into `/portal/*`
-- if `portal.s-class.com.ph` is temporarily retained, configure it only as a redirecting legacy hostname to `https://s-class.com.ph/portal`
-
----
-
-## Project 3: `s-class-admin`
+## Project 2: `s-class-admin`
 
 | Field | Value |
 |---|---|
@@ -111,43 +100,33 @@ After first deploy, verify on `https://s-class-admin.pages.dev`:
 
 ---
 
-## Custom domain swap (do LAST, one at a time)
+## Custom domains
 
-The legacy Pages project may still own `s-class.com.ph`, `portal.s-class.com.ph`,
-and `admin.s-class.com.ph` from the earlier subdomain split. Normal student
-traffic should end up on the apex origin, not the portal subdomain.
+Current production custom domains:
 
-### Order: admin → landing
+- Landing/Website: `s-class.com.ph`, `www.s-class.com.ph`
+- Admin: `admin.s-class.com.ph`
 
-For each new project:
+For each deployed project:
 1. Open the new project in Pages dashboard → **Custom domains** → **Set up a custom domain**
 2. Enter the target hostname (e.g. `admin.s-class.com.ph`)
-3. Cloudflare detects the existing CNAME on the legacy project → asks to **transfer**
-4. Confirm the transfer
-5. SSL provisioning is automatic (~30s to a few minutes)
-6. Verify the live domain serves the new app
-7. **Rollback if needed**: re-add the same domain to the legacy project (one click).
+3. SSL provisioning is automatic (~30s to a few minutes)
+4. Verify the live domain serves the expected app
 
-### Why this order
-
-Admin is the lowest-traffic, easiest to verify. Apex is highest-stakes because it
-now serves marketing, auth, and `/portal` student routes.
-
-After the apex swap, keep `portal.s-class.com.ph` only if you need a temporary
-301 compatibility hostname. It should redirect to `https://s-class.com.ph/portal`,
-not serve normal student sessions.
+Do not reattach a separate portal hostname. Normal student traffic should stay
+on the apex origin under `/portal/*`.
 
 ---
 
 ## Branch previews (free with Pages)
 
-Each project auto-deploys non-`main` branches to `https://<branch>.<project>.pages.dev`. Use this as your staging environment:
+Each deployed project auto-deploys non-`main` branches to `https://<branch>.<project>.pages.dev`. Use this as your staging environment:
 
-- Push a feature branch → 3 preview URLs appear (one per project)
+- Push a feature branch → 2 preview URLs appear (Landing and Admin)
 - Test changes against the live Supabase project (since we're sharing one)
 - Merge to `main` → production deploy
 
-Optionally, you can set up `dev.s-class.com.ph` later as a stable alias to a specific branch (e.g. `develop`) on any of the projects.
+Optionally, you can set up `dev.s-class.com.ph` later as a stable alias to a specific branch (e.g. `develop`) on the Landing project.
 
 ---
 
@@ -163,6 +142,4 @@ Optionally, you can set up `dev.s-class.com.ph` later as a stable alias to a spe
 
 ## Deferred items (track separately, not blocking Phase 4)
 
-- Portal same-origin `/login` (needed before portal domain swap actually serves users — see plan file)
-- Subdomain-aware Navbar links (cross-app `<Link>` → `<a href={EXTERNAL.*}>`)
 - CDN consolidation (`cdn.s-class.com.ph` instead of per-app `functions/` duplication)

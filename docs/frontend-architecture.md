@@ -1,8 +1,10 @@
 # 4. Frontend Architecture
 
-Three React 19 SPAs (`apps/landing`, `apps/portal`, `apps/admin`) share one
-source tree (`src/*` via `@` alias) and six `@s-class/*` packages. This document
-describes the patterns common to all three.
+Three React 19 app workspaces (`apps/landing`, `apps/portal`, `apps/admin`) share
+one source tree (`src/*` via `@` alias) and six `@s-class/*` packages. Production
+deploys Landing/Website and Admin; `apps/portal` remains as source and an
+isolated local test app. This document describes the patterns common to all
+three workspaces.
 
 ## Request path (the spine)
 
@@ -38,7 +40,7 @@ flowchart LR
   end
   subgraph portal["portal app"]
     direction TB
-    p1["same /portal route tree for local/legacy parity"]
+    p1["same /portal route tree for isolated local testing"]
   end
   subgraph admin["admin (admin.s-class.com.ph)"]
     direction TB
@@ -76,7 +78,7 @@ The same conceptual guards exist per app, named per app:
 | `GuestRoute` / `PortalGuestRoute` / `AdminGuestRoute` | `@s-class/auth` + per-app | Kick already-authenticated users to their home (`/dashboard`, `/admin`). |
 | `PortalAdminBouncer` | portal/student routes | Sends authenticated **admins** off student routes → `admin.*`. |
 | `AdminGuestRoute` | admin | Sends authenticated **non-admins** off admin → portal. |
-| `PreviewBouncer` | portal app legacy parity | Sits ahead of old `/course/:id` and `/lesson/:id`; forwards **guests** on free-preview targets to landing's `/preview/*` (keeps old bookmarks working). |
+| `PreviewBouncer` | portal app local parity | Sits ahead of old `/course/:id` and `/lesson/:id`; forwards **guests** on free-preview targets to landing's `/preview/*` (keeps old bookmarks working during local/manual checks). |
 
 **The bootstrap rule that prevents the "flash to /login on refresh" bug:** every
 app calls `useAuthStore.getState().initialize()` **before** rendering

@@ -8,9 +8,9 @@ the apex origin; admin remains on its own subdomain.
 
 ```text
 elearning-review-platform/
-├── apps/                  # Runnable Vite apps / deploy units
+├── apps/                  # Runnable Vite workspaces
 │   ├── landing/           #   marketing + auth + /portal    → s-class.com.ph
-│   ├── portal/            #   student portal parity         → local/legacy redirects
+│   ├── portal/            #   portal source + isolated local testing
 │   └── admin/             #   admin console                 → admin.s-class.com.ph
 ├── packages/              # Shared workspace libraries (@s-class/*), source-only
 │   ├── api/               #   data layer: clients, provider routers, services, mocks
@@ -121,8 +121,8 @@ apps/portal/src/
                                 #   Profile, Devices, BookCheckout, Payment{Success,Cancel}
 ```
 Mirrors auth flows + authenticated learning + book checkout + PayMongo callbacks
-for local development and temporary legacy redirect compatibility. Normal
-student production access is under `s-class.com.ph/portal`.
+for isolated local development. Landing imports these pages/components and serves
+normal student production access under `s-class.com.ph/portal`.
 
 ### `apps/admin` (role-gated console)
 ```text
@@ -185,6 +185,7 @@ and [backend-architecture.md](backend-architecture.md) for the functions.
 ## `functions/` (root) and `apps/*/functions/`
 
 The Cloudflare Pages Functions that proxy public R2 assets are **duplicated**: a
-root `functions/` copy and one inside each app's `functions/`. Each Pages project
-deploys its own colocated copy. Consolidating to a single `cdn.s-class.com.ph` is
-a tracked future cleanup (`CLOUDFLARE_PAGES.md`, "Deferred items").
+root `functions/` copy and app-local `functions/` copies. The Landing and Admin
+Pages projects deploy their colocated copies; Portal's copy remains for isolated
+local/manual parity. Consolidating to a single `cdn.s-class.com.ph` is a tracked
+future cleanup (`CLOUDFLARE_PAGES.md`, "Deferred items").

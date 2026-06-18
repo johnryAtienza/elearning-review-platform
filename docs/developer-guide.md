@@ -18,8 +18,11 @@ npm install
 # For Supabase mode, ensure VITE_SUPABASE_URL / _ANON_KEY are set (see .env.example).
 cp .env.example .env   # then edit as needed
 
-# Run all three apps together:
-npm run dev            # landing :5174 · portal :5175 · admin :5176
+# Run the default local stack:
+npm run dev            # landing :5174 · admin :5176
+
+# Isolated portal testing remains available:
+npm run dev:portal     # portal :5175
 ```
 
 ### Fully offline (no backend)
@@ -32,7 +35,7 @@ Serves local mock data from `@s-class/api/data/*` — no network calls.
 ## Commands
 | Command | What it does |
 |---|---|
-| `npm run dev` | all three apps (alias of `dev:all`, via `concurrently`) |
+| `npm run dev` | Landing + Admin (alias of `dev:all`, via `concurrently`) |
 | `npm run dev:landing` / `:portal` / `:admin` | one app (5174/5175/5176) |
 | `npm run build:landing` / `:portal` / `:admin` | `tsc --noEmit && vite build` → `apps/<app>/dist` |
 | `npm run lint` | ESLint over the repo |
@@ -92,7 +95,7 @@ supabase start                    # local stack (Docker)
    (lazy-loaded) + add to `NAV_ITEMS`/`ROUTE_LABELS` in `AdminLayout.tsx`.
 
 ## Branch strategy
-- `main` — production (auto-deploys to the 3 Pages projects).
+- `main` — production (auto-deploys Landing and Admin Pages projects).
 - `develop` — integration (current working branch).
 - `feature/*` — feature branches (e.g. `feature/revamp`, `feature/codex` exist).
 - Branch pushes get `*.pages.dev` previews used as staging.

@@ -64,10 +64,10 @@ noted improvement opportunity — see [recommendations.md](recommendations.md).
 
 | Concern | Choice | Why / Where |
 |---|---|---|
-| **Hosting** | Cloudflare Pages | Static SPA hosting + colocated Pages Functions. Target: 3 projects (`s-class-landing/-portal/-admin`) — see `CLOUDFLARE_PAGES.md`. |
+| **Hosting** | Cloudflare Pages | Static SPA hosting + colocated Pages Functions. Production uses 2 projects: Landing/Website and Admin — see `CLOUDFLARE_PAGES.md`. |
 | **CDN** | Cloudflare (Pages + R2) | Public assets proxied through Pages Functions with `cache-control: max-age=86400, s-maxage=604800`. A dedicated `cdn.s-class.com.ph` is a planned consolidation. |
 | **DNS / domains** | Cloudflare | Apex `s-class.com.ph` serves landing + `/login` + `/portal`; `admin.s-class.com.ph` remains separate. |
-| **SPA routing** | Pages `_redirects` | `apps/portal/public/_redirects` keeps legacy portal deployments redirecting into `s-class.com.ph/portal`. The `/index.html 200` first line dodges Cloudflare's redirect-loop detector. |
+| **SPA routing** | Pages `_redirects` + React Router | Landing serves `/`, auth, preview, and `/portal/*`; Admin serves `/admin/*`. |
 | **Build/deploy trigger** | Pages git integration | Auto-deploy on push to `main`; branch pushes get `*.pages.dev` preview URLs used as staging. |
 | **Monitoring** | *(none configured)* | No error tracker (Sentry), analytics, or uptime monitor found in the repo. Edge Functions use `console.*`; Supabase/Cloudflare dashboards are the only observability. See [recommendations.md](recommendations.md). |
 | **CI/CD** | *(none in-repo)* | No `.github/workflows`, no pipeline config. "CI" is effectively Cloudflare Pages' build step (`tsc --noEmit && vite build`). |
@@ -82,7 +82,7 @@ noted improvement opportunity — see [recommendations.md](recommendations.md).
 | **Type-checking** | tsc | `~5.9.3` | `tsc -b` (project refs) at root; each app build runs `tsc --noEmit -p tsconfig.json && vite build`. |
 | **Formatting** | *(no Prettier config)* | — | No `.prettierrc`. Style is convention-enforced, not tool-enforced. |
 | **Testing** | *(none)* | — | **No test runner is configured.** `package.json` has no `test` script. Do not invent one. Verification = type-check + lint + manual. |
-| **Concurrency** | concurrently | `^9.1.0` | `dev:all` runs landing+portal+admin together. |
+| **Concurrency** | concurrently | `^9.1.0` | `dev:all` runs Landing + Admin together; `dev:portal` is available separately for isolated local testing. |
 | **CF Functions types** | @cloudflare/workers-types | `^4.x` | Types for Pages Functions (`R2Bucket`, `PagesFunction`). |
 
 ## Notable stack characteristics & gaps

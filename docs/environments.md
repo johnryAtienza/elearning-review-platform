@@ -8,9 +8,9 @@ resolve to `local` (`import.meta.env.DEV`); otherwise `VITE_APP_ENV` decides.
 
 | | Local | Staging | Production |
 |---|---|---|---|
-| **Apps** | 3 Vite dev servers | Pages preview projects | Pages projects |
+| **Apps** | Landing + Admin by default; Portal optional | Landing/Admin Pages preview projects | Landing/Admin Pages projects |
 | **Landing** | `localhost:5174` | `*.s-class-landing.pages.dev` | `s-class.com.ph` (`/`, `/login`, `/portal`) |
-| **Portal** | `localhost:5175` | `*.s-class-portal.pages.dev` | local/legacy redirect compatibility |
+| **Portal source** | `localhost:5175` via `npm run dev:portal` | served through Landing preview under `/portal` | served through Landing under `/portal` |
 | **Admin** | `localhost:5176` | `*.s-class-admin.pages.dev` | `admin.s-class.com.ph` |
 | **`VITE_APP_ENV`** | (ignored; DEV) | `staging` | `production` |
 | **Supabase** | shared project `dgnpiexszwsjrqfeefmd` (or local `supabase start`) | **same shared project** | same shared project |
@@ -27,17 +27,15 @@ resolve to `local` (`import.meta.env.DEV`); otherwise `VITE_APP_ENV` decides.
 ```mermaid
 flowchart LR
   GH["GitHub: main"] -->|push| CF
-  subgraph CF["Cloudflare Pages (3 projects)"]
+  subgraph CF["Cloudflare Pages (2 projects)"]
     PL["s-class-landing<br/>build: npm i && npm run build:landing<br/>out: apps/landing/dist"]
-    PP["s-class-portal<br/>build:portal → apps/portal/dist<br/>legacy redirects/local parity"]
     PA["s-class-admin<br/>build:admin → apps/admin/dist"]
   end
   PL --> D1["s-class.com.ph<br/>/ + /login + /portal"]
-  PP --> D2["legacy portal redirects"]
   PA --> D3["admin.s-class.com.ph"]
 ```
 
-Each project builds **from the monorepo root** (`Root directory = /`) so npm
+Each deployed project builds **from the monorepo root** (`Root directory = /`) so npm
 workspaces resolve; the per-app `build:*` script runs Vite from the app subdir.
 Node 20+ required (Vite 8). Full dashboard checklist: `CLOUDFLARE_PAGES.md`.
 
@@ -55,7 +53,7 @@ reader of `import.meta.env`.
 | `VITE_API_BASE_URL` | REST base URL | REST mode only |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Supabase project + public anon key | supabase mode |
 | `VITE_LANDING_URL` / `VITE_ADMIN_URL` | cross-origin links | **required in PROD** (build throws if missing) |
-| `VITE_PORTAL_URL` | deprecated | optional; student portal uses `VITE_LANDING_URL` under `/portal` |
+| `VITE_PORTAL_URL` | deprecated | do not set; student portal uses `VITE_LANDING_URL` under `/portal` |
 | `VITE_APP_ENV` | `staging`\|`production` | prod/staging |
 | `VITE_SUBSCRIPTION_BASE_PRICE` / `VITE_SUBSCRIPTION_CURRENCY` | pricing display | always |
 | `VITE_FREE_VIDEO_PREVIEW_SECONDS` / `VITE_FREE_PDF_MAX_PAGES` | free-tier caps | always |
@@ -113,28 +111,28 @@ trailing slash.
 ## Release flow
 ```mermaid
 flowchart LR
-  dev["feature branch"] -->|push| preview["3 *.pages.dev preview URLs (staging)"]
+  dev["feature branch"] -->|push| preview["2 *.pages.dev preview URLs (staging)"]
   preview -->|verify| pr["PR → main"]
-  pr -->|merge| prod["auto-deploy 3 prod projects"]
-  prod --> swap["custom-domain swap (admin→portal→apex), one at a time"]
+  pr -->|merge| prod["auto-deploy Landing + Admin"]
+  prod --> verify["verify custom domains + /portal routes"]
 ```
 
 - **Branch pushes** auto-deploy preview URLs used as staging (set
   `VITE_APP_ENV=staging` + matching landing/admin `*.pages.dev` URLs in the
   Preview env).
-- **Merge to `main`** → production deploy of all three.
+- **Merge to `main`** → production deploy of Landing and Admin.
 - **Post-deploy:** add prod URLs to Supabase Auth (Site URL + Redirect URLs) and
   R2 CORS; `supabase functions deploy`; `supabase db push`.
-- **Domain swap** keeps admin separate and points the apex at the landing build,
-  which now serves `/portal` as well (`CLOUDFLARE_PAGES.md`).
+- **Domain ownership** keeps admin separate and points the apex at the landing
+  build, which serves `/portal` as well (`CLOUDFLARE_PAGES.md`).
 
 ## Local development
 ```bash
 npm install            # once, at repo root (workspaces)
-npm run dev            # all three apps (concurrently): 5174/5175/5176
+npm run dev            # landing + admin (concurrently): 5174/5176
 # or individually:
 npm run dev:landing    # :5174
-npm run dev:portal     # :5175
+npm run dev:portal     # :5175 isolated portal app for manual/local testing
 npm run dev:admin      # :5176
 ```
 `.env.development` already points landing/admin URLs at localhost ports. To run fully

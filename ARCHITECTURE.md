@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Last reviewed: 2026-06-09
+Last reviewed: 2026-06-18
 
 ## Purpose
 
@@ -12,7 +12,7 @@ This repository implements a subscription-based eLearning review platform. It se
 - Supabase-backed auth, data, edge functions, and payment workflows,
 - Cloudflare R2-backed media storage.
 
-The codebase is in the middle of a monorepo/app-shell split. The active direction is `apps/*` plus shared `packages/*`, while much of the feature UI still lives in the root `src/*` tree and is reused through Vite aliases. Landing and the student portal now share one browser origin; admin remains separate.
+The codebase is in the middle of a monorepo/app-shell split. The active direction is `apps/*` plus shared `packages/*`, while much of the feature UI still lives in the root `src/*` tree and is reused through Vite aliases. Landing and the student portal now share one browser origin; admin remains separate. Production deploys the Landing/Website and Admin apps; `apps/portal` remains as source and an isolated local test workspace.
 
 ## High-Level Shape
 
@@ -21,7 +21,7 @@ flowchart TD
   Browser["Browser"]
 
   Landing["apps/landing\nmarketing + auth + /portal"]
-  Portal["apps/portal\nstudent portal parity"]
+  Portal["apps/portal\nportal source + local test"]
   Admin["apps/admin\nadmin console"]
 
   Src["root src/*\npages, layouts, features"]
@@ -34,9 +34,9 @@ flowchart TD
   PayMongo["PayMongo\ncheckout + webhooks"]
 
   Browser --> Landing
-  Browser --> Portal
   Browser --> Admin
 
+  Landing --> Portal
   Landing --> Src
   Portal --> Src
   Admin --> Src
@@ -49,7 +49,6 @@ flowchart TD
   Edge --> PayMongo
   PayMongo --> Edge
   Landing --> PagesFns
-  Portal --> PagesFns
   Admin --> PagesFns
   PagesFns --> R2
 ```
@@ -59,11 +58,11 @@ flowchart TD
 | App | Path | Dev port | Responsibility |
 | --- | --- | --- | --- |
 | Landing | `apps/landing` | `5174` | Public marketing pages, public book browsing, pricing, `/preview/*`, shared auth routes, and the same-origin `/portal/*` student portal. |
-| Portal | `apps/portal` | `5175` | Student-facing route tree for local development and temporary legacy redirect compatibility. Normal production student access is served by `apps/landing` under `/portal`. |
+| Portal | `apps/portal` | `5175` | Source workspace for student portal pages/components and isolated local testing. It is not a production Cloudflare Pages deployment; normal production student access is served by `apps/landing` under `/portal`. |
 | Admin | `apps/admin` | `5176` | Same-origin admin login and guarded `/admin/*` content operations. Non-admin users are bounced to portal. |
 | Legacy root app | `src/app/router.tsx` | `5173` | Historical single-SPA router. Still buildable and useful for compatibility, but comments indicate active runtime routing now lives in the per-app routers. |
 
-All three apps use Vite and point `@/*` at the root `src/*` directory. This lets the split apps reuse the existing page and feature implementation while the repository is gradually moved into packages.
+The three Vite workspaces point `@/*` at the root `src/*` directory. This lets the split apps reuse the existing page and feature implementation while the repository is gradually moved into packages.
 
 ## Package Boundaries
 
@@ -181,17 +180,17 @@ There are two access paths:
 - Protected lesson media: browser calls `get-signed-urls`; the Edge Function returns 60-second presigned R2 GET URLs after access checks.
 - Public image/media assets: Cloudflare Pages Functions proxy only allowed prefixes (`thumbnails/`, `avatars/`, `quizzes/`, `covers/`) from R2 and attach cache headers.
 
-The Pages Function files are duplicated under the root `functions/` directory and each app's `apps/*/functions/` directory so each Pages project can deploy with colocated Functions.
+The Pages Function files are duplicated under the root `functions/` directory and app-local `functions/` directories. Landing and Admin deploy their colocated copies with Cloudflare Pages; the Portal copy remains for isolated local/manual parity.
 
 ## Payments and Subscription Flow
 
 Subscription checkout flow:
 
-1. Portal calls `subscriptionApi.createCheckout(durationMonths)`.
+1. The student portal UI calls `subscriptionApi.createCheckout(durationMonths)`.
 2. `create-checkout` creates a PayMongo checkout session with user and duration metadata.
 3. User completes payment on PayMongo.
-4. PayMongo redirects back to `portal/payment-success?session_id=...`.
-5. Portal calls `subscriptionApi.verifyPayment(sessionId)`.
+4. PayMongo redirects back to `/portal/payment-success?session_id=...` on the Landing/Website origin.
+5. The student portal UI calls `subscriptionApi.verifyPayment(sessionId)`.
 6. `verify-payment` confirms payment with PayMongo, checks ownership, records idempotency in `payments`, and calls `extend_subscription`.
 7. Auth store re-syncs the active subscription snapshot.
 
@@ -217,33 +216,31 @@ Every app calls `useAuthStore.getState().initialize()` before rendering `RouterP
 Route ownership is split by origin:
 
 - Landing owns marketing, preview, shared auth, and `/portal/*` student routes.
-- Portal mirrors the student route tree for local development and legacy redirect compatibility.
+- Portal mirrors the student route tree for isolated local development and continues to provide the source modules imported by Landing.
 - Admin owns its separate `/login` and `/admin/*`.
 
 Cross-origin navigation should use `@s-class/constants/urls` helpers and full-page navigation. Same-origin navigation can use React Router links.
 
 ## Deployment Model
 
-The intended production deployment keeps admin separate while serving student
-traffic from the apex origin:
+The production deployment keeps admin separate while serving student traffic from
+the apex origin:
 
 - `s-class-landing` -> `apps/landing/dist` -> `s-class.com.ph` (`/`, `/login`, `/portal/*`)
-- `s-class-portal` -> `apps/portal/dist` -> local/legacy redirect compatibility
 - `s-class-admin` -> `apps/admin/dist` -> `admin.s-class.com.ph`
 
-Each project builds from the monorepo root so npm workspaces resolve correctly. Runtime browser env vars are `VITE_*`; server secrets are configured in Supabase or Cloudflare bindings.
+Each deployed project builds from the monorepo root so npm workspaces resolve correctly. Runtime browser env vars are `VITE_*`; server secrets are configured in Supabase or Cloudflare bindings.
 
 ## Development Commands
 
 ```bash
-npm run dev          # legacy root app on 5173
+npm run dev          # landing + admin (alias of dev:all)
 npm run dev:landing  # landing app on 5174
-npm run dev:portal   # portal app on 5175
+npm run dev:portal   # isolated portal app on 5175 for manual/local testing
 npm run dev:admin    # admin app on 5176
-npm run dev:all      # landing + portal + admin
-npm run build        # root type-check plus legacy app build
+npm run dev:all      # landing + admin
 npm run build:landing
-npm run build:portal
+npm run build:portal # local/manual artifact only; not a production Pages deployment
 npm run build:admin
 npm run lint
 ```

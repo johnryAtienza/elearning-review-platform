@@ -19,8 +19,8 @@ Cloudflare.
 
 ## Architecture overview
 
-Three React apps share one source tree and a Supabase backend, with media on
-Cloudflare R2. Student-facing production traffic now shares the apex origin:
+Three React app workspaces share one source tree and a Supabase backend, with
+media on Cloudflare R2. Student-facing production traffic shares the apex origin:
 landing and auth live at `s-class.com.ph/`, while the portal lives under
 `s-class.com.ph/portal`. Admin remains separate at `admin.s-class.com.ph`.
 
@@ -28,11 +28,11 @@ landing and auth live at `s-class.com.ph/`, while the portal lives under
 flowchart TD
   Browser["Browser"]
 
-  subgraph Pages["Cloudflare Pages (3 projects)"]
+  subgraph Pages["Cloudflare Pages (2 projects)"]
     Landing["Landing App<br/>s-class.com.ph<br/>/ + /login + /portal"]
-    Portal["Portal App<br/>legacy/local parity"]
     Admin["Admin App<br/>admin.s-class.com.ph"]
   end
+  Portal["Portal source<br/>apps/portal<br/>local :5175"]
 
   subgraph Supabase["Supabase"]
     Auth["Auth (JWT)"]
@@ -43,13 +43,14 @@ flowchart TD
   R2["Cloudflare R2<br/>videos · PDFs · images"]
   PayMongo["PayMongo<br/>GCash / Maya"]
 
-  Browser --> Landing & Portal & Admin
-  Landing & Portal & Admin --> Auth & DB
-  Landing & Portal & Admin -->|invoke| Edge
+  Browser --> Landing & Admin
+  Landing --> Portal
+  Landing & Admin --> Auth & DB
+  Landing & Admin -->|invoke| Edge
   Edge --> DB
   Edge -->|presign / read| R2
   Edge <-->|charge / verify| PayMongo
-  Landing & Portal & Admin -->|public assets| R2
+  Landing & Admin -->|public assets| R2
 ```
 
 See [`docs/overview.md`](docs/overview.md) and
@@ -64,7 +65,7 @@ separate app shells plus shared packages.
 
 | Path | What it is |
 |---|---|
-| `apps/` | The three runnable Vite apps (`landing`, `portal`, `admin`) — the deploy units. |
+| `apps/` | The three runnable Vite workspaces (`landing`, `portal`, `admin`). Landing/Admin deploy to Pages; Portal is retained for source and isolated local testing. |
 | `packages/` | Shared `@s-class/*` libraries: `api`, `auth`, `config`, `constants`, `types`, `ui`. |
 | `src/` | Shared **source library** (pages, features, layouts) consumed by the apps via the `@` alias. **Not a runnable app.** |
 | `supabase/` | Backend: `schema.sql`, `migrations/`, Edge `functions/`, `seed/`, `config.toml`. |
@@ -80,7 +81,7 @@ Full map: [`docs/repository-structure.md`](docs/repository-structure.md).
 | App | Subdomain | Purpose |
 |---|---|---|
 | **Landing** (`apps/landing`) | `s-class.com.ph` | Public marketing, FAQ/About/Contact, book storefront (browse), pricing, `/preview/*`, shared `/login`, and same-origin `/portal/*` student routes. |
-| **Portal** (`apps/portal`) | local/legacy parity | Authenticated learning route tree for local development and temporary legacy redirect compatibility. Normal student access is `s-class.com.ph/portal`. |
+| **Portal** (`apps/portal`) | local/manual testing | Source workspace for authenticated learning pages/components. Normal student access is served by Landing at `s-class.com.ph/portal`. |
 | **Admin** (`apps/admin`) | `admin.s-class.com.ph` | Role-gated CRUD for subjects, lessons, quizzes, books, orders, users, subscriptions, and homepage CMS. |
 
 Architecture detail: [`docs/frontend-architecture.md`](docs/frontend-architecture.md)
@@ -124,18 +125,18 @@ npm install
 
 ### Run
 ```bash
-npm run dev            # all three apps (landing :5174 · portal :5175 · admin :5176)
+npm run dev            # Landing + Admin (landing :5174 · admin :5176)
 
 # …or run one app at a time:
 npm run dev:landing    # http://localhost:5174
-npm run dev:portal     # http://localhost:5175
+npm run dev:portal     # http://localhost:5175 (isolated portal testing)
 npm run dev:admin      # http://localhost:5176
 ```
 
 ### Build, lint, type-check
 ```bash
 npm run build:landing  # tsc --noEmit && vite build → apps/landing/dist
-npm run build:portal   # → apps/portal/dist
+npm run build:portal   # local/manual artifact; not a production Pages deploy
 npm run build:admin    # → apps/admin/dist
 npm run lint           # ESLint over the repo
 npm run type-check     # tsc -b + per-workspace type-check
@@ -154,9 +155,9 @@ npm run type-check     # tsc -b + per-workspace type-check
 
 | Environment | Apps | Backend |
 |---|---|---|
-| **Development** | 3 Vite dev servers (`localhost:5174/5175/5176`) | shared Supabase project (or local `supabase start`) |
-| **Staging** | Cloudflare Pages preview builds (`*.pages.dev`) | **same shared** Supabase project + R2 bucket |
-| **Production** | Landing/portal on `s-class.com.ph`, admin on `admin.s-class.com.ph` | same shared Supabase project + R2 bucket |
+| **Development** | Landing/Admin via `dev:all` (`localhost:5174/5176`), optional Portal at `localhost:5175` | shared Supabase project (or local `supabase start`) |
+| **Staging** | Landing/Admin Cloudflare Pages preview builds (`*.pages.dev`) | **same shared** Supabase project + R2 bucket |
+| **Production** | Landing/Website at `s-class.com.ph` (`/portal/*` included), Admin at `admin.s-class.com.ph` | same shared Supabase project + R2 bucket |
 
 Details, env vars, and the release flow:
 [`docs/environments.md`](docs/environments.md) (and `CLOUDFLARE_PAGES.md`).
@@ -207,7 +208,7 @@ If you are an AI coding assistant (Claude Code, Codex, ChatGPT, etc.):
    (`npm run type-check`, `npm run lint`).
 3. Database changes go in a **new timestamped migration** under
    `supabase/migrations/` (never edit an applied one), with RLS in the same file.
-4. Open a PR → Cloudflare Pages preview URLs appear → verify → merge to `main`
+4. Open a PR → Landing/Admin Cloudflare Pages preview URLs appear → verify → merge to `main`
    (auto-deploys to production).
 
 Full workflow, recipes, and troubleshooting:

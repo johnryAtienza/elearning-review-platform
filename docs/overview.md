@@ -34,7 +34,7 @@ packages; the GitHub repository is named `elearning-review-platform`.
 
 | User | Description | Where they live |
 |---|---|---|
-| **Reviewer / student** | A board-exam candidate studying via video + PDF + quizzes. | `apps/portal` (authenticated) |
+| **Reviewer / student** | A board-exam candidate studying via video + PDF + quizzes. | `s-class.com.ph/portal` served by `apps/landing`, using `apps/portal` source |
 | **Guest / prospect** | An unauthenticated visitor browsing marketing pages, the book store, and free preview lessons. | `apps/landing` |
 | **Administrator** | Staff who manage courses/subjects/lessons/quizzes/books/orders/users/CMS. | `apps/admin` (role-gated) |
 
@@ -46,9 +46,9 @@ flowchart TD
 
   subgraph Frontends["Cloudflare Pages apps"]
     Landing["apps/landing<br/>marketing + auth + /portal<br/>s-class.com.ph"]
-    Portal["apps/portal<br/>student portal parity<br/>local/legacy redirects"]
     Admin["apps/admin<br/>admin console<br/>admin.s-class.com.ph"]
   end
+  Portal["apps/portal<br/>portal source + local test"]
 
   Shared["Shared source<br/>root src/* (via @ alias)<br/>packages/* (@s-class/*)"]
 
@@ -62,14 +62,16 @@ flowchart TD
   PagesFns["Pages Functions<br/>public R2 asset proxy"]
   PayMongo["PayMongo<br/>checkout + webhooks"]
 
-  Browser --> Landing & Portal & Admin
-  Landing & Portal & Admin --> Shared
+  Browser --> Landing & Admin
+  Landing --> Portal
+  Landing & Admin --> Shared
+  Portal --> Shared
   Shared --> Auth & PG
   Shared -->|invoke| Edge
   Edge --> PG
   Edge -->|presign / read| R2
   Edge <-->|charge / verify| PayMongo
-  Landing & Portal & Admin -->|/thumbnails /covers /avatars /quizzes| PagesFns --> R2
+  Landing & Admin -->|/thumbnails /covers /avatars /quizzes| PagesFns --> R2
 ```
 
 **The defining architectural ideas:**
@@ -94,7 +96,7 @@ flowchart TD
 | Module | Lives in | Responsibility |
 |---|---|---|
 | **Landing app** | `apps/landing` | Public marketing, book storefront (browse), pricing, `/preview/*`, shared auth, and `/portal/*` student routes. |
-| **Portal app** | `apps/portal` | Same student route tree for local development and temporary legacy redirect compatibility. |
+| **Portal source/local app** | `apps/portal` | Student portal pages/components imported by Landing and available through `npm run dev:portal` for isolated local testing. |
 | **Admin app** | `apps/admin` | Role-gated CRUD for subjects/lessons/quizzes/books/orders/users/CMS. |
 | **Shared `src/*`** | `src/` | Cross-app pages (`LessonPage`, `SubjectDetailPage`, `SubscriptionPage`), feature components/hooks, portal layout. |
 | **`@s-class/api`** | `packages/api` | Browser-safe data layer: Supabase/REST clients, provider routers, services, mocks. |
@@ -143,8 +145,8 @@ What this means for a new developer:
 - **URL strings remain legacy** (`/courses`, `/admin/categories`) even though the
   DB and types now use the Course→Subject vocabulary. A separate URL-migration
   sprint is planned.
-- Deployment is being moved to **three Cloudflare Pages projects**; the
-  domain-swap checklist is in `CLOUDFLARE_PAGES.md`.
+- Production deployment now uses **two Cloudflare Pages projects**: Landing/Website
+  and Admin. The deployment checklist is in `CLOUDFLARE_PAGES.md`.
 
 See [technical-debt.md](technical-debt.md) for the in-flight cleanup backlog and
 [recommendations.md](recommendations.md) for prioritized next steps.

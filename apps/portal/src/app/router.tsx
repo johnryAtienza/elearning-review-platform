@@ -34,8 +34,8 @@ import {
  *   s-class.com.ph/login
  *   s-class.com.ph/portal
  *
- * This standalone app keeps the same paths for local development and for any
- * temporary legacy deployment while links move to the apex origin.
+ * This standalone app keeps the same paths for isolated local development and
+ * manual parity checks. Production student traffic is served by Landing.
  */
 export const router = createBrowserRouter([
   {

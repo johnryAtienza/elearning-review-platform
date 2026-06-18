@@ -14,7 +14,7 @@
     "dev:landing": "npm run dev --workspace=@s-class/landing",
     "dev:portal": "npm run dev --workspace=@s-class/portal",
     "dev:admin": "npm run dev --workspace=@s-class/admin",
-    "dev:all": "concurrently -n landing,portal,admin -c blue,green,magenta --kill-others-on-fail \"npm:dev:landing\" \"npm:dev:portal\" \"npm:dev:admin\"",
+    "dev:all": "concurrently -n landing,admin -c blue,magenta --kill-others-on-fail \"npm:dev:landing\" \"npm:dev:admin\"",
     "build:landing": "npm run build --workspace=@s-class/landing",
     "build:portal": "npm run build --workspace=@s-class/portal",
     "build:admin": "npm run build --workspace=@s-class/admin"

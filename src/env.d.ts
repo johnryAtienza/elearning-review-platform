@@ -31,6 +31,12 @@ interface ImportMetaEnv {
   readonly VITE_PORTAL_URL?: string
   /** Origin of the admin panel. Defaults to https://admin.s-class.com.ph */
   readonly VITE_ADMIN_URL?: string
+
+  // ── Public asset proxy (local development only) ───────────────────────────
+  /** Optional Vite dev proxy target for public R2-backed assets. */
+  readonly VITE_PUBLIC_ASSET_PROXY_URL?: string
+  /** Public R2 URL fallback used by the local Vite asset proxy. */
+  readonly VITE_R2_PUBLIC_URL?: string
 }
 
 interface ImportMeta {

@@ -2,10 +2,11 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { publicAssetProxy } from '../../vite.publicAssetProxy'
 
 const REPO_ROOT = path.resolve(__dirname, '../..')
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -17,9 +18,10 @@ export default defineConfig({
   server: {
     port: 5174,
     open: '/',
+    proxy: publicAssetProxy(mode, REPO_ROOT),
   },
   build: {
     outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
   },
-})
+}))

@@ -9,6 +9,7 @@ import {
   updateAdminBook,
   type AdminBook,
 } from '@s-class/api/admin.service'
+import { BookCover } from '@/features/books/components/BookCover'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
 
@@ -170,17 +171,12 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
                 )}
               >
                 {coverPreview ? (
-                  <>
-                    <img
-                      src={coverPreview}
-                      alt="Cover preview"
-                      className="absolute inset-0 size-full object-cover"
-                    />
+                  <BookCover src={coverPreview} alt="Cover preview" className="absolute inset-0">
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/50 opacity-0 transition-opacity hover:opacity-100">
                       <Upload className="size-5 text-white" />
                       <span className="text-xs font-medium text-white">Change cover</span>
                     </div>
-                  </>
+                  </BookCover>
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <ImageIcon className="size-8" />

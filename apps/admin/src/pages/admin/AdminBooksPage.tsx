@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   BookOpen, Eye, EyeOff, Loader2,
-  Pencil, Trash2, Plus, ImageIcon,
+  Pencil, Trash2, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BookCover } from '@/features/books/components/BookCover'
 import { BookModal } from '../../features/admin/components/BookModal'
 import {
   AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
@@ -221,17 +222,11 @@ function BookRow({
 
         {/* Cover */}
         <div className="hidden sm:flex w-12 shrink-0">
-          {book.coverUrl ? (
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              className="size-10 rounded-md border object-cover bg-muted"
-            />
-          ) : (
-            <div className="size-10 rounded-md border bg-muted flex items-center justify-center">
-              <ImageIcon className="size-5 text-muted-foreground" />
-            </div>
-          )}
+          <BookCover
+            src={book.coverUrl}
+            alt={book.title}
+            className="size-10 rounded-md border bg-muted"
+          />
         </div>
 
         {/* Title + author */}

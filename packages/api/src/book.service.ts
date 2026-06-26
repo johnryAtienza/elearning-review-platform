@@ -15,6 +15,7 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import { normalizeBookCoverDisplayUrl } from './bookCoverUrl'
 import type { Book, BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 
 // ── Raw DB row shapes ────────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ function toBook(row: BookRow): Book {
     author:         row.author,
     isbn:           row.isbn,
     description:    row.description,
-    coverUrl:       row.cover_url,
+    coverUrl:       normalizeBookCoverDisplayUrl(row.cover_url),
     priceCentavos:  row.price_centavos,
     stock:          row.stock,
     status:         row.status,

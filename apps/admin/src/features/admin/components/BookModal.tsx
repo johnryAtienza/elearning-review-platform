@@ -108,8 +108,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
         const result = await uploadToStorage(coverFile, path, (evt) => {
           setUploadProgress(evt.percent)
         })
-        // Store the public CDN URL (matches courseThumbnail pattern).
-        coverUrl = result.publicUrl
+        coverUrl = result.path
         await updateAdminBook(bookId, { coverUrl })
       }
 

@@ -10,6 +10,10 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import {
+  normalizeBookCoverDisplayUrl,
+  normalizeBookCoverStorageKey,
+} from './bookCoverUrl'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1411,7 +1415,7 @@ function toAdminBook(row: AdminBookRow): AdminBook {
     author:         row.author,
     isbn:           row.isbn,
     description:    row.description,
-    coverUrl:       row.cover_url,
+    coverUrl:       normalizeBookCoverDisplayUrl(row.cover_url),
     priceCentavos:  row.price_centavos,
     stock:          row.stock,
     status:         row.status,
@@ -1448,7 +1452,7 @@ export async function createAdminBook(data: BookFormData): Promise<string> {
       author:          data.author ?? '',
       isbn:            data.isbn ?? null,
       description:     data.description ?? '',
-      cover_url:       data.coverUrl ?? null,
+      cover_url:       normalizeBookCoverStorageKey(data.coverUrl),
       price_centavos:  data.priceCentavos,
       stock:           data.stock,
       status:          data.status ?? 'draft',
@@ -1469,7 +1473,9 @@ export async function updateAdminBook(
   if (data.author        !== undefined) update.author         = data.author
   if (data.isbn          !== undefined) update.isbn           = data.isbn
   if (data.description   !== undefined) update.description    = data.description
-  if (data.coverUrl      !== undefined) update.cover_url      = data.coverUrl
+  if (data.coverUrl !== undefined) {
+    update.cover_url = normalizeBookCoverStorageKey(data.coverUrl)
+  }
   if (data.priceCentavos !== undefined) update.price_centavos = data.priceCentavos
   if (data.stock         !== undefined) update.stock          = data.stock
   if (data.status        !== undefined) update.status         = data.status

@@ -11,7 +11,23 @@ interface BookCoverProps {
 }
 
 const EMPTY_IMAGE_VALUES = new Set(['', 'null', 'undefined'])
-const ALLOWED_ABSOLUTE_PROTOCOLS = new Set(['http:', 'https:', 'data:', 'blob:'])
+const LOCAL_PREVIEW_PROTOCOLS = new Set(['data:', 'blob:'])
+const COVER_PATH_PREFIX = '/covers/'
+const COVER_KEY_PREFIX = 'covers/'
+
+function normalizeCoverPath(path: string): string | null {
+  const coverIndex = path.indexOf(COVER_PATH_PREFIX)
+  const coverPath = coverIndex >= 0
+    ? path.slice(coverIndex)
+    : path.startsWith(COVER_KEY_PREFIX)
+      ? `/${path}`
+      : null
+
+  if (!coverPath || coverPath === COVER_PATH_PREFIX) return null
+  if (coverPath.split('/').some(segment => segment === '..')) return null
+
+  return coverPath
+}
 
 function normalizeBookCoverUrl(src?: string | null): string | null {
   if (typeof src !== 'string') return null
@@ -19,12 +35,15 @@ function normalizeBookCoverUrl(src?: string | null): string | null {
   const trimmed = src.trim()
   if (EMPTY_IMAGE_VALUES.has(trimmed.toLowerCase())) return null
 
-  if (trimmed.startsWith('/')) return trimmed
-  if (trimmed.startsWith('covers/')) return `/${trimmed}`
+  if (trimmed.startsWith(COVER_PATH_PREFIX) || trimmed.startsWith(COVER_KEY_PREFIX)) {
+    return normalizeCoverPath(trimmed)
+  }
 
   try {
     const url = new URL(trimmed)
-    return ALLOWED_ABSOLUTE_PROTOCOLS.has(url.protocol) ? trimmed : null
+    if (LOCAL_PREVIEW_PROTOCOLS.has(url.protocol)) return trimmed
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return normalizeCoverPath(url.pathname)
   } catch {
     return null
   }

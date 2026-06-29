@@ -14,6 +14,7 @@ import {
   normalizeBookCoverDisplayUrl,
   normalizeBookCoverStorageKey,
 } from './bookCoverUrl'
+import { normalizeBookTitle } from './bookContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1411,7 +1412,7 @@ interface AdminBookRow {
 function toAdminBook(row: AdminBookRow): AdminBook {
   return {
     id:             row.id,
-    title:          row.title,
+    title:          normalizeBookTitle(row.title),
     author:         row.author,
     isbn:           row.isbn,
     description:    row.description,
@@ -1448,7 +1449,7 @@ export async function createAdminBook(data: BookFormData): Promise<string> {
   const { data: row, error } = await supabase
     .from('books')
     .insert({
-      title:           data.title,
+      title:           normalizeBookTitle(data.title),
       author:          data.author ?? '',
       isbn:            data.isbn ?? null,
       description:     data.description ?? '',
@@ -1469,7 +1470,7 @@ export async function updateAdminBook(
   data: Partial<BookFormData>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
-  if (data.title         !== undefined) update.title          = data.title
+  if (data.title         !== undefined) update.title          = normalizeBookTitle(data.title)
   if (data.author        !== undefined) update.author         = data.author
   if (data.isbn          !== undefined) update.isbn           = data.isbn
   if (data.description   !== undefined) update.description    = data.description

@@ -17,6 +17,7 @@
     "./admin.service": "./src/admin.service.ts",
     "./authApi": "./src/authApi.ts",
     "./book.service": "./src/book.service.ts",
+    "./bookContent": "./src/bookContent.ts",
     "./booksApi": "./src/booksApi.ts",
     "./coursesApi": "./src/coursesApi.ts",
     "./deviceDisplay": {

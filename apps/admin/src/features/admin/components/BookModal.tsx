@@ -9,6 +9,7 @@ import {
   updateAdminBook,
   type AdminBook,
 } from '@s-class/api/admin.service'
+import { normalizeBookTitle } from '@s-class/api/bookContent'
 import { BookCover } from '@/features/books/components/BookCover'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
@@ -57,8 +58,8 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
     e.preventDefault()
     if (saving) return
 
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) { setError('Title is required.'); return }
+    const normalizedTitle = normalizeBookTitle(title)
+    if (!normalizedTitle) { setError('Title is required.'); return }
 
     const priceFloat = Number.parseFloat(pricePhp)
     if (!Number.isFinite(priceFloat) || priceFloat < 0) {
@@ -80,7 +81,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
       let bookId = book?.id
       if (isEdit) {
         await updateAdminBook(book.id, {
-          title:         trimmedTitle,
+          title:         normalizedTitle,
           author:        author.trim(),
           isbn:          isbn.trim() || null,
           description:   description.trim(),
@@ -90,7 +91,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
         })
       } else {
         bookId = await createAdminBook({
-          title:         trimmedTitle,
+          title:         normalizedTitle,
           author:        author.trim(),
           isbn:          isbn.trim() || null,
           description:   description.trim(),
@@ -114,7 +115,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
 
       onSaved({
         id:            bookId!,
-        title:         trimmedTitle,
+        title:         normalizedTitle,
         author:        author.trim(),
         isbn:          isbn.trim() || null,
         description:   description.trim(),

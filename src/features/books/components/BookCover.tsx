@@ -80,9 +80,10 @@ export function BookCover({ src, alt, className, children }: BookCoverProps) {
         <img
           key={coverUrl}
           src={coverUrl}
-          alt={alt}
+          alt={shouldShowImage ? alt : ''}
           aria-hidden={!shouldShowImage}
           loading="lazy"
+          decoding="async"
           onLoad={() => {
             setFailedSrc(null)
             setLoadedSrc(coverUrl)

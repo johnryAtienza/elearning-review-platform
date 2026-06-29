@@ -16,6 +16,7 @@
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
 import { normalizeBookCoverDisplayUrl } from './bookCoverUrl'
+import { normalizeBookTitle } from './bookContent'
 import type { Book, BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 
 // ── Raw DB row shapes ────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ interface OrderRow {
 function toBook(row: BookRow): Book {
   return {
     id:             row.id,
-    title:          row.title,
+    title:          normalizeBookTitle(row.title),
     author:         row.author,
     isbn:           row.isbn,
     description:    row.description,
@@ -75,7 +76,7 @@ function toOrder(row: OrderRow): BookOrder {
     id:                 row.id,
     userId:             row.user_id,
     bookId:             row.book_id,
-    bookTitle:          row.books?.title,
+    bookTitle:          row.books?.title ? normalizeBookTitle(row.books.title) : undefined,
     bookAuthor:         row.books?.author,
     qty:                row.qty,
     unitPriceCentavos:  row.unit_price_centavos,

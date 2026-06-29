@@ -104,21 +104,18 @@ export function DashboardPage() {
             label="Saved subjects"
             value={stats.subjectsSaved}
             loading={loading}
-            accent="primary"
           />
           <StatCard
             icon={Zap}
             label="Lessons watched"
             value={stats.lessonsCompleted}
             loading={loading}
-            accent="blue"
           />
           <StatCard
             icon={Award}
             label="Quizzes taken"
             value={stats.quizzesTaken}
             loading={loading}
-            accent="amber"
           />
         </div>
       </section>
@@ -190,30 +187,17 @@ export function DashboardPage() {
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
-/*
- * Single-accent discipline: stat cards stay grayscale (muted/foreground).
- * One slot ('primary') is reserved for the most-actionable metric — pages
- * that want to spotlight a stat opt in by passing accent="primary".
- */
-const ACCENT_CLASSES = {
-  blue:    'bg-muted text-muted-foreground',
-  purple:  'bg-muted text-muted-foreground',
-  amber:   'bg-muted text-muted-foreground',
-  primary: 'bg-primary/15 text-primary',
-}
-
 function StatCard({
-  icon: Icon, label, value, loading, accent,
+  icon: Icon, label, value, loading,
 }: {
   icon: React.ElementType
   label: string
   value: number
   loading: boolean
-  accent: keyof typeof ACCENT_CLASSES
 }) {
   return (
     <div className="rounded-xl border bg-card p-5 space-y-3">
-      <div className={`flex size-9 items-center justify-center rounded-lg ${ACCENT_CLASSES[accent]}`}>
+      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
         <Icon className="size-5" />
       </div>
       <div>

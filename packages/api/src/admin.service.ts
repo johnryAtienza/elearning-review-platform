@@ -15,6 +15,7 @@ import {
   normalizeBookCoverStorageKey,
 } from './bookCoverUrl'
 import { normalizeBookTitle } from './bookContent'
+import { normalizePublicAssetDisplayUrl } from './publicAssetUrl'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -395,6 +396,11 @@ interface SubscriptionRow {
   expires_at: string | null
   duration_months: number | null
   created_at: string
+}
+
+function normalizeQuizMediaUrl(value?: string | null): string | null {
+  if (!value?.trim()) return null
+  return normalizePublicAssetDisplayUrl(value) ?? value.trim()
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -778,12 +784,12 @@ export async function getAdminQuizFull(quizId: string): Promise<AdminQuizFull | 
     id:               q.id,
     quizId:           q.quiz_id,
     questionText:     q.question_text ?? '',
-    questionImageUrl: q.question_image_url,
-    options: (q.options ?? []).map((o) => ({ text: o.text ?? '', imageUrl: o.image_url })),
+    questionImageUrl: normalizeQuizMediaUrl(q.question_image_url),
+    options: (q.options ?? []).map((o) => ({ text: o.text ?? '', imageUrl: normalizeQuizMediaUrl(o.image_url) })),
     correctAnswer:    q.correct_answer,
     order:            q.order,
     answerText:       q.answer_text ?? null,
-    answerImageUrl:   q.answer_image_url ?? null,
+    answerImageUrl:   normalizeQuizMediaUrl(q.answer_image_url),
   }))
 
   return {
@@ -890,12 +896,12 @@ export async function upsertQuizQuestion(params: {
       id:                 params.id,
       quiz_id:            params.quizId,
       question_text:      params.questionText,
-      question_image_url: params.questionImageUrl,
-      options: params.options.map((o) => ({ text: o.text, image_url: o.imageUrl })),
+      question_image_url: normalizeQuizMediaUrl(params.questionImageUrl),
+      options: params.options.map((o) => ({ text: o.text, image_url: normalizeQuizMediaUrl(o.imageUrl) })),
       correct_answer:     params.correctAnswer,
       order:              params.order,
       answer_text:        params.answerText,
-      answer_image_url:   params.answerImageUrl,
+      answer_image_url:   normalizeQuizMediaUrl(params.answerImageUrl),
     })
 
   if (error) throw new ApiError(500, 'ADMIN_QUESTION_UPSERT_FAILED', error.message)

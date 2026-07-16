@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import { normalizePublicAssetDisplayUrl } from './publicAssetUrl'
 import type { ProblemSet, ProblemSetStatus, Quiz, QuizQuestion } from '@s-class/types/quiz'
 
 interface QuizRow {
@@ -25,18 +26,23 @@ interface QuizQuestionRow {
   answer_image_url: string | null
 }
 
+function normalizeQuizMediaUrl(value?: string | null): string | null {
+  if (!value?.trim()) return null
+  return normalizePublicAssetDisplayUrl(value) ?? value.trim()
+}
+
 function toQuizQuestion(row: QuizQuestionRow): QuizQuestion {
   return {
     id:               row.id,
     question:         row.question_text ?? '',
-    questionImageUrl: row.question_image_url ?? null,
+    questionImageUrl: normalizeQuizMediaUrl(row.question_image_url),
     choices:          (row.options ?? []).map((o) => ({
       text:     o.text ?? '',
-      imageUrl: o.image_url ?? null,
+      imageUrl: normalizeQuizMediaUrl(o.image_url),
     })),
     correctAnswer:    row.correct_answer,
     answerText:       row.answer_text ?? null,
-    answerImageUrl:   row.answer_image_url ?? null,
+    answerImageUrl:   normalizeQuizMediaUrl(row.answer_image_url),
   }
 }
 

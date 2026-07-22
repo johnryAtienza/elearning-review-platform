@@ -44,11 +44,16 @@ export interface LandingContactCtaContent {
   buttonLabel: string
 }
 
+export type ContactChannelIcon = 'email' | 'phone' | 'messenger' | 'facebook' | 'link'
+
 export interface ContactPageChannelContent {
+  id: string
   label: string
   value: string
   helper: string
   href: string
+  icon: ContactChannelIcon
+  sortOrder: number
 }
 
 export interface ContactPageBusinessHoursContent {
@@ -61,9 +66,7 @@ export interface ContactPageContent {
   heroEyebrow: string
   heroTitle: string
   heroDescription: string
-  email: ContactPageChannelContent
-  phone: ContactPageChannelContent
-  messenger: ContactPageChannelContent
+  channels: ContactPageChannelContent[]
   businessHours: ContactPageBusinessHoursContent
 }
 

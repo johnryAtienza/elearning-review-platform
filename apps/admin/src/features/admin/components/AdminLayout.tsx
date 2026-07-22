@@ -62,13 +62,13 @@ const NAV_SECTIONS = [
       { to: ROUTES.ADMIN_REVIEW_PACKAGES, label: 'Reviewer Packages', icon: Package, end: false },
       { to: ROUTES.ADMIN_TESTIMONIALS,    label: 'Testimonials',      icon: Star,       end: false },
       { to: ROUTES.ADMIN_WELCOME_VIDEOS,  label: 'Welcome Videos',    icon: PlayCircle, end: false },
+      { to: ROUTES.ADMIN_CONTACT_PAGE,     label: 'Contact Page',      icon: MessageCircle, end: false },
       { to: ROUTES.ADMIN_CONTACT_CTA,      label: 'Contact CTA',       icon: Mail,       end: false },
     ],
   },
   {
     label: 'Page',
     items: [
-      { to: ROUTES.ADMIN_CONTACT_PAGE,     label: 'Contact Page',      icon: MessageCircle, end: false },
       { to: ROUTES.ADMIN_WHO_WE_ARE_PAGE,  label: 'Who We Are Page',   icon: FileText,      end: false },
       { to: ROUTES.ADMIN_FAQ_PAGE,         label: 'FAQ Page',          icon: CircleHelp,    end: false },
     ],

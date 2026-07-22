@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Mail, Phone, MessageCircle, Clock, ArrowUpRight } from 'lucide-react'
+import {
+  ArrowUpRight,
+  Clock,
+  Link as LinkIcon,
+  Mail,
+  MessageCircle,
+  Phone,
+} from 'lucide-react'
 import {
   DEFAULT_CONTACT_PAGE_CONTENT,
   homeContentApi,
 } from '@s-class/api/homeContentApi'
-import type { ContactPageChannelContent, ContactPageContent } from '@s-class/types/home'
+import type {
+  ContactChannelIcon,
+  ContactPageChannelContent,
+  ContactPageContent,
+} from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
 
@@ -30,12 +41,6 @@ export function ContactPage() {
     return () => { cancelled = true }
   }, [])
 
-  const channels: ContactChannel[] = [
-    { kind: 'email', ...content.email },
-    { kind: 'phone', ...content.phone },
-    { kind: 'messenger', ...content.messenger },
-  ]
-
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
       <CanonicalLink path={ROUTES.CONTACT} owner="landing" />
@@ -53,8 +58,8 @@ export function ContactPage() {
 
       {/* Channels */}
       <section className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
-        {channels.map((c) => (
-          <ChannelCard key={c.kind} channel={c} />
+        {content.channels.map((c) => (
+          <ChannelCard key={c.id} channel={c} />
         ))}
       </section>
 
@@ -85,12 +90,8 @@ export function ContactPage() {
   )
 }
 
-type ContactChannel = ContactPageChannelContent & {
-  kind: 'email' | 'phone' | 'messenger'
-}
-
-function ChannelCard({ channel }: { channel: ContactChannel }) {
-  const iconNode = renderIcon(channel.kind)
+function ChannelCard({ channel }: { channel: ContactPageChannelContent }) {
+  const iconNode = renderIcon(channel.icon)
   return (
     <a
       href={channel.href}
@@ -117,9 +118,10 @@ function ChannelCard({ channel }: { channel: ContactChannel }) {
   )
 }
 
-function renderIcon(kind: ContactChannel['kind']) {
+function renderIcon(icon: ContactChannelIcon) {
   const cls = 'size-5 text-primary'
-  if (kind === 'email') return <Mail          className={cls} />
-  if (kind === 'phone') return <Phone         className={cls} />
-  return                    <MessageCircle className={cls} />
+  if (icon === 'email') return <Mail className={cls} />
+  if (icon === 'phone') return <Phone className={cls} />
+  if (icon === 'messenger') return <MessageCircle className={cls} />
+  return <LinkIcon className={cls} />
 }

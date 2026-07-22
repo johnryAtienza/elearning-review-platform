@@ -22,6 +22,7 @@ import {
   CONTACT_PAGE_DB_KEYS,
   CONTACT_PAGE_SECTION,
   mergeContactPageRows,
+  normalizeContactChannelIcon,
   type SiteContentContactPageRow,
 } from './contactPageContent'
 import {
@@ -39,6 +40,7 @@ import {
 } from './contactCtaContent'
 import type {
   Announcement,
+  ContactPageChannelContent,
   ContactPageContent,
   HomeHeroContent,
   LandingContactCtaContent,
@@ -76,6 +78,16 @@ interface WhoWeAreSectionRow {
   id: string
   title: string
   body: string
+  sort_order: number
+}
+
+interface ContactChannelRow {
+  id: string
+  label: string
+  value: string
+  helper_text: string
+  href: string
+  icon: string | null
   sort_order: number
 }
 
@@ -125,6 +137,18 @@ function toWhoWeAreSection(row: WhoWeAreSectionRow): WhoWeArePageSection {
   }
 }
 
+function toContactChannel(row: ContactChannelRow): ContactPageChannelContent {
+  return {
+    id: row.id,
+    label: row.label,
+    value: row.value,
+    helper: row.helper_text,
+    href: row.href,
+    icon: normalizeContactChannelIcon(row.icon),
+    sortOrder: row.sort_order,
+  }
+}
+
 // ── Queries ──────────────────────────────────────────────────────────────────
 
 export async function getPublicAnnouncements(): Promise<Announcement[]> {
@@ -161,14 +185,29 @@ export async function getPublicLandingContactCta(): Promise<LandingContactCtaCon
 }
 
 export async function getPublicContactPage(): Promise<ContactPageContent> {
-  const { data, error } = await supabase
+  const { data: pageRows, error: pageError } = await supabase
     .from('site_content')
     .select('key, value')
     .eq('section', CONTACT_PAGE_SECTION)
     .in('key', Array.from(CONTACT_PAGE_DB_KEYS))
 
-  if (error) throw new ApiError(500, 'CONTACT_PAGE_FETCH_FAILED', error.message)
-  return mergeContactPageRows(data as SiteContentContactPageRow[])
+  if (pageError) throw new ApiError(500, 'CONTACT_PAGE_FETCH_FAILED', pageError.message)
+
+  const { data: channelRows, error: channelError } = await supabase
+    .from('contact_channels')
+    .select('id, label, value, helper_text, href, icon, sort_order')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (channelError) {
+    throw new ApiError(500, 'CONTACT_CHANNELS_FETCH_FAILED', channelError.message)
+  }
+
+  const channels = sortByOrder((channelRows ?? []) as ContactChannelRow[])
+    .map(toContactChannel)
+
+  return mergeContactPageRows(pageRows as SiteContentContactPageRow[], channels)
 }
 
 export async function getPublicWhoWeArePage(): Promise<WhoWeArePageContent> {

@@ -28,6 +28,7 @@ import {
   CONTACT_PAGE_SECTION,
   contactPageContentToRows,
   mergeContactPageRows,
+  normalizeContactChannelIcon,
   type SiteContentContactPageRow,
 } from './contactPageContent'
 import {
@@ -67,6 +68,7 @@ import {
 } from './testimonialsContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 import type {
+  ContactPageChannelContent,
   ContactPageContent,
   FaqPageContent,
   HomeHeroContent,
@@ -1724,20 +1726,76 @@ export async function updateAdminLandingContactCta(
 
 // -- Homepage CMS: contact page ----------------------------------------------
 
-export async function getAdminContactPage(): Promise<ContactPageContent> {
-  const { data, error } = await supabase
+export interface AdminContactChannel extends ContactPageChannelContent {
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminContactPageContent extends Omit<ContactPageContent, 'channels'> {
+  channels: AdminContactChannel[]
+}
+
+interface AdminContactChannelRow {
+  id: string
+  label: string
+  value: string
+  helper_text: string
+  href: string
+  icon: string | null
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+function toAdminContactChannel(row: AdminContactChannelRow): AdminContactChannel {
+  return {
+    id: row.id,
+    label: row.label,
+    value: row.value,
+    helper: row.helper_text,
+    href: row.href,
+    icon: normalizeContactChannelIcon(row.icon),
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export async function getAdminContactPage(): Promise<AdminContactPageContent> {
+  const { data: pageRows, error: pageError } = await supabase
     .from('site_content')
     .select('key, value')
     .eq('section', CONTACT_PAGE_SECTION)
     .in('key', Array.from(CONTACT_PAGE_DB_KEYS))
 
-  if (error) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_FAILED', error.message)
-  return mergeContactPageRows(data as SiteContentContactPageRow[])
+  if (pageError) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_FAILED', pageError.message)
+
+  const { data: channelRows, error: channelError } = await supabase
+    .from('contact_channels')
+    .select('id, label, value, helper_text, href, icon, sort_order, is_active, created_at, updated_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (channelError) {
+    throw new ApiError(500, 'ADMIN_CONTACT_CHANNELS_FAILED', channelError.message)
+  }
+
+  const channels = sortAdminRows((channelRows ?? []) as AdminContactChannelRow[])
+    .map(toAdminContactChannel)
+  const page = mergeContactPageRows(pageRows as SiteContentContactPageRow[], channels)
+
+  return {
+    ...page,
+    channels,
+  }
 }
 
 export async function updateAdminContactPage(
-  content: ContactPageContent,
-): Promise<ContactPageContent> {
+  content: AdminContactPageContent,
+): Promise<AdminContactPageContent> {
   const rows = contactPageContentToRows(content)
 
   const { error } = await supabase
@@ -1745,7 +1803,36 @@ export async function updateAdminContactPage(
     .upsert(rows, { onConflict: 'section,key' })
 
   if (error) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_UPDATE_FAILED', error.message)
-  return mergeContactPageRows(rows)
+
+  const channelRows = content.channels.map((channel, index) => ({
+    id: channel.id,
+    label: channel.label.trim(),
+    value: channel.value.trim(),
+    helper_text: channel.helper.trim(),
+    href: channel.href.trim(),
+    icon: normalizeContactChannelIcon(channel.icon),
+    sort_order: index,
+    is_active: channel.isActive,
+  }))
+
+  if (channelRows.length > 0) {
+    const { error: channelError } = await supabase
+      .from('contact_channels')
+      .upsert(channelRows, { onConflict: 'id' })
+
+    if (channelError) {
+      throw new ApiError(500, 'ADMIN_CONTACT_CHANNELS_SAVE_FAILED', channelError.message)
+    }
+  }
+
+  await deleteRowsMissingFrom(
+    'contact_channels',
+    new Set(channelRows.map((row) => row.id)),
+    'ADMIN_CONTACT_CHANNELS_STALE_FETCH_FAILED',
+    'ADMIN_CONTACT_CHANNELS_DELETE_FAILED',
+  )
+
+  return getAdminContactPage()
 }
 
 // -- Homepage CMS: who we are page -------------------------------------------

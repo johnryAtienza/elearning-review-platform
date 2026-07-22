@@ -29,6 +29,8 @@
     "./devicesApi": "./src/devicesApi.ts",
     "./homeContent.service": "./src/homeContent.service.ts",
     "./homeContentApi": "./src/homeContentApi.ts",
+    "./faq.service": "./src/faq.service.ts",
+    "./faqApi": "./src/faqApi.ts",
     "./reviewPackages.service": "./src/reviewPackages.service.ts",
     "./reviewPackagesApi": "./src/reviewPackagesApi.ts",
     "./testimonials.service": "./src/testimonials.service.ts",

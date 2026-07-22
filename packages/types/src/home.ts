@@ -80,6 +80,39 @@ export interface WhoWeArePageContent {
   visionBody: string
 }
 
+export interface FaqPageContent {
+  eyebrow: string
+  title: string
+  description: string
+  ctaTitle: string
+  ctaDescription: string
+  ctaButtonLabel: string
+}
+
+export interface FaqCategory {
+  id: string
+  name: string
+  sortOrder: number
+}
+
+export interface FaqItem {
+  id: string
+  category: string
+  question: string
+  answer: string
+  sortOrder: number
+}
+
+export interface FaqGroup {
+  category: string
+  items: FaqItem[]
+}
+
+export interface FaqPageData {
+  page: FaqPageContent
+  groups: FaqGroup[]
+}
+
 export interface ReviewPackageOption {
   id: string
   title: string

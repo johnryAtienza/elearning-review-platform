@@ -45,6 +45,13 @@ import {
   type SiteContentContactCtaRow,
 } from './contactCtaContent'
 import {
+  FAQ_PAGE_DB_KEYS,
+  FAQ_PAGE_SECTION,
+  faqPageContentToRows,
+  mergeFaqPageRows,
+  type SiteContentFaqPageRow,
+} from './faqContent'
+import {
   REVIEW_CLASSES_DB_KEYS,
   REVIEW_CLASSES_SECTION,
   mergeReviewClassesRows,
@@ -61,6 +68,7 @@ import {
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 import type {
   ContactPageContent,
+  FaqPageContent,
   HomeHeroContent,
   LandingContactCtaContent,
   WhoWeArePageContent,
@@ -1763,6 +1771,198 @@ export async function updateAdminWhoWeArePage(
 
   if (error) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_UPDATE_FAILED', error.message)
   return mergeWhoWeArePageRows(rows)
+}
+
+// -- Landing page CMS: FAQ page ----------------------------------------------
+
+export interface AdminFaq {
+  id: string
+  categoryId: string | null
+  category: string
+  question: string
+  answer: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminFaqCategory {
+  id: string
+  name: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminFaqPageContent extends FaqPageContent {
+  categories: AdminFaqCategory[]
+  faqs: AdminFaq[]
+}
+
+interface AdminFaqCategoryRow {
+  id: string
+  name: string
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+interface AdminFaqRow {
+  id: string
+  category_id: string | null
+  category: string
+  question: string
+  answer: string
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+function toAdminFaqCategory(row: AdminFaqCategoryRow): AdminFaqCategory {
+  return {
+    id: row.id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function toAdminFaq(
+  row: AdminFaqRow,
+  categoriesById: Map<string, AdminFaqCategory>,
+  categoryIdsByName: Map<string, string>,
+): AdminFaq {
+  const linkedCategory = row.category_id ? categoriesById.get(row.category_id) : null
+  const fallbackCategoryId = row.category?.trim()
+    ? categoryIdsByName.get(row.category.trim().toLocaleLowerCase()) ?? null
+    : null
+  const categoryId = linkedCategory ? row.category_id : fallbackCategoryId
+  const category = categoryId ? categoriesById.get(categoryId) : null
+
+  return {
+    id: row.id,
+    categoryId,
+    category: category?.name ?? linkedCategory?.name ?? row.category,
+    question: row.question,
+    answer: row.answer,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export async function getAdminFaqPageContent(): Promise<AdminFaqPageContent> {
+  const { data: pageRows, error: pageError } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', FAQ_PAGE_SECTION)
+    .in('key', Array.from(FAQ_PAGE_DB_KEYS))
+
+  if (pageError) throw new ApiError(500, 'ADMIN_FAQ_PAGE_COPY_FAILED', pageError.message)
+
+  const { data: categoryRows, error: categoryError } = await supabase
+    .from('faq_categories')
+    .select('id, name, sort_order, is_active, created_at, updated_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (categoryError) throw new ApiError(500, 'ADMIN_FAQ_CATEGORIES_FAILED', categoryError.message)
+
+  const categories = sortAdminRows((categoryRows ?? []) as AdminFaqCategoryRow[])
+    .map(toAdminFaqCategory)
+  const categoriesById = new Map(categories.map((category) => [category.id, category]))
+  const categoryIdsByName = new Map(
+    categories.map((category) => [category.name.trim().toLocaleLowerCase(), category.id]),
+  )
+
+  const { data: faqRows, error: faqError } = await supabase
+    .from('faqs')
+    .select('id, category_id, category, question, answer, sort_order, is_active, created_at, updated_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (faqError) throw new ApiError(500, 'ADMIN_FAQS_FAILED', faqError.message)
+
+  const page = mergeFaqPageRows(pageRows as SiteContentFaqPageRow[])
+
+  return {
+    ...page,
+    categories,
+    faqs: sortAdminRows((faqRows ?? []) as AdminFaqRow[])
+      .map((row) => toAdminFaq(row, categoriesById, categoryIdsByName)),
+  }
+}
+
+export async function saveAdminFaqPageContent(
+  content: AdminFaqPageContent,
+): Promise<AdminFaqPageContent> {
+  const pageRows = faqPageContentToRows(content)
+  const { error: pageError } = await supabase
+    .from('site_content')
+    .upsert(pageRows, { onConflict: 'section,key' })
+
+  if (pageError) throw new ApiError(500, 'ADMIN_FAQ_PAGE_COPY_UPDATE_FAILED', pageError.message)
+
+  const categories = content.categories.map((category, categoryIndex) => ({
+    ...category,
+    sortOrder: categoryIndex,
+  }))
+  const categoryRows = categories.map((category) => ({
+    id: category.id,
+    name: category.name.trim(),
+    sort_order: category.sortOrder,
+    is_active: category.isActive,
+  }))
+
+  if (categoryRows.length > 0) {
+    const { error } = await supabase
+      .from('faq_categories')
+      .upsert(categoryRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_FAQ_CATEGORIES_SAVE_FAILED', error.message)
+  }
+
+  const categoriesById = new Map(categories.map((category) => [category.id, category]))
+  const faqRows = content.faqs.map((faq) => ({
+    id: faq.id,
+    category_id: faq.categoryId,
+    category: (faq.categoryId ? categoriesById.get(faq.categoryId)?.name : faq.category)?.trim() || faq.category.trim(),
+    question: faq.question.trim(),
+    answer: faq.answer.trim(),
+    sort_order: Math.trunc(faq.sortOrder),
+    is_active: faq.isActive,
+  }))
+
+  if (faqRows.length > 0) {
+    const { error } = await supabase
+      .from('faqs')
+      .upsert(faqRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_FAQS_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'faqs',
+    new Set(faqRows.map((row) => row.id)),
+    'ADMIN_FAQS_STALE_FETCH_FAILED',
+    'ADMIN_FAQS_DELETE_FAILED',
+  )
+
+  await deleteRowsMissingFrom(
+    'faq_categories',
+    new Set(categoryRows.map((row) => row.id)),
+    'ADMIN_FAQ_CATEGORIES_STALE_FETCH_FAILED',
+    'ADMIN_FAQ_CATEGORIES_DELETE_FAILED',
+  )
+
+  return getAdminFaqPageContent()
 }
 
 // ── Homepage CMS: review classes/packages ────────────────────────────────────

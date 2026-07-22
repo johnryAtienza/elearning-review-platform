@@ -8,9 +8,11 @@ import {
   Folder,
   List,
   Loader2,
+  Pencil,
   Plus,
   Save,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +32,14 @@ import {
 
 type FaqPageField = 'eyebrow' | 'title' | 'description' | 'ctaTitle' | 'ctaDescription' | 'ctaButtonLabel'
 type FaqAdminTab = 'content' | 'categories'
+type FaqModalState = {
+  mode: 'create' | 'edit'
+  faq: AdminFaq
+}
+type CategoryModalState = {
+  mode: 'create' | 'edit'
+  category: AdminFaqCategory
+}
 
 const PAGE_TABS = [
   { id: 'content',    label: 'FAQ Content',    icon: List },
@@ -198,6 +208,25 @@ function validate(content: AdminFaqPageContent): string | null {
   return null
 }
 
+function validatePageFields(content: Pick<AdminFaqPageContent, FaqPageField>): string | null {
+  for (const field of Object.keys(FIELD_LABELS) as FaqPageField[]) {
+    if (!content[field].trim()) return `${FIELD_LABELS[field]} is required.`
+  }
+
+  return null
+}
+
+function copyPageFields(from: AdminFaqPageContent): Pick<AdminFaqPageContent, FaqPageField> {
+  return {
+    eyebrow: from.eyebrow,
+    title: from.title,
+    description: from.description,
+    ctaTitle: from.ctaTitle,
+    ctaDescription: from.ctaDescription,
+    ctaButtonLabel: from.ctaButtonLabel,
+  }
+}
+
 interface FaqAdminGroup {
   category: AdminFaqCategory | null
   faqs: AdminFaq[]
@@ -226,10 +255,12 @@ function buildFaqGroups(
 
 export function AdminFaqPage() {
   const [form, setForm] = useState<AdminFaqPageContent>(DEFAULT_FAQ_ADMIN_CONTENT)
+  const [savedContent, setSavedContent] = useState<AdminFaqPageContent>(DEFAULT_FAQ_ADMIN_CONTENT)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<FaqAdminTab>('content')
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false)
+  const [categoryModal, setCategoryModal] = useState<CategoryModalState | null>(null)
+  const [faqModal, setFaqModal] = useState<FaqModalState | null>(null)
   const [pendingFocusFaqId, setPendingFocusFaqId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -243,6 +274,7 @@ export function AdminFaqPage() {
       .then((content) => {
         if (!cancelled) {
           setForm(content)
+          setSavedContent(content)
           setLoading(false)
         }
       })
@@ -282,31 +314,6 @@ export function AdminFaqPage() {
 
   function setPageField(field: FaqPageField, value: string) {
     updateForm((current) => ({ ...current, [field]: value }))
-  }
-
-  function setCategory(categoryId: string, nextCategory: AdminFaqCategory) {
-    updateForm((current) => ({
-      ...current,
-      categories: current.categories.map((category) =>
-        category.id === categoryId ? nextCategory : category,
-      ),
-      faqs: current.faqs.map((faq) =>
-        faq.categoryId === categoryId ? { ...faq, category: nextCategory.name } : faq,
-      ),
-    }))
-  }
-
-  function addCategory(name: string) {
-    updateForm((current) => ({
-      ...current,
-      categories: [
-        ...current.categories,
-        createCategory(
-          current.categories.reduce((max, category) => Math.max(max, category.sortOrder), -1) + 1,
-          name,
-        ),
-      ],
-    }))
   }
 
   function removeCategory(categoryId: string) {
@@ -356,101 +363,102 @@ export function AdminFaqPage() {
     }))
   }
 
-  function setFaq(faqId: string, nextFaq: AdminFaq) {
-    updateForm((current) => ({
-      ...current,
-      faqs: current.faqs.map((faq) => faq.id === faqId ? nextFaq : faq),
-    }))
+  function createCategoryDraft(): AdminFaqCategory {
+    return createCategory(
+      form.categories.reduce((max, category) => Math.max(max, category.sortOrder), -1) + 1,
+      '',
+    )
   }
 
-  function addFaq(categoryId?: string | null) {
+  function openAddCategory() {
+    setActiveTab('categories')
+    setCategoryModal({ mode: 'create', category: createCategoryDraft() })
+  }
+
+  function openEditCategory(category: AdminFaqCategory) {
+    setCategoryModal({ mode: 'edit', category })
+  }
+
+  function createFaqDraft(categoryId?: string | null): AdminFaq {
     const faqId = newId()
+    let category = categoryId
+      ? form.categories.find((item) => item.id === categoryId)
+      : form.categories.find((item) => item.isActive) ?? form.categories[0]
 
-    updateForm((current) => {
-      let categories = current.categories
-      let category = categoryId
-        ? current.categories.find((item) => item.id === categoryId)
-        : current.categories.find((item) => item.isActive) ?? current.categories[0]
-
-      if (!category) {
-        category = createCategory(0, 'New category')
-        categories = [category]
-      }
-
-      const sortOrder = current.faqs
-        .filter((faq) => faq.categoryId === category.id)
-        .reduce((max, faq) => Math.max(max, faq.sortOrder), -1) + 1
-
-      return {
+    if (!category) {
+      const fallbackCategory = createCategory(0, 'New category')
+      category = fallbackCategory
+      updateForm((current) => ({
         ...current,
-        categories,
-        faqs: [...current.faqs, createFaq(sortOrder, category, faqId)],
-      }
-    })
+        categories: current.categories.length > 0 ? current.categories : [fallbackCategory],
+      }))
+    }
+
+    const sortOrder = form.faqs
+      .filter((faq) => faq.categoryId === category.id)
+      .reduce((max, faq) => Math.max(max, faq.sortOrder), -1) + 1
+
+    return createFaq(sortOrder, category, faqId)
+  }
+
+  function openAddFaq(categoryId?: string | null) {
     setActiveTab('content')
-    setPendingFocusFaqId(faqId)
+    setFaqModal({ mode: 'create', faq: createFaqDraft(categoryId) })
   }
 
-  function removeFaq(faqId: string) {
-    updateForm((current) => ({
-      ...current,
-      faqs: current.faqs.filter((faq) => faq.id !== faqId),
-    }))
+  function openEditFaq(faq: AdminFaq) {
+    setFaqModal({ mode: 'edit', faq })
   }
 
-  function moveFaqInCategory(categoryId: string | null, faqId: string, direction: -1 | 1) {
-    updateForm((current) => {
-      const knownCategoryIds = new Set(current.categories.map((category) => category.id))
-      const categoryFaqs = sortFaqs(current.faqs.filter((faq) =>
-        categoryId === null
-          ? !faq.categoryId || !knownCategoryIds.has(faq.categoryId)
-          : faq.categoryId === categoryId,
-      ))
-      const index = categoryFaqs.findIndex((faq) => faq.id === faqId)
-      const movedFaqs = moveItem(categoryFaqs, index, direction)
-        .map((faq, sortOrder) => ({ ...faq, sortOrder }))
-      const movedById = new Map(movedFaqs.map((faq) => [faq.id, faq]))
+  async function saveContent(
+    nextContent: AdminFaqPageContent,
+    successMessage: string,
+    preservePageFields = false,
+  ): Promise<AdminFaqPageContent | null> {
+    if (saving) return null
 
-      return {
-        ...current,
-        faqs: current.faqs.map((faq) => movedById.get(faq.id) ?? faq),
-      }
-    })
+    const normalized = normalizeForSave(nextContent)
+    const validationError = validate(normalized)
+    if (validationError) {
+      setSaveError(validationError)
+      return null
+    }
+
+    setSaving(true)
+    setSaveError(null)
+    const currentPageFields = copyPageFields(form)
+
+    try {
+      const saved = await saveAdminFaqPageContent(normalized)
+      setForm(preservePageFields ? { ...saved, ...currentPageFields } : saved)
+      setSavedContent(saved)
+      toast.success(successMessage)
+      return saved
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save FAQ page.')
+      return null
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function changeFaqCategory(faq: AdminFaq, categoryId: string) {
-    updateForm((current) => {
-      const category = current.categories.find((item) => item.id === categoryId)
-      if (!category) return current
-
-      const sortOrder = faq.categoryId === categoryId
-        ? faq.sortOrder
-        : current.faqs
-          .filter((item) => item.categoryId === categoryId)
-          .reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
-
-      return {
-        ...current,
-        faqs: current.faqs.map((item) =>
-          item.id === faq.id
-            ? {
-                ...item,
-                categoryId,
-                category: category.name,
-                sortOrder,
-              }
-            : item,
-        ),
-      }
-    })
+  function saveFaqsOnly(nextContent: AdminFaqPageContent, successMessage: string) {
+    return saveContent(
+      {
+        ...nextContent,
+        ...copyPageFields(savedContent),
+      },
+      successMessage,
+      true,
+    )
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSavePageContent(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return
 
-    const normalized = normalizeForSave(form)
-    const validationError = validate(normalized)
+    const nextPageFields = copyPageFields(form)
+    const validationError = validatePageFields(nextPageFields)
     if (validationError) {
       setSaveError(validationError)
       return
@@ -460,14 +468,99 @@ export function AdminFaqPage() {
     setSaveError(null)
 
     try {
-      const saved = await saveAdminFaqPageContent(normalized)
-      setForm(saved)
-      toast.success('FAQ page saved.')
+      const saved = await saveAdminFaqPageContent(normalizeForSave({
+        ...savedContent,
+        ...nextPageFields,
+      }))
+      setSavedContent(saved)
+      setForm((current) => ({
+        ...current,
+        ...copyPageFields(saved),
+      }))
+      toast.success('FAQ page content saved.')
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save FAQ page.')
+      setSaveError(err instanceof Error ? err.message : 'Failed to save FAQ page content.')
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleSaveCategories() {
+    await saveFaqsOnly(form, 'FAQ categories saved.')
+  }
+
+  async function handleSaveCategory(nextCategory: AdminFaqCategory, mode: CategoryModalState['mode']) {
+    const categoryName = nextCategory.name.trim()
+    const categoryWithName = { ...nextCategory, name: categoryName }
+    const nextForm = {
+      ...form,
+      categories: mode === 'create'
+        ? [...form.categories, categoryWithName]
+        : form.categories.map((category) =>
+            category.id === categoryWithName.id ? categoryWithName : category,
+          ),
+      faqs: form.faqs.map((faq) =>
+        faq.categoryId === categoryWithName.id ? { ...faq, category: categoryName } : faq,
+      ),
+    }
+    const saved = await saveFaqsOnly(nextForm, mode === 'create' ? 'FAQ category added.' : 'FAQ category updated.')
+
+    if (saved) setCategoryModal(null)
+  }
+
+  async function handleSaveFaqItem(nextFaq: AdminFaq, mode: FaqModalState['mode']) {
+    const category = form.categories.find((item) => item.id === nextFaq.categoryId)
+    const faqWithCategory = {
+      ...nextFaq,
+      category: category?.name ?? nextFaq.category,
+    }
+    const nextForm = {
+      ...form,
+      faqs: mode === 'create'
+        ? [...form.faqs, faqWithCategory]
+        : form.faqs.map((faq) => faq.id === faqWithCategory.id ? faqWithCategory : faq),
+    }
+    const saved = await saveFaqsOnly(nextForm, mode === 'create' ? 'FAQ item added.' : 'FAQ item updated.')
+
+    if (saved) {
+      setFaqModal(null)
+      setPendingFocusFaqId(nextFaq.id)
+    }
+  }
+
+  async function handleRemoveFaq(faqId: string) {
+    const nextForm = {
+      ...form,
+      faqs: form.faqs.filter((faq) => faq.id !== faqId),
+    }
+    await saveFaqsOnly(nextForm, 'FAQ item deleted.')
+  }
+
+  async function handleChangeFaq(nextFaq: AdminFaq) {
+    const nextForm = {
+      ...form,
+      faqs: form.faqs.map((faq) => faq.id === nextFaq.id ? nextFaq : faq),
+    }
+    await saveFaqsOnly(nextForm, 'FAQ item updated.')
+  }
+
+  async function handleMoveFaq(categoryId: string | null, faqId: string, direction: -1 | 1) {
+    const knownCategoryIds = new Set(form.categories.map((category) => category.id))
+    const categoryFaqs = sortFaqs(form.faqs.filter((faq) =>
+      categoryId === null
+        ? !faq.categoryId || !knownCategoryIds.has(faq.categoryId)
+        : faq.categoryId === categoryId,
+    ))
+    const index = categoryFaqs.findIndex((faq) => faq.id === faqId)
+    const movedFaqs = moveItem(categoryFaqs, index, direction)
+      .map((faq, sortOrder) => ({ ...faq, sortOrder }))
+    const movedById = new Map(movedFaqs.map((faq) => [faq.id, faq]))
+    const nextForm = {
+      ...form,
+      faqs: form.faqs.map((faq) => movedById.get(faq.id) ?? faq),
+    }
+
+    await saveFaqsOnly(nextForm, 'FAQ item order saved.')
   }
 
   const disabled = loading || saving
@@ -476,7 +569,7 @@ export function AdminFaqPage() {
 
   return (
     <>
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">FAQ Page</h1>
@@ -486,11 +579,6 @@ export function AdminFaqPage() {
               : `${form.categories.length} categories / ${form.faqs.length} FAQs / ${activeFaqCount} active`}
           </p>
         </div>
-
-        <Button type="submit" disabled={disabled}>
-          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
       </div>
 
       <LoadError message={loadError} />
@@ -516,12 +604,12 @@ export function AdminFaqPage() {
 
           <div className="flex items-center pb-4 sm:pb-0">
             {activeTab === 'content' ? (
-              <Button type="button" onClick={() => addFaq()} disabled={disabled}>
+              <Button type="button" onClick={() => openAddFaq()} disabled={disabled}>
                 <Plus className="mr-2 size-4" />
                 Add FAQ Item
               </Button>
             ) : (
-              <Button type="button" onClick={() => setCategoryModalOpen(true)} disabled={disabled}>
+              <Button type="button" onClick={openAddCategory} disabled={disabled}>
                 <Plus className="mr-2 size-4" />
                 Add Category
               </Button>
@@ -531,11 +619,17 @@ export function AdminFaqPage() {
 
         {activeTab === 'categories' ? (
           <div className="space-y-4 p-4 sm:p-6">
-            <div>
-              <h2 className="text-sm font-semibold">FAQ Categories</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {loading ? 'Loading...' : `${form.categories.length} total / ${activeCategoryCount} active`}
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold">FAQ Categories</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {loading ? 'Loading...' : `${form.categories.length} total / ${activeCategoryCount} active`}
+                </p>
+              </div>
+              <Button type="button" onClick={handleSaveCategories} disabled={disabled}>
+                {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+                {saving ? 'Saving...' : 'Save Categories'}
+              </Button>
             </div>
 
             {loading ? (
@@ -554,7 +648,8 @@ export function AdminFaqPage() {
                     total={form.categories.length}
                     disabled={disabled}
                     faqCount={form.faqs.filter((faq) => faq.categoryId === category.id).length}
-                    onChange={(nextCategory) => setCategory(category.id, nextCategory)}
+                    onEdit={() => openEditCategory(category)}
+                    onChange={(nextCategory) => void handleSaveCategory(nextCategory, 'edit')}
                     onMove={(direction) => moveCategory(index, direction)}
                     onRemove={() => removeCategory(category.id)}
                   />
@@ -565,14 +660,20 @@ export function AdminFaqPage() {
         ) : (
           <div className="space-y-6 p-4 sm:p-6">
             <section className="rounded-xl border bg-card shadow-sm">
-              <div className="flex items-center gap-3 border-b px-5 py-4">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
-                  <CircleHelp className="size-4 text-primary" />
+              <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
+                    <CircleHelp className="size-4 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold">FAQ Page Content</h2>
+                    <p className="text-xs text-muted-foreground">Header text and bottom CTA</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-sm font-semibold">FAQ Page Content</h2>
-                  <p className="text-xs text-muted-foreground">Header text and bottom CTA</p>
-                </div>
+                <Button type="button" onClick={handleSavePageContent} disabled={disabled}>
+                  {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+                  {saving ? 'Saving...' : 'Save Content'}
+                </Button>
               </div>
 
               <div className="space-y-6 p-5">
@@ -656,13 +757,12 @@ export function AdminFaqPage() {
                     <FaqGroupEditor
                       key={group.category?.id ?? 'uncategorized'}
                       group={group}
-                      categories={sortCategories(form.categories)}
                       disabled={disabled}
-                      onAddFaq={() => addFaq(group.category?.id)}
-                      onChangeFaq={(faqId, nextFaq) => setFaq(faqId, nextFaq)}
-                      onChangeFaqCategory={changeFaqCategory}
-                      onMoveFaq={(faqId, direction) => moveFaqInCategory(group.category?.id ?? null, faqId, direction)}
-                      onRemoveFaq={removeFaq}
+                      onAddFaq={() => openAddFaq(group.category?.id)}
+                      onEditFaq={openEditFaq}
+                      onChangeFaq={(nextFaq) => void handleChangeFaq(nextFaq)}
+                      onMoveFaq={(faqId, direction) => void handleMoveFaq(group.category?.id ?? null, faqId, direction)}
+                      onRemoveFaq={(faqId) => void handleRemoveFaq(faqId)}
                     />
                   ))}
                 </div>
@@ -671,50 +771,68 @@ export function AdminFaqPage() {
           </div>
         )}
       </div>
-    </form>
-    {categoryModalOpen && (
-      <FaqCategoryCreateModal
+    </div>
+    {categoryModal && (
+      <FaqCategoryModal
+        mode={categoryModal.mode}
+        category={categoryModal.category}
         categories={form.categories}
         disabled={disabled}
-        onClose={() => setCategoryModalOpen(false)}
-        onCreate={(name) => {
-          addCategory(name)
-          setActiveTab('categories')
-          setCategoryModalOpen(false)
-        }}
+        onClose={() => setCategoryModal(null)}
+        onSave={(category) => void handleSaveCategory(category, categoryModal.mode)}
+      />
+    )}
+    {faqModal && (
+      <FaqItemModal
+        mode={faqModal.mode}
+        faq={faqModal.faq}
+        categories={sortCategories(form.categories)}
+        disabled={disabled}
+        onClose={() => setFaqModal(null)}
+        onSave={(nextFaq) => void handleSaveFaqItem(nextFaq, faqModal.mode)}
       />
     )}
     </>
   )
 }
 
-function FaqCategoryCreateModal({
+function FaqCategoryModal({
+  mode,
+  category,
   categories,
   disabled,
   onClose,
-  onCreate,
+  onSave,
 }: {
+  mode: CategoryModalState['mode']
+  category: AdminFaqCategory
   categories: AdminFaqCategory[]
   disabled: boolean
   onClose: () => void
-  onCreate: (name: string) => void
+  onSave: (category: AdminFaqCategory) => void
 }) {
-  const [name, setName] = useState('')
+  const [draft, setDraft] = useState(category)
   const [error, setError] = useState<string | null>(null)
+  const title = mode === 'create' ? 'Add FAQ Category' : 'Update FAQ Category'
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      document.getElementById('faq-new-category-name')?.focus()
+      document.getElementById(`faq-category-modal-${category.id}-name`)?.focus()
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [])
+  }, [category.id])
+
+  function patch(updates: Partial<AdminFaqCategory>) {
+    setDraft((current) => ({ ...current, ...updates }))
+    setError(null)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (disabled) return
 
-    const trimmedName = name.trim()
+    const trimmedName = draft.name.trim()
     if (!trimmedName) {
       setError('Please enter a category name.')
       return
@@ -722,7 +840,9 @@ function FaqCategoryCreateModal({
 
     const normalizedName = trimmedName.toLocaleLowerCase()
     const alreadyExists = categories.some(
-      (category) => category.name.trim().toLocaleLowerCase() === normalizedName,
+      (item) =>
+        item.id !== category.id &&
+        item.name.trim().toLocaleLowerCase() === normalizedName,
     )
     if (alreadyExists) {
       setError('That category already exists.')
@@ -730,7 +850,7 @@ function FaqCategoryCreateModal({
     }
 
     setError(null)
-    onCreate(trimmedName)
+    onSave({ ...draft, name: trimmedName })
   }
 
   return (
@@ -739,33 +859,46 @@ function FaqCategoryCreateModal({
       <form
         role="dialog"
         aria-modal="true"
-        aria-labelledby="faq-category-create-title"
+        aria-labelledby="faq-category-modal-title"
         onSubmit={handleSubmit}
         className="relative w-full max-w-md rounded-xl border bg-background shadow-xl"
       >
-        <div className="border-b px-6 py-4">
-          <h2 id="faq-category-create-title" className="text-lg font-semibold">Add FAQ Category</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Create a category for grouping FAQ items.
-          </p>
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <div>
+            <h2 id="faq-category-modal-title" className="text-lg font-semibold">{title}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Manage the category name and visibility.
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={disabled}>
+            <X className="size-4" />
+          </Button>
         </div>
 
         <div className="space-y-4 px-6 py-5">
           <div className="space-y-1.5">
-            <label htmlFor="faq-new-category-name" className="text-sm font-medium">
+            <label htmlFor={`faq-category-modal-${category.id}-name`} className="text-sm font-medium">
               Category name <span className="text-destructive">*</span>
             </label>
             <Input
-              id="faq-new-category-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setError(null)
-              }}
+              id={`faq-category-modal-${category.id}-name`}
+              value={draft.name}
+              onChange={(e) => patch({ name: e.target.value })}
               placeholder="e.g. Enrollment"
               disabled={disabled}
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={draft.isActive}
+              onChange={(e) => patch({ isActive: e.target.checked })}
+              disabled={disabled}
+              className="size-4 rounded border-input"
+            />
+            Active
+          </label>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
@@ -775,8 +908,8 @@ function FaqCategoryCreateModal({
             Cancel
           </Button>
           <Button type="submit" disabled={disabled}>
-            <Plus className="mr-2 size-4" />
-            Add Category
+            {disabled ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            {disabled ? 'Saving...' : title}
           </Button>
         </div>
       </form>
@@ -834,6 +967,7 @@ function CategoryEditor({
   total,
   disabled,
   faqCount,
+  onEdit,
   onChange,
   onMove,
   onRemove,
@@ -843,6 +977,7 @@ function CategoryEditor({
   total: number
   disabled: boolean
   faqCount: number
+  onEdit: () => void
   onChange: (category: AdminFaqCategory) => void
   onMove: (direction: -1 | 1) => void
   onRemove: () => void
@@ -852,20 +987,15 @@ function CategoryEditor({
   }
 
   return (
-    <article className="rounded-lg border bg-background/40">
-      <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <article className="rounded-lg border bg-background/40 px-4 py-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="w-8 shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
             #{index + 1}
           </div>
-          <div className="min-w-0 flex-1">
-            <TextField
-              id={`faq-category-${category.id}-name`}
-              label="Category name"
-              value={category.name}
-              onChange={(value) => patch({ name: value })}
-              disabled={disabled}
-            />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="truncate text-sm font-semibold">{category.name || 'Untitled category'}</p>
+            <p className="text-xs text-muted-foreground">Category name</p>
           </div>
           <Badge variant={category.isActive ? 'success' : 'secondary'}>
             {category.isActive ? 'Active' : 'Inactive'}
@@ -903,6 +1033,16 @@ function CategoryEditor({
             variant="outline"
             size="sm"
             disabled={disabled}
+            onClick={onEdit}
+          >
+            <Pencil className="mr-2 size-4" />
+            Update
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
             onClick={() => patch({ isActive: !category.isActive })}
           >
             {category.isActive ? <EyeOff className="mr-2 size-4" /> : <Eye className="mr-2 size-4" />}
@@ -928,20 +1068,18 @@ function CategoryEditor({
 
 function FaqGroupEditor({
   group,
-  categories,
   disabled,
   onAddFaq,
+  onEditFaq,
   onChangeFaq,
-  onChangeFaqCategory,
   onMoveFaq,
   onRemoveFaq,
 }: {
   group: FaqAdminGroup
-  categories: AdminFaqCategory[]
   disabled: boolean
   onAddFaq: () => void
-  onChangeFaq: (faqId: string, faq: AdminFaq) => void
-  onChangeFaqCategory: (faq: AdminFaq, categoryId: string) => void
+  onEditFaq: (faq: AdminFaq) => void
+  onChangeFaq: (faq: AdminFaq) => void
   onMoveFaq: (faqId: string, direction: -1 | 1) => void
   onRemoveFaq: (faqId: string) => void
 }) {
@@ -978,10 +1116,9 @@ function FaqGroupEditor({
               faq={faq}
               index={index}
               total={group.faqs.length}
-              categories={categories}
               disabled={disabled}
-              onChange={(nextFaq) => onChangeFaq(faq.id, nextFaq)}
-              onChangeCategory={(categoryId) => onChangeFaqCategory(faq, categoryId)}
+              onEdit={() => onEditFaq(faq)}
+              onChange={(nextFaq) => onChangeFaq(nextFaq)}
               onMove={(direction) => onMoveFaq(faq.id, direction)}
               onRemove={() => onRemoveFaq(faq.id)}
             />
@@ -996,20 +1133,18 @@ function FaqItemEditor({
   faq,
   index,
   total,
-  categories,
   disabled,
+  onEdit,
   onChange,
-  onChangeCategory,
   onMove,
   onRemove,
 }: {
   faq: AdminFaq
   index: number
   total: number
-  categories: AdminFaqCategory[]
   disabled: boolean
+  onEdit: () => void
   onChange: (faq: AdminFaq) => void
-  onChangeCategory: (categoryId: string) => void
   onMove: (direction: -1 | 1) => void
   onRemove: () => void
 }) {
@@ -1018,16 +1153,21 @@ function FaqItemEditor({
   }
 
   return (
-    <article id={`faq-item-${faq.id}`} className="rounded-lg border bg-background/40">
-      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-semibold">FAQ item {index + 1}</h4>
-          <Badge variant={faq.isActive ? 'success' : 'secondary'}>
-            {faq.isActive ? 'Active' : 'Inactive'}
-          </Badge>
+    <article id={`faq-item-${faq.id}`} className="rounded-lg border bg-background/40 px-4 py-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-sm font-semibold">FAQ item {index + 1}</h4>
+            <Badge variant="outline">Order {faq.sortOrder + 1}</Badge>
+            <Badge variant={faq.isActive ? 'success' : 'secondary'}>
+              {faq.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          <p className="truncate text-sm font-medium">{faq.question || 'Untitled question'}</p>
+          <p className="line-clamp-2 text-xs text-muted-foreground">{faq.answer || 'No answer yet.'}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
@@ -1057,6 +1197,16 @@ function FaqItemEditor({
             variant="outline"
             size="sm"
             disabled={disabled}
+            onClick={onEdit}
+          >
+            <Pencil className="mr-2 size-4" />
+            Update
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
             onClick={() => patch({ isActive: !faq.isActive })}
           >
             {faq.isActive ? <EyeOff className="mr-2 size-4" /> : <Eye className="mr-2 size-4" />}
@@ -1076,44 +1226,162 @@ function FaqItemEditor({
           </Button>
         </div>
       </div>
+    </article>
+  )
+}
 
-      <div className="space-y-4 p-4">
-        <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-          <SelectField
-            id={`faq-${faq.id}-category`}
-            label="Category"
-            value={faq.categoryId ?? ''}
-            onChange={onChangeCategory}
-            disabled={disabled || categories.length === 0}
-            categories={categories}
-          />
-          <NumberField
-            id={`faq-${faq.id}-sort-order`}
-            label="Sort order"
-            value={faq.sortOrder}
-            onChange={(value) => patch({ sortOrder: value })}
-            disabled={disabled}
-          />
+function FaqItemModal({
+  mode,
+  faq,
+  categories,
+  disabled,
+  onClose,
+  onSave,
+}: {
+  mode: FaqModalState['mode']
+  faq: AdminFaq
+  categories: AdminFaqCategory[]
+  disabled: boolean
+  onClose: () => void
+  onSave: (faq: AdminFaq) => void
+}) {
+  const [draft, setDraft] = useState(faq)
+  const [error, setError] = useState<string | null>(null)
+  const title = mode === 'create' ? 'Add FAQ Item' : 'Update FAQ Item'
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById(`faq-modal-${faq.id}-question`)?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [faq.id])
+
+  function patch(updates: Partial<AdminFaq>) {
+    setDraft((current) => ({ ...current, ...updates }))
+    setError(null)
+  }
+
+  function handleCategoryChange(categoryId: string) {
+    const category = categories.find((item) => item.id === categoryId)
+    patch({
+      categoryId,
+      category: category?.name ?? draft.category,
+    })
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+
+    if (!draft.categoryId) {
+      setError('Please choose a category.')
+      return
+    }
+    if (!draft.question.trim()) {
+      setError('Question is required.')
+      return
+    }
+    if (!draft.answer.trim()) {
+      setError('Answer is required.')
+      return
+    }
+    if (!Number.isInteger(draft.sortOrder)) {
+      setError('Sort order must be a whole number.')
+      return
+    }
+
+    onSave({
+      ...draft,
+      question: draft.question.trim(),
+      answer: draft.answer.trim(),
+      category: draft.category.trim(),
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disabled ? undefined : onClose} />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="faq-item-modal-title"
+        onSubmit={handleSubmit}
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border bg-background shadow-xl"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+          <div>
+            <h2 id="faq-item-modal-title" className="text-lg font-semibold">{title}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Manage the question, answer, category, order, and visibility.
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={disabled}>
+            <X className="size-4" />
+          </Button>
         </div>
 
-        <TextField
-          id={`faq-${faq.id}-question`}
-          label="Question"
-          value={faq.question}
-          onChange={(value) => patch({ question: value })}
-          disabled={disabled}
-        />
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+            <SelectField
+              id={`faq-modal-${faq.id}-category`}
+              label="Category"
+              value={draft.categoryId ?? ''}
+              onChange={handleCategoryChange}
+              disabled={disabled || categories.length === 0}
+              categories={categories}
+            />
+            <NumberField
+              id={`faq-modal-${faq.id}-sort-order`}
+              label="Sort order"
+              value={draft.sortOrder}
+              onChange={(value) => patch({ sortOrder: value })}
+              disabled={disabled}
+            />
+          </div>
 
-        <TextareaField
-          id={`faq-${faq.id}-answer`}
-          label="Answer"
-          value={faq.answer}
-          onChange={(value) => patch({ answer: value })}
-          rows={4}
-          disabled={disabled}
-        />
-      </div>
-    </article>
+          <TextField
+            id={`faq-modal-${faq.id}-question`}
+            label="Question"
+            value={draft.question}
+            onChange={(value) => patch({ question: value })}
+            disabled={disabled}
+          />
+
+          <TextareaField
+            id={`faq-modal-${faq.id}-answer`}
+            label="Answer"
+            value={draft.answer}
+            onChange={(value) => patch({ answer: value })}
+            rows={6}
+            disabled={disabled}
+          />
+
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={draft.isActive}
+              onChange={(e) => patch({ isActive: e.target.checked })}
+              disabled={disabled}
+              className="size-4 rounded border-input"
+            />
+            Active
+          </label>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={disabled}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={disabled}>
+            {disabled ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            {disabled ? 'Saving...' : title}
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }
 

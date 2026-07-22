@@ -24,6 +24,20 @@ import {
   type SiteContentHeroRow,
 } from './homeHeroContent'
 import {
+  CONTACT_PAGE_DB_KEYS,
+  CONTACT_PAGE_SECTION,
+  contactPageContentToRows,
+  mergeContactPageRows,
+  type SiteContentContactPageRow,
+} from './contactPageContent'
+import {
+  LANDING_CONTACT_CTA_DB_KEYS,
+  LANDING_CONTACT_CTA_SECTION,
+  landingContactCtaContentToRows,
+  mergeLandingContactCtaRows,
+  type SiteContentContactCtaRow,
+} from './contactCtaContent'
+import {
   REVIEW_CLASSES_DB_KEYS,
   REVIEW_CLASSES_SECTION,
   mergeReviewClassesRows,
@@ -38,7 +52,7 @@ import {
   type SiteContentTestimonialsRow,
 } from './testimonialsContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
-import type { HomeHeroContent } from '@s-class/types/home'
+import type { ContactPageContent, HomeHeroContent, LandingContactCtaContent } from '@s-class/types/home'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1659,6 +1673,58 @@ export async function updateAdminHomeHero(content: HomeHeroContent): Promise<Hom
 
   if (error) throw new ApiError(500, 'ADMIN_HOME_HERO_UPDATE_FAILED', error.message)
   return mergeHomeHeroRows(rows)
+}
+
+// -- Homepage CMS: contact CTA ------------------------------------------------
+
+export async function getAdminLandingContactCta(): Promise<LandingContactCtaContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', LANDING_CONTACT_CTA_SECTION)
+    .in('key', Array.from(LANDING_CONTACT_CTA_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'ADMIN_LANDING_CONTACT_CTA_FAILED', error.message)
+  return mergeLandingContactCtaRows(data as SiteContentContactCtaRow[])
+}
+
+export async function updateAdminLandingContactCta(
+  content: LandingContactCtaContent,
+): Promise<LandingContactCtaContent> {
+  const rows = landingContactCtaContentToRows(content)
+
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(rows, { onConflict: 'section,key' })
+
+  if (error) throw new ApiError(500, 'ADMIN_LANDING_CONTACT_CTA_UPDATE_FAILED', error.message)
+  return mergeLandingContactCtaRows(rows)
+}
+
+// -- Homepage CMS: contact page ----------------------------------------------
+
+export async function getAdminContactPage(): Promise<ContactPageContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', CONTACT_PAGE_SECTION)
+    .in('key', Array.from(CONTACT_PAGE_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_FAILED', error.message)
+  return mergeContactPageRows(data as SiteContentContactPageRow[])
+}
+
+export async function updateAdminContactPage(
+  content: ContactPageContent,
+): Promise<ContactPageContent> {
+  const rows = contactPageContentToRows(content)
+
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(rows, { onConflict: 'section,key' })
+
+  if (error) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_UPDATE_FAILED', error.message)
+  return mergeContactPageRows(rows)
 }
 
 // ── Homepage CMS: review classes/packages ────────────────────────────────────

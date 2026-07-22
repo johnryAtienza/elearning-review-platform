@@ -6,11 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HeroBlock } from '../features/home/components/HeroBlock'
 import { TestimonialsSection } from '../features/home/components/TestimonialsSection'
-import { homeContentApi } from '@s-class/api/homeContentApi'
+import { DEFAULT_LANDING_CONTACT_CTA, homeContentApi } from '@s-class/api/homeContentApi'
 import { DEFAULT_REVIEW_CLASSES, reviewPackagesApi } from '@s-class/api/reviewPackagesApi'
 import type { Announcement, WelcomeVideo } from '../features/home/types'
-import type { ReviewClassesContent, ReviewPackage } from '@s-class/types/home'
-import { CONTACT_BLURB } from '../constants/offerings'
+import type { LandingContactCtaContent, ReviewClassesContent, ReviewPackage } from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { CanonicalLink } from '@/components/CanonicalLink'
@@ -37,19 +36,30 @@ import { cn } from '@/utils/cn'
  *     (admin-editable under /admin/announcements + /admin/welcome-videos).
  *   - Review packages: DB-backed via reviewPackagesApi
  *     (admin-editable under /admin/review-packages).
- *   - Contact blurb: src/constants/offerings.ts
+ *   - Contact CTA: DB-backed via site_content
+ *     (admin-editable under /admin/contact-cta).
  *   - Testimonials: DB-backed via testimonialsApi
  *     (admin-editable under /admin/testimonials).
  */
 export function HomePage() {
   const [reviewClasses, setReviewClasses] =
     useState<ReviewClassesContent>(DEFAULT_REVIEW_CLASSES)
+  const [contactCta, setContactCta] =
+    useState<LandingContactCtaContent>(DEFAULT_LANDING_CONTACT_CTA)
 
   useEffect(() => {
     let cancelled = false
     reviewPackagesApi.getReviewClassesContent()
       .then((content) => { if (!cancelled) setReviewClasses(content) })
       .catch(() => { if (!cancelled) setReviewClasses(DEFAULT_REVIEW_CLASSES) })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    homeContentApi.getLandingContactCta()
+      .then((content) => { if (!cancelled) setContactCta(content) })
+      .catch(() => { if (!cancelled) setContactCta(DEFAULT_LANDING_CONTACT_CTA) })
     return () => { cancelled = true }
   }, [])
 
@@ -94,12 +104,12 @@ export function HomePage() {
             <Mail className="size-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Contact us</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">{CONTACT_BLURB}</p>
+            <h3 className="font-semibold text-lg">{contactCta.title}</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-xl">{contactCta.description}</p>
           </div>
         </div>
         <Button asChild size="lg" variant="outline" className="shrink-0">
-          <a href={getAbsoluteUrl(ROUTES.REGISTER)}>Enroll Now</a>
+          <a href={getAbsoluteUrl(ROUTES.REGISTER)}>{contactCta.buttonLabel}</a>
         </Button>
       </section>
     </div>

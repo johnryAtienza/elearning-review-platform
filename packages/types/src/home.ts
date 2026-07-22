@@ -38,6 +38,35 @@ export interface HomeHeroContent {
   secondaryButton: string
 }
 
+export interface LandingContactCtaContent {
+  title: string
+  description: string
+  buttonLabel: string
+}
+
+export interface ContactPageChannelContent {
+  label: string
+  value: string
+  helper: string
+  href: string
+}
+
+export interface ContactPageBusinessHoursContent {
+  weekdays: string
+  saturday: string
+  sunday: string
+}
+
+export interface ContactPageContent {
+  heroEyebrow: string
+  heroTitle: string
+  heroDescription: string
+  email: ContactPageChannelContent
+  phone: ContactPageChannelContent
+  messenger: ContactPageChannelContent
+  businessHours: ContactPageBusinessHoursContent
+}
+
 export interface ReviewPackageOption {
   id: string
   title: string

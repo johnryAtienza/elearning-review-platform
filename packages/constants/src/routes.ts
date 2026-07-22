@@ -65,4 +65,6 @@ export const ROUTES = {
   ADMIN_WELCOME_VIDEOS: '/admin/welcome-videos',
   ADMIN_REVIEW_PACKAGES: '/admin/review-packages',
   ADMIN_TESTIMONIALS:   '/admin/testimonials',
+  ADMIN_CONTACT_CTA:    '/admin/contact-cta',
+  ADMIN_CONTACT_PAGE:   '/admin/contact-page',
 } as const

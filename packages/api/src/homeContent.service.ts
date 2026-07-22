@@ -4,6 +4,7 @@
  * Supabase queries for the public homepage CMS:
  *   - announcements_public  → timeline cards
  *   - welcome_videos_public → welcome video card
+ *   - site_content          → text-only homepage copy
  *
  * Both views are anon-readable (granted in the migration). They already
  * filter for enabled = true (and, for announcements, published_at <= now).
@@ -17,7 +18,25 @@ import {
   mergeHomeHeroRows,
   type SiteContentHeroRow,
 } from './homeHeroContent'
-import type { Announcement, HomeHeroContent, WelcomeVideo } from '@s-class/types/home'
+import {
+  CONTACT_PAGE_DB_KEYS,
+  CONTACT_PAGE_SECTION,
+  mergeContactPageRows,
+  type SiteContentContactPageRow,
+} from './contactPageContent'
+import {
+  LANDING_CONTACT_CTA_DB_KEYS,
+  LANDING_CONTACT_CTA_SECTION,
+  mergeLandingContactCtaRows,
+  type SiteContentContactCtaRow,
+} from './contactCtaContent'
+import type {
+  Announcement,
+  ContactPageContent,
+  HomeHeroContent,
+  LandingContactCtaContent,
+  WelcomeVideo,
+} from '@s-class/types/home'
 
 // ── Raw DB row shapes ────────────────────────────────────────────────────────
 
@@ -95,6 +114,28 @@ export async function getPublicHomeHero(): Promise<HomeHeroContent> {
 
   if (error) throw new ApiError(500, 'HOME_HERO_FETCH_FAILED', error.message)
   return mergeHomeHeroRows(data as SiteContentHeroRow[])
+}
+
+export async function getPublicLandingContactCta(): Promise<LandingContactCtaContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', LANDING_CONTACT_CTA_SECTION)
+    .in('key', Array.from(LANDING_CONTACT_CTA_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'LANDING_CONTACT_CTA_FETCH_FAILED', error.message)
+  return mergeLandingContactCtaRows(data as SiteContentContactCtaRow[])
+}
+
+export async function getPublicContactPage(): Promise<ContactPageContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', CONTACT_PAGE_SECTION)
+    .in('key', Array.from(CONTACT_PAGE_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'CONTACT_PAGE_FETCH_FAILED', error.message)
+  return mergeContactPageRows(data as SiteContentContactPageRow[])
 }
 
 /** Returns at most one welcome video — the top-of-order row. */

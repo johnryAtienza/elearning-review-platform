@@ -8,6 +8,8 @@ import { AdminLoginPage } from '../pages/AdminLoginPage'
 import { AdminHeroBannerPage } from '../pages/admin/AdminHeroBannerPage'
 import { AdminReviewPackagesPage } from '../pages/admin/AdminReviewPackagesPage'
 import { AdminTestimonialsPage } from '../pages/admin/AdminTestimonialsPage'
+import { AdminContactCtaPage } from '../pages/admin/AdminContactCtaPage'
+import { AdminContactPage } from '../pages/admin/AdminContactPage'
 
 // Lazy-load admin pages — matches the legacy router's lazy pattern.
 const AdminDashboardPage     = lazy(() => import('../pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
@@ -77,6 +79,8 @@ export const router = createBrowserRouter([
           { path: 'welcome-videos', element: <AdminWelcomeVideosPage /> },
           { path: 'review-packages', element: <AdminReviewPackagesPage /> },
           { path: 'testimonials',   element: <AdminTestimonialsPage />   },
+          { path: 'contact-page',    element: <AdminContactPage />        },
+          { path: 'contact-cta',     element: <AdminContactCtaPage />     },
         ],
       },
 

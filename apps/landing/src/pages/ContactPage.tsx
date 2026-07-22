@@ -1,10 +1,10 @@
+import { useEffect, useState } from 'react'
 import { Mail, Phone, MessageCircle, Clock, ArrowUpRight } from 'lucide-react'
 import {
-  CONTACT_CHANNELS,
-  BUSINESS_HOURS,
-  CONTACT_INTRO,
-  type ContactChannel,
-} from '../constants/contactInfo'
+  DEFAULT_CONTACT_PAGE_CONTENT,
+  homeContentApi,
+} from '@s-class/api/homeContentApi'
+import type { ContactPageChannelContent, ContactPageContent } from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
 
@@ -12,30 +12,49 @@ import { CanonicalLink } from '@/components/CanonicalLink'
  * Public Contact Us page.
  *
  * v1: no form — visitors reach us via mailto / tel / Messenger links from
- * src/constants/contactInfo.ts. If a real form is needed later, we can add
- * a Supabase Edge Function that relays submissions; the page layout stays
+ * admin-editable Contact Page content. If a real form is needed later, we can
+ * add a Supabase Edge Function that relays submissions; the page layout stays
  * the same.
  */
 export function ContactPage() {
+  const [content, setContent] =
+    useState<ContactPageContent>(DEFAULT_CONTACT_PAGE_CONTENT)
+
+  useEffect(() => {
+    let cancelled = false
+
+    homeContentApi.getContactPage()
+      .then((nextContent) => { if (!cancelled) setContent(nextContent) })
+      .catch(() => { if (!cancelled) setContent(DEFAULT_CONTACT_PAGE_CONTENT) })
+
+    return () => { cancelled = true }
+  }, [])
+
+  const channels: ContactChannel[] = [
+    { kind: 'email', ...content.email },
+    { kind: 'phone', ...content.phone },
+    { kind: 'messenger', ...content.messenger },
+  ]
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
       <CanonicalLink path={ROUTES.CONTACT} owner="landing" />
       <header className="space-y-2 text-center sm:text-left">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-          Contact us
+          {content.heroEyebrow}
         </p>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          Talk to a S Class reviewer
+          {content.heroTitle}
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto sm:mx-0">
-          {CONTACT_INTRO}
+          {content.heroDescription}
         </p>
       </header>
 
       {/* Channels */}
       <section className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
-        {CONTACT_CHANNELS.map((c) => (
-          <ChannelCard key={c.href} channel={c} />
+        {channels.map((c) => (
+          <ChannelCard key={c.kind} channel={c} />
         ))}
       </section>
 
@@ -48,20 +67,30 @@ export function ContactPage() {
           </h2>
         </div>
         <ul className="divide-y -mx-6">
-          {BUSINESS_HOURS.map((row) => (
-            <li key={row.day} className="px-6 py-2.5 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{row.day}</span>
-              <span className="font-medium tabular-nums">{row.hours}</span>
-            </li>
-          ))}
+          <li className="px-6 py-2.5 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Monday – Friday</span>
+            <span className="font-medium tabular-nums">{content.businessHours.weekdays}</span>
+          </li>
+          <li className="px-6 py-2.5 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Saturday</span>
+            <span className="font-medium tabular-nums">{content.businessHours.saturday}</span>
+          </li>
+          <li className="px-6 py-2.5 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Sunday</span>
+            <span className="font-medium tabular-nums">{content.businessHours.sunday}</span>
+          </li>
         </ul>
       </section>
     </div>
   )
 }
 
+type ContactChannel = ContactPageChannelContent & {
+  kind: 'email' | 'phone' | 'messenger'
+}
+
 function ChannelCard({ channel }: { channel: ContactChannel }) {
-  const iconNode = renderIcon(channel)
+  const iconNode = renderIcon(channel.kind)
   return (
     <a
       href={channel.href}
@@ -88,9 +117,9 @@ function ChannelCard({ channel }: { channel: ContactChannel }) {
   )
 }
 
-function renderIcon(channel: ContactChannel) {
+function renderIcon(kind: ContactChannel['kind']) {
   const cls = 'size-5 text-primary'
-  if (channel.href.startsWith('mailto:')) return <Mail          className={cls} />
-  if (channel.href.startsWith('tel:'))    return <Phone         className={cls} />
-  return                                       <MessageCircle className={cls} />
+  if (kind === 'email') return <Mail          className={cls} />
+  if (kind === 'phone') return <Phone         className={cls} />
+  return                    <MessageCircle className={cls} />
 }

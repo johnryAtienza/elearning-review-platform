@@ -26,29 +26,6 @@ export function AboutPage() {
     return () => { cancelled = true }
   }, [])
 
-  const sections = [
-    {
-      id: 'who-are-we',
-      heading: content.whoAreWeLabel,
-      body: content.whoAreWeBody,
-    },
-    {
-      id: 'review-philosophy',
-      heading: content.reviewPhilosophyLabel,
-      body: content.reviewPhilosophyBody,
-    },
-    {
-      id: 'mission',
-      heading: content.missionLabel,
-      body: content.missionBody,
-    },
-    {
-      id: 'vision',
-      heading: content.visionLabel,
-      body: content.visionBody,
-    },
-  ]
-
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <CanonicalLink path={ROUTES.ABOUT} owner="landing" />
@@ -62,10 +39,10 @@ export function AboutPage() {
       </header>
 
       <div className="space-y-12">
-        {sections.map((section) => (
+        {content.sections.map((section) => (
           <section key={section.id} className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {section.heading}
+              {section.title}
             </h2>
             {section.body.split('\n').map((para, i) => (
               <p key={i} className="text-base leading-relaxed text-foreground/90">

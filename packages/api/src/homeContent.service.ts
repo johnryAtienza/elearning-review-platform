@@ -25,6 +25,7 @@ import {
   type SiteContentContactPageRow,
 } from './contactPageContent'
 import {
+  DEFAULT_WHO_WE_ARE_PAGE_CONTENT,
   WHO_WE_ARE_PAGE_DB_KEYS,
   WHO_WE_ARE_PAGE_SECTION,
   mergeWhoWeArePageRows,
@@ -43,6 +44,7 @@ import type {
   LandingContactCtaContent,
   WhoWeArePageContent,
   WelcomeVideo,
+  WhoWeArePageSection,
 } from '@s-class/types/home'
 
 // ── Raw DB row shapes ────────────────────────────────────────────────────────
@@ -68,6 +70,17 @@ interface WelcomeVideoRow {
   cta_label:     string | null
   cta_href:      string | null
   display_order: number
+}
+
+interface WhoWeAreSectionRow {
+  id: string
+  title: string
+  body: string
+  sort_order: number
+}
+
+interface WhoWeAreSectionsStateRow {
+  total_count: number
 }
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
@@ -96,6 +109,19 @@ function toWelcomeVideo(row: WelcomeVideoRow): WelcomeVideo {
     ctaLabel:     row.cta_label,
     ctaHref:      row.cta_href,
     displayOrder: row.display_order,
+  }
+}
+
+function sortByOrder<T extends { sort_order: number; id: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
+}
+
+function toWhoWeAreSection(row: WhoWeAreSectionRow): WhoWeArePageSection {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    sortOrder: row.sort_order,
   }
 }
 
@@ -146,14 +172,46 @@ export async function getPublicContactPage(): Promise<ContactPageContent> {
 }
 
 export async function getPublicWhoWeArePage(): Promise<WhoWeArePageContent> {
-  const { data, error } = await supabase
+  const { data: pageRows, error: pageError } = await supabase
     .from('site_content')
     .select('key, value')
     .eq('section', WHO_WE_ARE_PAGE_SECTION)
     .in('key', Array.from(WHO_WE_ARE_PAGE_DB_KEYS))
 
-  if (error) throw new ApiError(500, 'WHO_WE_ARE_PAGE_FETCH_FAILED', error.message)
-  return mergeWhoWeArePageRows(data as SiteContentWhoWeArePageRow[])
+  if (pageError) throw new ApiError(500, 'WHO_WE_ARE_PAGE_COPY_FETCH_FAILED', pageError.message)
+
+  const { data: sectionRows, error: sectionError } = await supabase
+    .from('who_we_are_sections')
+    .select('id, title, body, sort_order')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (sectionError) {
+    throw new ApiError(500, 'WHO_WE_ARE_SECTIONS_FETCH_FAILED', sectionError.message)
+  }
+
+  const sections = sortByOrder((sectionRows ?? []) as WhoWeAreSectionRow[]).map(toWhoWeAreSection)
+
+  if (sections.length === 0) {
+    const { data: stateRow, error: stateError } = await supabase
+      .from('who_we_are_sections_state')
+      .select('total_count')
+      .maybeSingle()
+
+    if (stateError) {
+      throw new ApiError(500, 'WHO_WE_ARE_SECTIONS_STATE_FETCH_FAILED', stateError.message)
+    }
+
+    if ((stateRow as WhoWeAreSectionsStateRow | null)?.total_count === 0) {
+      return mergeWhoWeArePageRows(
+        pageRows as SiteContentWhoWeArePageRow[],
+        DEFAULT_WHO_WE_ARE_PAGE_CONTENT.sections,
+      )
+    }
+  }
+
+  return mergeWhoWeArePageRows(pageRows as SiteContentWhoWeArePageRow[], sections)
 }
 
 /** Returns at most one welcome video — the top-of-order row. */

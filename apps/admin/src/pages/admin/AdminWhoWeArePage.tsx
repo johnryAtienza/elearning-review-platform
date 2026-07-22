@@ -1,54 +1,107 @@
-import { useEffect, useState } from 'react'
-import { CheckCircle2, FileText, Loader2, Save } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  FileText,
+  Loader2,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadError } from '../../features/admin/components/AdminTable'
-import { toast } from '@/lib/toast'
 import {
   getAdminWhoWeArePage,
-  updateAdminWhoWeArePage,
+  saveAdminWhoWeArePage,
+  type AdminWhoWeArePageContent,
+  type AdminWhoWeAreSection,
 } from '@s-class/api/admin.service'
 import { DEFAULT_WHO_WE_ARE_PAGE_CONTENT } from '@s-class/api/homeContentApi'
-import type { WhoWeArePageContent } from '@s-class/types/home'
 
-type WhoWeArePageField = keyof WhoWeArePageContent
-
-const FIELD_LABELS: Record<WhoWeArePageField, string> = {
-  eyebrow:               'Page eyebrow',
-  title:                 'Page title',
-  whoAreWeLabel:         'Who Are We label',
-  whoAreWeBody:          'Who Are We body text',
-  reviewPhilosophyLabel: 'Review Philosophy label',
-  reviewPhilosophyBody:  'Review Philosophy body text',
-  missionLabel:          'Mission label',
-  missionBody:           'Mission body text',
-  visionLabel:           'Vision label',
-  visionBody:            'Vision body text',
+const EMPTY_CONTENT: AdminWhoWeArePageContent = {
+  eyebrow: DEFAULT_WHO_WE_ARE_PAGE_CONTENT.eyebrow,
+  title: DEFAULT_WHO_WE_ARE_PAGE_CONTENT.title,
+  sections: DEFAULT_WHO_WE_ARE_PAGE_CONTENT.sections.map((section) => ({
+    ...section,
+    id: crypto.randomUUID(),
+    isActive: true,
+    createdAt: null,
+    updatedAt: null,
+  })),
 }
 
-function normalizeWhoWeArePageContent(content: WhoWeArePageContent): WhoWeArePageContent {
+function createSection(sortOrder: number): AdminWhoWeAreSection {
   return {
-    eyebrow:               content.eyebrow.trim(),
-    title:                 content.title.trim(),
-    whoAreWeLabel:         content.whoAreWeLabel.trim(),
-    whoAreWeBody:          content.whoAreWeBody.trim(),
-    reviewPhilosophyLabel: content.reviewPhilosophyLabel.trim(),
-    reviewPhilosophyBody:  content.reviewPhilosophyBody.trim(),
-    missionLabel:          content.missionLabel.trim(),
-    missionBody:           content.missionBody.trim(),
-    visionLabel:           content.visionLabel.trim(),
-    visionBody:            content.visionBody.trim(),
+    id: crypto.randomUUID(),
+    title: '',
+    body: '',
+    sortOrder,
+    isActive: true,
+    createdAt: null,
+    updatedAt: null,
   }
 }
 
+function moveItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
+  const target = index + direction
+  if (target < 0 || target >= items.length) return items
+
+  const next = [...items]
+  const [item] = next.splice(index, 1)
+  if (item === undefined) return items
+  next.splice(target, 0, item)
+  return next
+}
+
+function normalizeForSave(content: AdminWhoWeArePageContent): AdminWhoWeArePageContent {
+  return {
+    eyebrow: content.eyebrow.trim(),
+    title: content.title.trim(),
+    sections: content.sections.map((section, index) => ({
+      ...section,
+      title: section.title.trim(),
+      body: section.body.trim(),
+      sortOrder: index,
+    })),
+  }
+}
+
+function validate(content: AdminWhoWeArePageContent): string | null {
+  if (!content.eyebrow) return 'Page eyebrow is required.'
+  if (!content.title) return 'Page title is required.'
+
+  for (const [index, section] of content.sections.entries()) {
+    const label = section.title || `Section ${index + 1}`
+    if (!section.title) return `${label} needs a title.`
+    if (!section.body) return `${label} needs body text.`
+  }
+
+  return null
+}
+
 export function AdminWhoWeArePage() {
-  const [form,      setForm]      = useState<WhoWeArePageContent>(DEFAULT_WHO_WE_ARE_PAGE_CONTENT)
+  const [form,      setForm]      = useState<AdminWhoWeArePageContent>(EMPTY_CONTENT)
   const [loading,   setLoading]   = useState(true)
   const [saving,    setSaving]    = useState(false)
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editingSection, setEditingSection] = useState<AdminWhoWeAreSection | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [success,   setSuccess]   = useState<string | null>(null)
+  const hasLoadedContentRef = useRef(false)
+  const saveTimerRef = useRef<number | null>(null)
+  const latestFormRef = useRef(form)
+  const savingRef = useRef(false)
+  const pendingSaveRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +112,8 @@ export function AdminWhoWeArePage() {
       .then((content) => {
         if (!cancelled) {
           setForm(content)
+          setSaveError(null)
+          setSuccess(null)
           setLoading(false)
         }
       })
@@ -72,49 +127,150 @@ export function AdminWhoWeArePage() {
     return () => { cancelled = true }
   }, [])
 
-  function setField(field: WhoWeArePageField, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }))
+  useEffect(() => {
+    latestFormRef.current = form
+  }, [form])
+
+  useEffect(() => {
+    if (loading) return
+
+    if (!hasLoadedContentRef.current) {
+      hasLoadedContentRef.current = true
+      return
+    }
+
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+    }
+
+    saveTimerRef.current = window.setTimeout(() => {
+      void saveLatestContent()
+    }, 700)
+
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [form, loading])
+
+  function updateForm(updater: (current: AdminWhoWeArePageContent) => AdminWhoWeArePageContent) {
+    setForm(updater)
     setSaveError(null)
     setSuccess(null)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (saving) return
+  function setSection(sectionId: string, nextSection: AdminWhoWeAreSection) {
+    updateForm((current) => ({
+      ...current,
+      sections: current.sections.map((section) => section.id === sectionId ? nextSection : section),
+    }))
+  }
 
-    const payload = normalizeWhoWeArePageContent(form)
-    const missing = (Object.keys(FIELD_LABELS) as WhoWeArePageField[])
-      .find((field) => payload[field] === '')
+  function openAddSectionModal() {
+    setAddModalOpen(true)
+  }
 
-    if (missing) {
-      setSaveError(`${FIELD_LABELS[missing]} is required.`)
-      setSuccess(null)
+  function addSection(title: string, body: string) {
+    updateForm((current) => ({
+      ...current,
+      sections: [
+        ...current.sections,
+        {
+          ...createSection(current.sections.length),
+          title,
+          body,
+        },
+      ],
+    }))
+    setAddModalOpen(false)
+  }
+
+  function updateSectionContent(sectionId: string, title: string, body: string) {
+    updateForm((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.id === sectionId ? { ...section, title, body } : section,
+      ),
+    }))
+    setEditingSection(null)
+  }
+
+  function removeSection(sectionId: string) {
+    updateForm((current) => ({
+      ...current,
+      sections: current.sections.filter((section) => section.id !== sectionId),
+    }))
+  }
+
+  function moveSection(index: number, direction: -1 | 1) {
+    updateForm((current) => ({
+      ...current,
+      sections: moveItem(current.sections, index, direction),
+    }))
+  }
+
+  async function saveLatestContent() {
+    if (savingRef.current) {
+      pendingSaveRef.current = true
       return
     }
 
+    savingRef.current = true
     setSaving(true)
-    setSaveError(null)
-    setSuccess(null)
 
     try {
-      const saved = await updateAdminWhoWeArePage(payload)
-      setForm(saved)
-      setSuccess('Who We Are page saved.')
-      toast.success('Who We Are page saved.')
+      do {
+        pendingSaveRef.current = false
+
+        const normalized = normalizeForSave(latestFormRef.current)
+        const validationError = validate(normalized)
+
+        if (validationError) {
+          setSaveError(validationError)
+          setSuccess(null)
+          return
+        }
+
+        await saveAdminWhoWeArePage(normalized)
+      } while (pendingSaveRef.current)
+
+      setSaveError(null)
+      setSuccess('Changes saved.')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save Who We Are page.')
+      setSuccess(null)
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
 
-  const disabled = loading || saving
+  const disabled = loading
+  const activeCount = form.sections.filter((section) => section.isActive).length
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Who We Are Page</h1>
-        <p className="text-sm text-muted-foreground mt-1">Landing page about copy</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Who We Are Page</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {loading ? 'Loading...' : `${form.sections.length} total / ${activeCount} active`}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={openAddSectionModal} disabled={disabled}>
+            <Plus className="mr-2 size-4" />
+            Add Section
+          </Button>
+          {saving && (
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              Saving changes...
+            </span>
+          )}
+        </div>
       </div>
 
       <LoadError message={loadError} />
@@ -132,155 +288,320 @@ export function AdminWhoWeArePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="rounded-xl border bg-card shadow-sm">
+      <section className="rounded-xl border bg-card shadow-sm">
         <div className="flex items-center gap-3 border-b px-5 py-4">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
             <FileText className="size-4 text-primary" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold">Who We Are Page</h2>
-            <p className="text-xs text-muted-foreground">Text fields only</p>
+            <h2 className="text-sm font-semibold">Page Header</h2>
+            <p className="text-xs text-muted-foreground">Eyebrow and title</p>
           </div>
         </div>
 
-        <div className="space-y-6 p-5">
+        <div className="grid gap-4 p-5 sm:grid-cols-2">
           {loading ? (
-            <WhoWeArePageFormSkeleton />
+            <>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </>
           ) : (
             <>
-              <FormSection title="Page header">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField
-                    id="who-we-are-page-eyebrow"
-                    label="Page eyebrow"
-                    value={form.eyebrow}
-                    onChange={(value) => setField('eyebrow', value)}
-                    disabled={disabled}
-                  />
-                  <TextField
-                    id="who-we-are-page-title"
-                    label="Page title"
-                    value={form.title}
-                    onChange={(value) => setField('title', value)}
-                    disabled={disabled}
-                  />
-                </div>
-              </FormSection>
-
-              <ContentSection
-                title="Who Are We"
-                labelId="who-we-are-page-who-are-we-label"
-                bodyId="who-we-are-page-who-are-we-body"
-                label={form.whoAreWeLabel}
-                body={form.whoAreWeBody}
+              <TextField
+                id="who-we-are-page-eyebrow"
+                label="Page eyebrow"
+                value={form.eyebrow}
+                onChange={(value) => updateForm((current) => ({ ...current, eyebrow: value }))}
                 disabled={disabled}
-                onLabelChange={(value) => setField('whoAreWeLabel', value)}
-                onBodyChange={(value) => setField('whoAreWeBody', value)}
               />
-
-              <ContentSection
-                title="Review Philosophy"
-                labelId="who-we-are-page-review-philosophy-label"
-                bodyId="who-we-are-page-review-philosophy-body"
-                label={form.reviewPhilosophyLabel}
-                body={form.reviewPhilosophyBody}
+              <TextField
+                id="who-we-are-page-title"
+                label="Page title"
+                value={form.title}
+                onChange={(value) => updateForm((current) => ({ ...current, title: value }))}
                 disabled={disabled}
-                onLabelChange={(value) => setField('reviewPhilosophyLabel', value)}
-                onBodyChange={(value) => setField('reviewPhilosophyBody', value)}
-              />
-
-              <ContentSection
-                title="Mission"
-                labelId="who-we-are-page-mission-label"
-                bodyId="who-we-are-page-mission-body"
-                label={form.missionLabel}
-                body={form.missionBody}
-                disabled={disabled}
-                onLabelChange={(value) => setField('missionLabel', value)}
-                onBodyChange={(value) => setField('missionBody', value)}
-              />
-
-              <ContentSection
-                title="Vision"
-                labelId="who-we-are-page-vision-label"
-                bodyId="who-we-are-page-vision-body"
-                label={form.visionLabel}
-                body={form.visionBody}
-                disabled={disabled}
-                onLabelChange={(value) => setField('visionLabel', value)}
-                onBodyChange={(value) => setField('visionBody', value)}
               />
             </>
           )}
         </div>
+      </section>
 
-        <div className="flex justify-end border-t px-5 py-4">
-          <Button type="submit" disabled={disabled}>
-            {saving ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 size-4" />
-            )}
-            {saving ? 'Saving...' : 'Save'}
+      {loading ? (
+        <SectionsSkeleton />
+      ) : form.sections.length === 0 ? (
+        <div className="rounded-xl border py-16 text-center">
+          <FileText className="mx-auto size-10 text-muted-foreground/60" />
+          <p className="mt-3 text-sm font-medium">No sections</p>
+          <Button type="button" size="sm" className="mt-4" onClick={openAddSectionModal}>
+            <Plus className="mr-2 size-4" />
+            Add Section
           </Button>
         </div>
-      </form>
+      ) : (
+        <div className="space-y-5">
+          {form.sections.map((section, index) => (
+            <SectionEditor
+              key={section.id}
+              section={section}
+              sectionIndex={index}
+              sectionCount={form.sections.length}
+              disabled={disabled}
+              onChange={(nextSection) => setSection(section.id, nextSection)}
+              onEdit={() => setEditingSection(section)}
+              onRemove={() => removeSection(section.id)}
+              onMoveUp={() => moveSection(index, -1)}
+              onMoveDown={() => moveSection(index, 1)}
+            />
+          ))}
+        </div>
+      )}
+
+      {addModalOpen && (
+        <SectionContentModal
+          mode="add"
+          disabled={disabled}
+          onClose={() => setAddModalOpen(false)}
+          onSubmit={addSection}
+        />
+      )}
+
+      {editingSection && (
+        <SectionContentModal
+          mode="edit"
+          section={editingSection}
+          disabled={disabled}
+          onClose={() => setEditingSection(null)}
+          onSubmit={(title, body) => updateSectionContent(editingSection.id, title, body)}
+        />
+      )}
     </div>
   )
 }
 
-function FormSection({
-  title,
-  children,
+function SectionContentModal({
+  mode,
+  section,
+  disabled,
+  onClose,
+  onSubmit,
 }: {
-  title: string
-  children: React.ReactNode
+  mode: 'add' | 'edit'
+  section?: AdminWhoWeAreSection
+  disabled: boolean
+  onClose: () => void
+  onSubmit: (title: string, body: string) => void
 }) {
+  const [title, setTitle] = useState(section?.title ?? '')
+  const [body, setBody] = useState(section?.body ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const inputIdPrefix = `who-we-are-${mode}-section`
+  const modalTitle = mode === 'edit' ? 'Edit Section' : 'Add Section'
+  const submitLabel = mode === 'edit' ? 'Update Section' : 'Add Section'
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById(`${inputIdPrefix}-title`)?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [inputIdPrefix])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+
+    const nextTitle = title.trim()
+    const nextBody = body.trim()
+
+    if (!nextTitle) {
+      setError('Section title is required.')
+      return
+    }
+
+    if (!nextBody) {
+      setError('Body text is required.')
+      return
+    }
+
+    setError(null)
+    onSubmit(nextTitle, nextBody)
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disabled ? undefined : onClose} />
+
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${inputIdPrefix}-modal-title`}
+        onSubmit={handleSubmit}
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border bg-background shadow-xl"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+          <div>
+            <h2 id={`${inputIdPrefix}-modal-title`} className="text-lg font-semibold">
+              {modalTitle}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {mode === 'edit'
+                ? 'Update this Who We Are page section.'
+                : 'Add a section to the Who We Are page.'}
+            </p>
+          </div>
+          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={disabled}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-5 overflow-y-auto px-6 py-5">
+          <TextField
+            id={`${inputIdPrefix}-title`}
+            label="Section title"
+            value={title}
+            onChange={(value) => {
+              setTitle(value)
+              setError(null)
+            }}
+            disabled={disabled}
+          />
+          <TextareaField
+            id={`${inputIdPrefix}-body`}
+            label="Body text"
+            value={body}
+            onChange={(value) => {
+              setBody(value)
+              setError(null)
+            }}
+            rows={6}
+            disabled={disabled}
+          />
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={disabled}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={disabled}>
+            {mode === 'edit' ? <Save className="mr-2 size-4" /> : <Plus className="mr-2 size-4" />}
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+function SectionEditor({
+  section,
+  sectionIndex,
+  sectionCount,
+  disabled,
+  onChange,
+  onEdit,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+}: {
+  section: AdminWhoWeAreSection
+  sectionIndex: number
+  sectionCount: number
+  disabled: boolean
+  onChange: (section: AdminWhoWeAreSection) => void
+  onEdit: () => void
+  onRemove: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+}) {
+  const sectionLabel = section.title.trim() || `Section ${sectionIndex + 1}`
+
   return (
-    <section className="space-y-4 border-t pt-5 first:border-t-0 first:pt-0">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      {children}
+    <section className="rounded-xl border bg-card shadow-sm">
+      <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-sm font-semibold">{sectionLabel}</h2>
+            <Badge variant={section.isActive ? 'success' : 'secondary'}>
+              {section.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Sort order {sectionIndex + 1}</p>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <IconButton
+            label="Edit section"
+            disabled={disabled}
+            onClick={onEdit}
+            icon={<Pencil className="size-4" />}
+          />
+          <IconButton
+            label="Move section up"
+            disabled={disabled || sectionIndex === 0}
+            onClick={onMoveUp}
+            icon={<ArrowUp className="size-4" />}
+          />
+          <IconButton
+            label="Move section down"
+            disabled={disabled || sectionIndex === sectionCount - 1}
+            onClick={onMoveDown}
+            icon={<ArrowDown className="size-4" />}
+          />
+          <IconButton
+            label={section.isActive ? 'Deactivate section' : 'Activate section'}
+            disabled={disabled}
+            onClick={() => onChange({ ...section, isActive: !section.isActive })}
+            icon={section.isActive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          />
+          <IconButton
+            label="Delete section"
+            disabled={disabled}
+            onClick={onRemove}
+            icon={<Trash2 className="size-4" />}
+            danger
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2 p-5">
+        <p className="text-sm font-medium">Body text</p>
+        <div className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+          {section.body}
+        </div>
+      </div>
     </section>
   )
 }
 
-function ContentSection({
-  title,
-  labelId,
-  bodyId,
+function IconButton({
   label,
-  body,
   disabled,
-  onLabelChange,
-  onBodyChange,
+  onClick,
+  icon,
+  danger = false,
 }: {
-  title: string
-  labelId: string
-  bodyId: string
   label: string
-  body: string
   disabled: boolean
-  onLabelChange: (value: string) => void
-  onBodyChange: (value: string) => void
+  onClick: () => void
+  icon: React.ReactNode
+  danger?: boolean
 }) {
   return (
-    <FormSection title={title}>
-      <TextField
-        id={labelId}
-        label="Section label"
-        value={label}
-        onChange={onLabelChange}
-        disabled={disabled}
-      />
-      <TextareaField
-        id={bodyId}
-        label="Body text"
-        value={body}
-        onChange={onBodyChange}
-        rows={5}
-        disabled={disabled}
-      />
-    </FormSection>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={danger ? 'text-destructive hover:text-destructive' : undefined}
+    >
+      {icon}
+    </Button>
   )
 }
 
@@ -344,33 +665,27 @@ function TextareaField({
   )
 }
 
-function WhoWeArePageFormSkeleton() {
+function SectionsSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <Skeleton className="h-4 w-28" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="space-y-4 border-t pt-5">
-          <Skeleton className="h-4 w-36" />
-          <div className="space-y-1.5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 w-full" />
+        <div key={index} className="rounded-xl border bg-card shadow-sm">
+          <div className="flex items-center justify-between border-b px-5 py-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <Skeleton className="h-8 w-32" />
           </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-32 w-full" />
+          <div className="space-y-4 p-5">
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-36 w-full" />
+            </div>
           </div>
         </div>
       ))}

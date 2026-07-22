@@ -72,6 +72,7 @@ import type {
   HomeHeroContent,
   LandingContactCtaContent,
   WhoWeArePageContent,
+  WhoWeArePageSection,
 } from '@s-class/types/home'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1749,28 +1750,107 @@ export async function updateAdminContactPage(
 
 // -- Homepage CMS: who we are page -------------------------------------------
 
-export async function getAdminWhoWeArePage(): Promise<WhoWeArePageContent> {
-  const { data, error } = await supabase
+export interface AdminWhoWeAreSection extends WhoWeArePageSection {
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminWhoWeArePageContent extends Omit<WhoWeArePageContent, 'sections'> {
+  sections: AdminWhoWeAreSection[]
+}
+
+interface AdminWhoWeAreSectionRow {
+  id: string
+  title: string
+  body: string
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+function toAdminWhoWeAreSection(row: AdminWhoWeAreSectionRow): AdminWhoWeAreSection {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export async function getAdminWhoWeArePage(): Promise<AdminWhoWeArePageContent> {
+  const { data: pageRows, error: pageError } = await supabase
     .from('site_content')
     .select('key, value')
     .eq('section', WHO_WE_ARE_PAGE_SECTION)
     .in('key', Array.from(WHO_WE_ARE_PAGE_DB_KEYS))
 
-  if (error) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_FAILED', error.message)
-  return mergeWhoWeArePageRows(data as SiteContentWhoWeArePageRow[])
+  if (pageError) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_FAILED', pageError.message)
+
+  const { data: sectionRows, error: sectionError } = await supabase
+    .from('who_we_are_sections')
+    .select('id, title, body, sort_order, is_active, created_at, updated_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (sectionError) {
+    throw new ApiError(500, 'ADMIN_WHO_WE_ARE_SECTIONS_FAILED', sectionError.message)
+  }
+
+  const sections = sortAdminRows((sectionRows ?? []) as AdminWhoWeAreSectionRow[])
+    .map(toAdminWhoWeAreSection)
+  const page = mergeWhoWeArePageRows(pageRows as SiteContentWhoWeArePageRow[], sections)
+
+  return {
+    eyebrow: page.eyebrow,
+    title: page.title,
+    sections,
+  }
 }
 
-export async function updateAdminWhoWeArePage(
-  content: WhoWeArePageContent,
-): Promise<WhoWeArePageContent> {
-  const rows = whoWeArePageContentToRows(content)
+export async function saveAdminWhoWeArePage(
+  content: AdminWhoWeArePageContent,
+): Promise<AdminWhoWeArePageContent> {
+  const pageRows = whoWeArePageContentToRows(content)
 
-  const { error } = await supabase
+  const { error: pageError } = await supabase
     .from('site_content')
-    .upsert(rows, { onConflict: 'section,key' })
+    .upsert(pageRows, { onConflict: 'section,key' })
 
-  if (error) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_UPDATE_FAILED', error.message)
-  return mergeWhoWeArePageRows(rows)
+  if (pageError) {
+    throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_UPDATE_FAILED', pageError.message)
+  }
+
+  const sectionRows = content.sections.map((section, index) => ({
+    id: section.id,
+    title: section.title.trim(),
+    body: section.body.trim(),
+    sort_order: index,
+    is_active: section.isActive,
+  }))
+
+  if (sectionRows.length > 0) {
+    const { error: sectionError } = await supabase
+      .from('who_we_are_sections')
+      .upsert(sectionRows, { onConflict: 'id' })
+
+    if (sectionError) {
+      throw new ApiError(500, 'ADMIN_WHO_WE_ARE_SECTIONS_SAVE_FAILED', sectionError.message)
+    }
+  }
+
+  await deleteRowsMissingFrom(
+    'who_we_are_sections',
+    new Set(sectionRows.map((row) => row.id)),
+    'ADMIN_WHO_WE_ARE_SECTIONS_STALE_FETCH_FAILED',
+    'ADMIN_WHO_WE_ARE_SECTIONS_DELETE_FAILED',
+  )
+
+  return getAdminWhoWeArePage()
 }
 
 // -- Landing page CMS: FAQ page ----------------------------------------------

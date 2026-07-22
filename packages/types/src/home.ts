@@ -67,17 +67,17 @@ export interface ContactPageContent {
   businessHours: ContactPageBusinessHoursContent
 }
 
+export interface WhoWeArePageSection {
+  id: string
+  title: string
+  body: string
+  sortOrder: number
+}
+
 export interface WhoWeArePageContent {
   eyebrow: string
   title: string
-  whoAreWeLabel: string
-  whoAreWeBody: string
-  reviewPhilosophyLabel: string
-  reviewPhilosophyBody: string
-  missionLabel: string
-  missionBody: string
-  visionLabel: string
-  visionBody: string
+  sections: WhoWeArePageSection[]
 }
 
 export interface FaqPageContent {

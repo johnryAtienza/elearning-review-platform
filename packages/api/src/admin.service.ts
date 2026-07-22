@@ -30,6 +30,13 @@ import {
   reviewClassesContentToRows,
   type SiteContentReviewClassesRow,
 } from './reviewClassesContent'
+import {
+  TESTIMONIALS_DB_KEYS,
+  TESTIMONIALS_SECTION,
+  mergeTestimonialsRows,
+  testimonialsContentToRows,
+  type SiteContentTestimonialsRow,
+} from './testimonialsContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 import type { HomeHeroContent } from '@s-class/types/home'
 
@@ -1979,6 +1986,130 @@ export async function saveAdminReviewClassesContent(
   )
 
   return getAdminReviewClassesContent()
+}
+
+// ── Homepage CMS: testimonials ───────────────────────────────────────────────
+
+export interface AdminTestimonial {
+  id: string
+  name: string
+  initials: string
+  title: string
+  affiliation: string
+  quote: string
+  rating: number
+  sortOrder: number
+  isActive: boolean
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminTestimonialsContent {
+  eyebrow: string
+  heading: string
+  testimonials: AdminTestimonial[]
+}
+
+interface AdminTestimonialRow {
+  id: string
+  name: string
+  initials: string
+  title: string
+  affiliation: string
+  quote: string
+  rating: number
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+function toAdminTestimonial(row: AdminTestimonialRow): AdminTestimonial {
+  return {
+    id: row.id,
+    name: row.name,
+    initials: row.initials,
+    title: row.title,
+    affiliation: row.affiliation,
+    quote: row.quote,
+    rating: row.rating,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export async function getAdminTestimonialsContent(): Promise<AdminTestimonialsContent> {
+  const { data: copyRows, error: copyError } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', TESTIMONIALS_SECTION)
+    .in('key', Array.from(TESTIMONIALS_DB_KEYS))
+
+  if (copyError) throw new ApiError(500, 'ADMIN_TESTIMONIALS_COPY_FAILED', copyError.message)
+
+  const { data: testimonialRows, error: testimonialError } = await supabase
+    .from('testimonials')
+    .select('id, name, initials, title, affiliation, quote, rating, sort_order, is_active, created_at, updated_at')
+    .order('sort_order', { ascending: true })
+
+  if (testimonialError) throw new ApiError(500, 'ADMIN_TESTIMONIALS_FAILED', testimonialError.message)
+
+  const section = mergeTestimonialsRows(copyRows as SiteContentTestimonialsRow[], [])
+
+  return {
+    eyebrow: section.eyebrow,
+    heading: section.heading,
+    testimonials: sortAdminRows((testimonialRows ?? []) as AdminTestimonialRow[]).map(toAdminTestimonial),
+  }
+}
+
+export async function saveAdminTestimonialsContent(
+  content: AdminTestimonialsContent,
+): Promise<AdminTestimonialsContent> {
+  const sectionRows = testimonialsContentToRows(content)
+  const { error: sectionError } = await supabase
+    .from('site_content')
+    .upsert(sectionRows, { onConflict: 'section,key' })
+
+  if (sectionError) {
+    throw new ApiError(500, 'ADMIN_TESTIMONIALS_COPY_UPDATE_FAILED', sectionError.message)
+  }
+
+  const testimonials = content.testimonials.map((testimonial, testimonialIndex) => ({
+    ...testimonial,
+    sortOrder: testimonialIndex,
+  }))
+
+  const testimonialRows = testimonials.map((testimonial) => ({
+    id: testimonial.id,
+    name: testimonial.name.trim(),
+    initials: testimonial.initials.trim(),
+    title: testimonial.title.trim(),
+    affiliation: testimonial.affiliation.trim(),
+    quote: testimonial.quote.trim(),
+    rating: Math.trunc(testimonial.rating),
+    sort_order: testimonial.sortOrder,
+    is_active: testimonial.isActive,
+  }))
+
+  if (testimonialRows.length > 0) {
+    const { error } = await supabase
+      .from('testimonials')
+      .upsert(testimonialRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_TESTIMONIALS_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'testimonials',
+    new Set(testimonialRows.map((row) => row.id)),
+    'ADMIN_TESTIMONIALS_STALE_FETCH_FAILED',
+    'ADMIN_TESTIMONIALS_DELETE_FAILED',
+  )
+
+  return getAdminTestimonialsContent()
 }
 
 // ── Homepage CMS: announcements ───────────────────────────────────────────────

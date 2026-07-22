@@ -31,6 +31,8 @@
     "./homeContentApi": "./src/homeContentApi.ts",
     "./reviewPackages.service": "./src/reviewPackages.service.ts",
     "./reviewPackagesApi": "./src/reviewPackagesApi.ts",
+    "./testimonials.service": "./src/testimonials.service.ts",
+    "./testimonialsApi": "./src/testimonialsApi.ts",
     "./lesson.service": "./src/lesson.service.ts",
     "./lessonApi": "./src/lessonApi.ts",
     "./lessonProgressApi": "./src/lessonProgressApi.ts",

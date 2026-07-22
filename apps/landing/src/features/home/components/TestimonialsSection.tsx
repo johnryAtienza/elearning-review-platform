@@ -1,5 +1,10 @@
+import { useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
-import { TESTIMONIALS, type Testimonial } from '../../../constants/testimonials'
+import {
+  DEFAULT_TESTIMONIALS_CONTENT,
+  testimonialsApi,
+} from '@s-class/api/testimonialsApi'
+import type { Testimonial, TestimonialsContent } from '@s-class/types/home'
 import { cn } from '@/utils/cn'
 
 /**
@@ -10,22 +15,35 @@ import { cn } from '@/utils/cn'
  * the whole section is suppressed.
  */
 export function TestimonialsSection() {
-  if (TESTIMONIALS.length === 0) return null
+  const [content, setContent] =
+    useState<TestimonialsContent>(DEFAULT_TESTIMONIALS_CONTENT)
+
+  useEffect(() => {
+    let cancelled = false
+
+    testimonialsApi.getTestimonialsContent()
+      .then((nextContent) => { if (!cancelled) setContent(nextContent) })
+      .catch(() => { if (!cancelled) setContent(DEFAULT_TESTIMONIALS_CONTENT) })
+
+    return () => { cancelled = true }
+  }, [])
+
+  if (content.testimonials.length === 0) return null
 
   return (
     <section className="space-y-6">
       <header className="space-y-2 text-center sm:text-left">
         <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-          What our reviewers say
+          {content.eyebrow}
         </p>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          Real results from real candidates
+          {content.heading}
         </h2>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {TESTIMONIALS.map((t, i) => (
-          <TestimonialCard key={`${t.name}-${i}`} testimonial={t} />
+        {content.testimonials.map((t) => (
+          <TestimonialCard key={t.id} testimonial={t} />
         ))}
       </div>
     </section>
@@ -33,7 +51,7 @@ export function TestimonialsSection() {
 }
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
-  const stars = testimonial.rating ?? 5
+  const stars = clampRating(testimonial.rating)
   return (
     <article className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6 h-full">
       {/* Rating */}
@@ -56,15 +74,15 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 
       {/* Attribution */}
       <footer className="flex items-center gap-3 pt-2 border-t">
-        <Avatar name={testimonial.name} avatarUrl={testimonial.avatarUrl} />
+        <Avatar name={testimonial.name} initials={testimonial.initials} />
         <div className="min-w-0">
           <p className="text-sm font-semibold leading-tight truncate">{testimonial.name}</p>
           <p className="text-xs text-muted-foreground leading-tight truncate">
-            {testimonial.role}
+            {testimonial.title}
           </p>
-          {testimonial.school && (
+          {testimonial.affiliation && (
             <p className="text-[11px] text-muted-foreground/70 leading-tight truncate mt-0.5">
-              {testimonial.school}
+              {testimonial.affiliation}
             </p>
           )}
         </div>
@@ -73,25 +91,22 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   )
 }
 
-function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        className="size-10 rounded-full object-cover border bg-muted shrink-0"
-      />
-    )
-  }
-  const initials = name
+function clampRating(rating: number): number {
+  if (!Number.isFinite(rating)) return 5
+  return Math.min(5, Math.max(1, Math.trunc(rating)))
+}
+
+function Avatar({ name, initials }: { name: string; initials: string }) {
+  const fallbackInitials = name
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
+
   return (
     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground select-none">
-      {initials}
+      {initials.trim() || fallbackInitials}
     </span>
   )
 }

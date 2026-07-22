@@ -64,3 +64,20 @@ export interface ReviewClassesContent {
   heading: string
   packages: ReviewPackage[]
 }
+
+export interface Testimonial {
+  id: string
+  name: string
+  initials: string
+  title: string
+  affiliation: string
+  quote: string
+  rating: number
+  sortOrder: number
+}
+
+export interface TestimonialsContent {
+  eyebrow: string
+  heading: string
+  testimonials: Testimonial[]
+}

@@ -38,7 +38,8 @@ import { cn } from '@/utils/cn'
  *   - Review packages: DB-backed via reviewPackagesApi
  *     (admin-editable under /admin/review-packages).
  *   - Contact blurb: src/constants/offerings.ts
- *   - Testimonials: src/constants/testimonials.ts
+ *   - Testimonials: DB-backed via testimonialsApi
+ *     (admin-editable under /admin/testimonials).
  */
 export function HomePage() {
   const [reviewClasses, setReviewClasses] =

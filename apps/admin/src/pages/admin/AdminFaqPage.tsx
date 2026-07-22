@@ -88,9 +88,10 @@ function createCategory(sortOrder: number, name = 'New category'): AdminFaqCateg
 function createFaq(
   sortOrder: number,
   category: AdminFaqCategory | null,
+  id = newId(),
 ): AdminFaq {
   return {
-    id: newId(),
+    id,
     categoryId: category?.id ?? null,
     category: category?.name ?? '',
     question: '',
@@ -229,6 +230,8 @@ export function AdminFaqPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<FaqAdminTab>('content')
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false)
+  const [pendingFocusFaqId, setPendingFocusFaqId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -260,6 +263,20 @@ export function AdminFaqPage() {
     [form.categories, form.faqs],
   )
 
+  useEffect(() => {
+    if (!pendingFocusFaqId || activeTab !== 'content') return
+
+    const item = document.getElementById(`faq-item-${pendingFocusFaqId}`)
+    if (!item) return
+
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    window.setTimeout(() => {
+      document.getElementById(`faq-${pendingFocusFaqId}-question`)?.focus()
+      setPendingFocusFaqId(null)
+    }, 250)
+  }, [activeTab, form.faqs, pendingFocusFaqId])
+
   function updateForm(updater: (current: AdminFaqPageContent) => AdminFaqPageContent) {
     setForm(updater)
     setSaveError(null)
@@ -282,12 +299,15 @@ export function AdminFaqPage() {
     }))
   }
 
-  function addCategory() {
+  function addCategory(name: string) {
     updateForm((current) => ({
       ...current,
       categories: [
         ...current.categories,
-        createCategory(current.categories.length),
+        createCategory(
+          current.categories.reduce((max, category) => Math.max(max, category.sortOrder), -1) + 1,
+          name,
+        ),
       ],
     }))
   }
@@ -347,6 +367,8 @@ export function AdminFaqPage() {
   }
 
   function addFaq(categoryId?: string | null) {
+    const faqId = newId()
+
     updateForm((current) => {
       let categories = current.categories
       let category = categoryId
@@ -365,9 +387,11 @@ export function AdminFaqPage() {
       return {
         ...current,
         categories,
-        faqs: [...current.faqs, createFaq(sortOrder, category)],
+        faqs: [...current.faqs, createFaq(sortOrder, category, faqId)],
       }
     })
+    setActiveTab('content')
+    setPendingFocusFaqId(faqId)
   }
 
   function removeFaq(faqId: string) {
@@ -457,6 +481,7 @@ export function AdminFaqPage() {
   const activeCategoryCount = form.categories.filter((category) => category.isActive).length
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -506,12 +531,12 @@ export function AdminFaqPage() {
             {activeTab === 'content' ? (
               <Button type="button" onClick={() => addFaq()} disabled={disabled}>
                 <Plus className="mr-2 size-4" />
-                FAQ item
+                Add FAQ Item
               </Button>
             ) : (
-              <Button type="button" onClick={addCategory} disabled={disabled}>
+              <Button type="button" onClick={() => setCategoryModalOpen(true)} disabled={disabled}>
                 <Plus className="mr-2 size-4" />
-                Category
+                Add Category
               </Button>
             )}
           </div>
@@ -660,6 +685,115 @@ export function AdminFaqPage() {
         )}
       </div>
     </form>
+    {categoryModalOpen && (
+      <FaqCategoryCreateModal
+        categories={form.categories}
+        disabled={disabled}
+        onClose={() => setCategoryModalOpen(false)}
+        onCreate={(name) => {
+          addCategory(name)
+          setActiveTab('categories')
+          setCategoryModalOpen(false)
+        }}
+      />
+    )}
+    </>
+  )
+}
+
+function FaqCategoryCreateModal({
+  categories,
+  disabled,
+  onClose,
+  onCreate,
+}: {
+  categories: AdminFaqCategory[]
+  disabled: boolean
+  onClose: () => void
+  onCreate: (name: string) => void
+}) {
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById('faq-new-category-name')?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setError('Please enter a category name.')
+      return
+    }
+
+    const normalizedName = trimmedName.toLocaleLowerCase()
+    const alreadyExists = categories.some(
+      (category) => category.name.trim().toLocaleLowerCase() === normalizedName,
+    )
+    if (alreadyExists) {
+      setError('That category already exists.')
+      return
+    }
+
+    setError(null)
+    onCreate(trimmedName)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disabled ? undefined : onClose} />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="faq-category-create-title"
+        onSubmit={handleSubmit}
+        className="relative w-full max-w-md rounded-xl border bg-background shadow-xl"
+      >
+        <div className="border-b px-6 py-4">
+          <h2 id="faq-category-create-title" className="text-lg font-semibold">Add FAQ Category</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Create a category for grouping FAQ items.
+          </p>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="space-y-1.5">
+            <label htmlFor="faq-new-category-name" className="text-sm font-medium">
+              Category name <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="faq-new-category-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                setError(null)
+              }}
+              placeholder="e.g. Enrollment"
+              disabled={disabled}
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={disabled}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={disabled}>
+            <Plus className="mr-2 size-4" />
+            Add Category
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }
 
@@ -842,7 +976,7 @@ function FaqGroupEditor({
         {group.category && (
           <Button type="button" variant="outline" size="sm" onClick={onAddFaq} disabled={disabled}>
             <Plus className="mr-2 size-4" />
-            FAQ item
+            Add FAQ Item
           </Button>
         )}
       </div>
@@ -897,7 +1031,7 @@ function FaqItemEditor({
   }
 
   return (
-    <article className="rounded-lg border bg-background/40">
+    <article id={`faq-item-${faq.id}`} className="rounded-lg border bg-background/40">
       <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <h4 className="text-sm font-semibold">FAQ item {index + 1}</h4>

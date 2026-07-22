@@ -25,6 +25,12 @@ import {
   type SiteContentContactPageRow,
 } from './contactPageContent'
 import {
+  WHO_WE_ARE_PAGE_DB_KEYS,
+  WHO_WE_ARE_PAGE_SECTION,
+  mergeWhoWeArePageRows,
+  type SiteContentWhoWeArePageRow,
+} from './whoWeArePageContent'
+import {
   LANDING_CONTACT_CTA_DB_KEYS,
   LANDING_CONTACT_CTA_SECTION,
   mergeLandingContactCtaRows,
@@ -35,6 +41,7 @@ import type {
   ContactPageContent,
   HomeHeroContent,
   LandingContactCtaContent,
+  WhoWeArePageContent,
   WelcomeVideo,
 } from '@s-class/types/home'
 
@@ -136,6 +143,17 @@ export async function getPublicContactPage(): Promise<ContactPageContent> {
 
   if (error) throw new ApiError(500, 'CONTACT_PAGE_FETCH_FAILED', error.message)
   return mergeContactPageRows(data as SiteContentContactPageRow[])
+}
+
+export async function getPublicWhoWeArePage(): Promise<WhoWeArePageContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', WHO_WE_ARE_PAGE_SECTION)
+    .in('key', Array.from(WHO_WE_ARE_PAGE_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'WHO_WE_ARE_PAGE_FETCH_FAILED', error.message)
+  return mergeWhoWeArePageRows(data as SiteContentWhoWeArePageRow[])
 }
 
 /** Returns at most one welcome video — the top-of-order row. */

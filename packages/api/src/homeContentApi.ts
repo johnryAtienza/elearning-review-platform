@@ -11,6 +11,7 @@ import config from '@s-class/config'
 import * as homeContent from './homeContent.service'
 import { DEFAULT_HOME_HERO } from './homeHeroContent'
 import { DEFAULT_CONTACT_PAGE_CONTENT } from './contactPageContent'
+import { DEFAULT_WHO_WE_ARE_PAGE_CONTENT } from './whoWeArePageContent'
 import { DEFAULT_LANDING_CONTACT_CTA } from './contactCtaContent'
 import { MOCK_ANNOUNCEMENTS, MOCK_WELCOME_VIDEO } from './data/homeMock'
 import type {
@@ -18,11 +19,13 @@ import type {
   ContactPageContent,
   HomeHeroContent,
   LandingContactCtaContent,
+  WhoWeArePageContent,
   WelcomeVideo,
 } from '@s-class/types/home'
 
 export { DEFAULT_HOME_HERO } from './homeHeroContent'
 export { DEFAULT_CONTACT_PAGE_CONTENT } from './contactPageContent'
+export { DEFAULT_WHO_WE_ARE_PAGE_CONTENT } from './whoWeArePageContent'
 export { DEFAULT_LANDING_CONTACT_CTA } from './contactCtaContent'
 
 export const homeContentApi = {
@@ -42,6 +45,12 @@ export const homeContentApi = {
     if (config.api.useMock)                  return DEFAULT_CONTACT_PAGE_CONTENT
     if (config.auth.provider === 'supabase') return homeContent.getPublicContactPage()
     return DEFAULT_CONTACT_PAGE_CONTENT
+  },
+
+  async getWhoWeArePage(): Promise<WhoWeArePageContent> {
+    if (config.api.useMock)                  return DEFAULT_WHO_WE_ARE_PAGE_CONTENT
+    if (config.auth.provider === 'supabase') return homeContent.getPublicWhoWeArePage()
+    return DEFAULT_WHO_WE_ARE_PAGE_CONTENT
   },
 
   async getAnnouncements(): Promise<Announcement[]> {

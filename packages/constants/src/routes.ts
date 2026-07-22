@@ -67,4 +67,5 @@ export const ROUTES = {
   ADMIN_TESTIMONIALS:   '/admin/testimonials',
   ADMIN_CONTACT_CTA:    '/admin/contact-cta',
   ADMIN_CONTACT_PAGE:   '/admin/contact-page',
+  ADMIN_WHO_WE_ARE_PAGE: '/admin/who-we-are-page',
 } as const

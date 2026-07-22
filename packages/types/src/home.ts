@@ -67,6 +67,19 @@ export interface ContactPageContent {
   businessHours: ContactPageBusinessHoursContent
 }
 
+export interface WhoWeArePageContent {
+  eyebrow: string
+  title: string
+  whoAreWeLabel: string
+  whoAreWeBody: string
+  reviewPhilosophyLabel: string
+  reviewPhilosophyBody: string
+  missionLabel: string
+  missionBody: string
+  visionLabel: string
+  visionBody: string
+}
+
 export interface ReviewPackageOption {
   id: string
   title: string

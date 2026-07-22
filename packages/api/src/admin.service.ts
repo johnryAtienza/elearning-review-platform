@@ -31,6 +31,13 @@ import {
   type SiteContentContactPageRow,
 } from './contactPageContent'
 import {
+  WHO_WE_ARE_PAGE_DB_KEYS,
+  WHO_WE_ARE_PAGE_SECTION,
+  mergeWhoWeArePageRows,
+  whoWeArePageContentToRows,
+  type SiteContentWhoWeArePageRow,
+} from './whoWeArePageContent'
+import {
   LANDING_CONTACT_CTA_DB_KEYS,
   LANDING_CONTACT_CTA_SECTION,
   landingContactCtaContentToRows,
@@ -52,7 +59,12 @@ import {
   type SiteContentTestimonialsRow,
 } from './testimonialsContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
-import type { ContactPageContent, HomeHeroContent, LandingContactCtaContent } from '@s-class/types/home'
+import type {
+  ContactPageContent,
+  HomeHeroContent,
+  LandingContactCtaContent,
+  WhoWeArePageContent,
+} from '@s-class/types/home'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1725,6 +1737,32 @@ export async function updateAdminContactPage(
 
   if (error) throw new ApiError(500, 'ADMIN_CONTACT_PAGE_UPDATE_FAILED', error.message)
   return mergeContactPageRows(rows)
+}
+
+// -- Homepage CMS: who we are page -------------------------------------------
+
+export async function getAdminWhoWeArePage(): Promise<WhoWeArePageContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', WHO_WE_ARE_PAGE_SECTION)
+    .in('key', Array.from(WHO_WE_ARE_PAGE_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_FAILED', error.message)
+  return mergeWhoWeArePageRows(data as SiteContentWhoWeArePageRow[])
+}
+
+export async function updateAdminWhoWeArePage(
+  content: WhoWeArePageContent,
+): Promise<WhoWeArePageContent> {
+  const rows = whoWeArePageContentToRows(content)
+
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(rows, { onConflict: 'section,key' })
+
+  if (error) throw new ApiError(500, 'ADMIN_WHO_WE_ARE_PAGE_UPDATE_FAILED', error.message)
+  return mergeWhoWeArePageRows(rows)
 }
 
 // ── Homepage CMS: review classes/packages ────────────────────────────────────

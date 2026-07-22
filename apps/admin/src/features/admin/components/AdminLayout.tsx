@@ -21,6 +21,7 @@ import {
   Star,
   Mail,
   MessageCircle,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@s-class/auth/authStore'
@@ -61,6 +62,7 @@ const NAV_SECTIONS = [
       { to: ROUTES.ADMIN_TESTIMONIALS,    label: 'Testimonials',      icon: Star,       end: false },
       { to: ROUTES.ADMIN_WELCOME_VIDEOS,  label: 'Welcome Videos',    icon: PlayCircle, end: false },
       { to: ROUTES.ADMIN_CONTACT_PAGE,     label: 'Contact Page',      icon: MessageCircle, end: false },
+      { to: ROUTES.ADMIN_WHO_WE_ARE_PAGE,  label: 'Who We Are Page',   icon: FileText,      end: false },
       { to: ROUTES.ADMIN_CONTACT_CTA,      label: 'Contact CTA',       icon: Mail,       end: false },
     ],
   },
@@ -96,6 +98,7 @@ const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN_TESTIMONIALS]:      'Testimonials',
   [ROUTES.ADMIN_CONTACT_CTA]:       'Contact CTA',
   [ROUTES.ADMIN_CONTACT_PAGE]:      'Contact Page',
+  [ROUTES.ADMIN_WHO_WE_ARE_PAGE]:   'Who We Are Page',
   [ROUTES.ADMIN_USERS]:            'Users',
   [ROUTES.ADMIN_SUBSCRIPTIONS]:    'Subscriptions',
 }

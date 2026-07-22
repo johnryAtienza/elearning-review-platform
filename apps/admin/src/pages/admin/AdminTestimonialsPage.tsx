@@ -6,10 +6,12 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Pencil,
   Plus,
   Save,
   Star,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +31,10 @@ const EMPTY_CONTENT: AdminTestimonialsContent = {
   heading: '',
   testimonials: [],
 }
+
+type TestimonialModalState =
+  | { open: false }
+  | { open: true; mode: 'create' | 'edit'; testimonial: AdminTestimonial }
 
 function newId(): string {
   return crypto.randomUUID()
@@ -61,21 +67,45 @@ function moveItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
   return next
 }
 
+function normalizeTestimonial(testimonial: AdminTestimonial, sortOrder: number): AdminTestimonial {
+  return {
+    ...testimonial,
+    name: testimonial.name.trim(),
+    initials: testimonial.initials.trim().toUpperCase(),
+    title: testimonial.title.trim(),
+    affiliation: testimonial.affiliation.trim(),
+    quote: testimonial.quote.trim(),
+    rating: Math.trunc(Number(testimonial.rating)),
+    sortOrder,
+  }
+}
+
 function normalizeForSave(content: AdminTestimonialsContent): AdminTestimonialsContent {
   return {
     eyebrow: content.eyebrow.trim(),
     heading: content.heading.trim(),
-    testimonials: content.testimonials.map((testimonial, index) => ({
-      ...testimonial,
-      name: testimonial.name.trim(),
-      initials: testimonial.initials.trim().toUpperCase(),
-      title: testimonial.title.trim(),
-      affiliation: testimonial.affiliation.trim(),
-      quote: testimonial.quote.trim(),
-      rating: Math.trunc(Number(testimonial.rating)),
-      sortOrder: index,
-    })),
+    testimonials: content.testimonials.map((testimonial, index) =>
+      normalizeTestimonial(testimonial, index),
+    ),
   }
+}
+
+function validateTestimonial(testimonial: AdminTestimonial, fallbackLabel: string): string | null {
+  const label = testimonial.name || fallbackLabel
+  if (!testimonial.name) return `${label} needs a reviewer name.`
+  if (!testimonial.initials) return `${label} needs avatar initials.`
+  if (testimonial.initials.length > 3) return `${label} initials must be 3 characters or fewer.`
+  if (!testimonial.title) return `${label} needs a role or title.`
+  if (!testimonial.quote) return `${label} needs a quote.`
+  if (
+    !Number.isInteger(testimonial.rating) ||
+    testimonial.rating < 1 ||
+    testimonial.rating > 5
+  ) {
+    return `${label} needs a rating from 1 to 5.`
+  }
+
+  return null
 }
 
 function validate(content: AdminTestimonialsContent): string | null {
@@ -83,19 +113,8 @@ function validate(content: AdminTestimonialsContent): string | null {
   if (!content.heading) return 'Section heading is required.'
 
   for (const [index, testimonial] of content.testimonials.entries()) {
-    const label = testimonial.name || `Testimonial ${index + 1}`
-    if (!testimonial.name) return `${label} needs a reviewer name.`
-    if (!testimonial.initials) return `${label} needs avatar initials.`
-    if (testimonial.initials.length > 3) return `${label} initials must be 3 characters or fewer.`
-    if (!testimonial.title) return `${label} needs a role or title.`
-    if (!testimonial.quote) return `${label} needs a quote.`
-    if (
-      !Number.isInteger(testimonial.rating) ||
-      testimonial.rating < 1 ||
-      testimonial.rating > 5
-    ) {
-      return `${label} needs a rating from 1 to 5.`
-    }
+    const error = validateTestimonial(testimonial, `Testimonial ${index + 1}`)
+    if (error) return error
   }
 
   return null
@@ -108,6 +127,7 @@ export function AdminTestimonialsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [modal, setModal] = useState<TestimonialModalState>({ open: false })
 
   useEffect(() => {
     let cancelled = false
@@ -147,10 +167,45 @@ export function AdminTestimonialsPage() {
   }
 
   function addTestimonial() {
-    updateForm((current) => ({
-      ...current,
-      testimonials: [...current.testimonials, createTestimonial(current.testimonials.length)],
-    }))
+    setModal({
+      open: true,
+      mode: 'create',
+      testimonial: createTestimonial(form.testimonials.length),
+    })
+    setSaveError(null)
+    setSuccess(null)
+  }
+
+  function editTestimonial(testimonial: AdminTestimonial) {
+    setModal({ open: true, mode: 'edit', testimonial })
+    setSaveError(null)
+    setSuccess(null)
+  }
+
+  function handleModalSave(testimonial: AdminTestimonial) {
+    if (!modal.open) return
+
+    updateForm((current) => {
+      if (modal.mode === 'create') {
+        return {
+          ...current,
+          testimonials: [
+            ...current.testimonials,
+            normalizeTestimonial(testimonial, current.testimonials.length),
+          ],
+        }
+      }
+
+      return {
+        ...current,
+        testimonials: current.testimonials.map((item) =>
+          item.id === testimonial.id
+            ? normalizeTestimonial(testimonial, item.sortOrder)
+            : item,
+        ),
+      }
+    })
+    setModal({ open: false })
   }
 
   function removeTestimonial(testimonialId: string) {
@@ -167,8 +222,7 @@ export function AdminTestimonialsPage() {
     }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSave() {
     if (saving) return
 
     const normalized = normalizeForSave(form)
@@ -199,7 +253,7 @@ export function AdminTestimonialsPage() {
   const activeCount = form.testimonials.filter((testimonial) => testimonial.isActive).length
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Testimonials</h1>
@@ -213,7 +267,7 @@ export function AdminTestimonialsPage() {
             <Plus className="mr-2 size-4" />
             Reviewer
           </Button>
-          <Button type="submit" disabled={disabled}>
+          <Button type="button" onClick={handleSave} disabled={disabled}>
             {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
             {saving ? 'Saving...' : 'Save'}
           </Button>
@@ -298,7 +352,8 @@ export function AdminTestimonialsPage() {
               testimonialIndex={index}
               testimonialCount={form.testimonials.length}
               disabled={disabled}
-              onChange={(nextTestimonial) => setTestimonial(testimonial.id, nextTestimonial)}
+              onEdit={() => editTestimonial(testimonial)}
+              onToggleActive={() => setTestimonial(testimonial.id, { ...testimonial, isActive: !testimonial.isActive })}
               onRemove={() => removeTestimonial(testimonial.id)}
               onMoveUp={() => moveTestimonial(index, -1)}
               onMoveDown={() => moveTestimonial(index, 1)}
@@ -308,12 +363,21 @@ export function AdminTestimonialsPage() {
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={disabled}>
+        <Button type="button" onClick={handleSave} disabled={disabled}>
           {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-    </form>
+
+      {modal.open && (
+        <TestimonialModal
+          mode={modal.mode}
+          testimonial={modal.testimonial}
+          onClose={() => setModal({ open: false })}
+          onSave={handleModalSave}
+        />
+      )}
+    </div>
   )
 }
 
@@ -322,7 +386,8 @@ interface TestimonialEditorProps {
   testimonialIndex: number
   testimonialCount: number
   disabled: boolean
-  onChange: (testimonial: AdminTestimonial) => void
+  onEdit: () => void
+  onToggleActive: () => void
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
@@ -333,12 +398,14 @@ function TestimonialEditor({
   testimonialIndex,
   testimonialCount,
   disabled,
-  onChange,
+  onEdit,
+  onToggleActive,
   onRemove,
   onMoveUp,
   onMoveDown,
 }: TestimonialEditorProps) {
   const label = testimonial.name.trim() || `Testimonial ${testimonialIndex + 1}`
+  const stars = Math.min(5, Math.max(1, Math.trunc(testimonial.rating)))
 
   return (
     <section className="rounded-xl border bg-card shadow-sm">
@@ -355,6 +422,12 @@ function TestimonialEditor({
 
         <div className="flex items-center gap-1">
           <IconButton
+            label="Edit testimonial"
+            disabled={disabled}
+            onClick={onEdit}
+            icon={<Pencil className="size-4" />}
+          />
+          <IconButton
             label="Move testimonial up"
             disabled={disabled || testimonialIndex === 0}
             onClick={onMoveUp}
@@ -369,7 +442,7 @@ function TestimonialEditor({
           <IconButton
             label={testimonial.isActive ? 'Deactivate testimonial' : 'Activate testimonial'}
             disabled={disabled}
-            onClick={() => onChange({ ...testimonial, isActive: !testimonial.isActive })}
+            onClick={onToggleActive}
             icon={testimonial.isActive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           />
           <IconButton
@@ -382,78 +455,199 @@ function TestimonialEditor({
         </div>
       </div>
 
-      <div className="space-y-5 p-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_7rem_8rem]">
-          <div className="space-y-1.5">
-            <label htmlFor={`testimonial-name-${testimonial.id}`} className="text-sm font-medium">Name</label>
-            <Input
-              id={`testimonial-name-${testimonial.id}`}
-              value={testimonial.name}
-              onChange={(e) => onChange({ ...testimonial, name: e.target.value })}
-              disabled={disabled}
-            />
+      <button
+        type="button"
+        onClick={disabled ? undefined : onEdit}
+        disabled={disabled}
+        className="block w-full text-left p-5 transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <div className="grid gap-4 lg:grid-cols-[3rem_1fr_7rem] lg:items-start">
+          <span className="flex size-10 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+            {testimonial.initials}
+          </span>
+
+          <div className="min-w-0 space-y-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{testimonial.title}</p>
+              {testimonial.affiliation && (
+                <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                  {testimonial.affiliation}
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              “{testimonial.quote}”
+            </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor={`testimonial-initials-${testimonial.id}`} className="text-sm font-medium">Initials</label>
-            <Input
-              id={`testimonial-initials-${testimonial.id}`}
-              value={testimonial.initials}
-              onChange={(e) => onChange({ ...testimonial, initials: e.target.value })}
-              maxLength={3}
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor={`testimonial-rating-${testimonial.id}`} className="text-sm font-medium">Rating</label>
-            <Input
-              id={`testimonial-rating-${testimonial.id}`}
-              type="number"
-              min={1}
-              max={5}
-              value={testimonial.rating}
-              onChange={(e) => onChange({ ...testimonial, rating: Number(e.target.value) || 0 })}
-              disabled={disabled}
-            />
+          <div className="flex items-center gap-0.5 text-primary lg:justify-end" aria-label={`${stars} out of 5 stars`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={i < stars ? 'size-4 fill-primary' : 'size-4 text-muted-foreground/30'}
+              />
+            ))}
           </div>
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor={`testimonial-title-${testimonial.id}`} className="text-sm font-medium">Role / title</label>
-            <Input
-              id={`testimonial-title-${testimonial.id}`}
-              value={testimonial.title}
-              onChange={(e) => onChange({ ...testimonial, title: e.target.value })}
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor={`testimonial-affiliation-${testimonial.id}`} className="text-sm font-medium">School / affiliation</label>
-            <Input
-              id={`testimonial-affiliation-${testimonial.id}`}
-              value={testimonial.affiliation}
-              onChange={(e) => onChange({ ...testimonial, affiliation: e.target.value })}
-              disabled={disabled}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor={`testimonial-quote-${testimonial.id}`} className="text-sm font-medium">Quote</label>
-          <textarea
-            id={`testimonial-quote-${testimonial.id}`}
-            value={testimonial.quote}
-            onChange={(e) => onChange({ ...testimonial, quote: e.target.value })}
-            rows={4}
-            disabled={disabled}
-            className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-        </div>
-      </div>
+      </button>
     </section>
+  )
+}
+
+interface TestimonialModalProps {
+  mode: 'create' | 'edit'
+  testimonial: AdminTestimonial
+  onClose: () => void
+  onSave: (testimonial: AdminTestimonial) => void
+}
+
+function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialModalProps) {
+  const [draft, setDraft] = useState<AdminTestimonial>(testimonial)
+  const [error, setError] = useState<string | null>(null)
+  const isEdit = mode === 'edit'
+
+  function updateDraft(patch: Partial<AdminTestimonial>) {
+    setDraft((current) => ({ ...current, ...patch }))
+    setError(null)
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+
+    const normalized = normalizeTestimonial(draft, draft.sortOrder)
+    const validationError = validateTestimonial(
+      normalized,
+      isEdit ? 'This testimonial' : 'New testimonial',
+    )
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    onSave(normalized)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-2xl rounded-xl border bg-background shadow-xl max-h-[90vh] flex flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+          <h2 className="text-lg font-semibold">
+            {isEdit ? 'Update Reviewer' : 'Add Reviewer'}
+          </h2>
+          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={onClose}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-y-auto">
+          <div className="space-y-5 px-6 py-5">
+            <div className="grid gap-4 lg:grid-cols-[1fr_7rem_8rem]">
+              <div className="space-y-1.5">
+                <label htmlFor="testimonial-modal-name" className="text-sm font-medium">
+                  Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="testimonial-modal-name"
+                  value={draft.name}
+                  onChange={(e) => updateDraft({ name: e.target.value })}
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="testimonial-modal-initials" className="text-sm font-medium">
+                  Initials <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="testimonial-modal-initials"
+                  value={draft.initials}
+                  onChange={(e) => updateDraft({ initials: e.target.value })}
+                  maxLength={3}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="testimonial-modal-rating" className="text-sm font-medium">
+                  Rating <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="testimonial-modal-rating"
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={draft.rating}
+                  onChange={(e) => updateDraft({ rating: Number(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <label htmlFor="testimonial-modal-title" className="text-sm font-medium">
+                  Role / title <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="testimonial-modal-title"
+                  value={draft.title}
+                  onChange={(e) => updateDraft({ title: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="testimonial-modal-affiliation" className="text-sm font-medium">
+                  School / affiliation
+                </label>
+                <Input
+                  id="testimonial-modal-affiliation"
+                  value={draft.affiliation}
+                  onChange={(e) => updateDraft({ affiliation: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="testimonial-modal-quote" className="text-sm font-medium">
+                Quote <span className="text-destructive">*</span>
+              </label>
+              <textarea
+                id="testimonial-modal-quote"
+                value={draft.quote}
+                onChange={(e) => updateDraft({ quote: e.target.value })}
+                rows={5}
+                className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draft.isActive}
+                onChange={(e) => updateDraft({ isActive: e.target.checked })}
+                className="size-4 rounded border-input"
+              />
+              Active
+            </label>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              {isEdit ? 'Update Reviewer' : 'Add Reviewer'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
 

@@ -7,8 +7,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { HeroBlock } from '../features/home/components/HeroBlock'
 import { TestimonialsSection } from '../features/home/components/TestimonialsSection'
 import { homeContentApi } from '@s-class/api/homeContentApi'
+import { DEFAULT_REVIEW_CLASSES, reviewPackagesApi } from '@s-class/api/reviewPackagesApi'
 import type { Announcement, WelcomeVideo } from '../features/home/types'
-import { OFFERINGS, CONTACT_BLURB, type Offering } from '../constants/offerings'
+import type { ReviewClassesContent, ReviewPackage } from '@s-class/types/home'
+import { CONTACT_BLURB } from '../constants/offerings'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
 import { CanonicalLink } from '@/components/CanonicalLink'
@@ -33,10 +35,23 @@ import { cn } from '@/utils/cn'
  * Content sources:
  *   - Announcements / Welcome video: DB-backed via homeContentApi
  *     (admin-editable under /admin/announcements + /admin/welcome-videos).
- *   - Offerings:    src/constants/offerings.ts (incl. CONTACT_BLURB)
+ *   - Review packages: DB-backed via reviewPackagesApi
+ *     (admin-editable under /admin/review-packages).
+ *   - Contact blurb: src/constants/offerings.ts
  *   - Testimonials: src/constants/testimonials.ts
  */
 export function HomePage() {
+  const [reviewClasses, setReviewClasses] =
+    useState<ReviewClassesContent>(DEFAULT_REVIEW_CLASSES)
+
+  useEffect(() => {
+    let cancelled = false
+    reviewPackagesApi.getReviewClassesContent()
+      .then((content) => { if (!cancelled) setReviewClasses(content) })
+      .catch(() => { if (!cancelled) setReviewClasses(DEFAULT_REVIEW_CLASSES) })
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-6xl">
 
@@ -49,22 +64,24 @@ export function HomePage() {
       <HomeContentRow />
 
       {/* ── Review classes offered ── */}
-      <section className="space-y-5">
-        <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Review classes offered
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Pick the package that fits your reviewer
-          </h2>
-        </header>
+      {reviewClasses.packages.length > 0 && (
+        <section className="space-y-5">
+          <header className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+              {reviewClasses.eyebrow}
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              {reviewClasses.heading}
+            </h2>
+          </header>
 
-        <div className="grid gap-5 lg:grid-cols-2">
-          {OFFERINGS.map((offering) => (
-            <OfferingCard key={offering.id} offering={offering} />
-          ))}
-        </div>
-      </section>
+          <div className="grid gap-5 lg:grid-cols-2">
+            {reviewClasses.packages.map((offering) => (
+              <OfferingCard key={offering.id} offering={offering} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Testimonials ── */}
       <TestimonialsSection />
@@ -314,7 +331,7 @@ function toEmbedUrl(url: string): string | null {
 
 // ── Offering card ────────────────────────────────────────────────────────────
 
-function OfferingCard({ offering }: { offering: Offering }) {
+function OfferingCard({ offering }: { offering: ReviewPackage }) {
   return (
     <div className="rounded-xl border bg-card p-6 flex flex-col gap-5 h-full">
       <div className="space-y-2">
@@ -330,20 +347,20 @@ function OfferingCard({ offering }: { offering: Offering }) {
       </div>
 
       {/* Single-headline package */}
-      {offering.inclusions && (
-        <InclusionList inclusions={offering.inclusions} />
+      {offering.features.length > 0 && (
+        <InclusionList inclusions={offering.features} />
       )}
 
       {/* Variant options */}
-      {offering.options && (
+      {offering.options.length > 0 && (
         <div className="space-y-4">
           {offering.options.map((opt) => (
-            <div key={opt.label} className="rounded-lg border bg-background/40 p-4 space-y-3">
+            <div key={opt.id} className="rounded-lg border bg-background/40 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">{opt.label}</p>
-                <span className="text-sm font-bold text-primary tabular-nums">{opt.priceLabel}</span>
+                <p className="text-sm font-semibold">{opt.title}</p>
+                <span className="text-sm font-bold text-primary tabular-nums">{opt.price}</span>
               </div>
-              <InclusionList inclusions={opt.inclusions} dense />
+              <InclusionList inclusions={opt.features} dense />
             </div>
           ))}
         </div>
@@ -352,11 +369,11 @@ function OfferingCard({ offering }: { offering: Offering }) {
       {/* Footer: access + headline price (if present) + CTA */}
       <div className="mt-auto pt-4 border-t flex items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground">
-          Online access: <span className="font-medium text-foreground">{offering.accessFor}</span>
+          Online access: <span className="font-medium text-foreground">{formatAccessDuration(offering.onlineAccessMonths)}</span>
         </span>
-        {offering.priceLabel && (
+        {offering.price && (
           <span className="text-lg font-bold text-primary tabular-nums">
-            {offering.priceLabel}
+            {offering.price}
           </span>
         )}
       </div>
@@ -383,4 +400,8 @@ function formatDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatAccessDuration(months: number): string {
+  return months === 1 ? '1 month' : `${months} months`
 }

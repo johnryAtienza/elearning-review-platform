@@ -23,6 +23,13 @@ import {
   mergeHomeHeroRows,
   type SiteContentHeroRow,
 } from './homeHeroContent'
+import {
+  REVIEW_CLASSES_DB_KEYS,
+  REVIEW_CLASSES_SECTION,
+  mergeReviewClassesRows,
+  reviewClassesContentToRows,
+  type SiteContentReviewClassesRow,
+} from './reviewClassesContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
 import type { HomeHeroContent } from '@s-class/types/home'
 
@@ -1645,6 +1652,333 @@ export async function updateAdminHomeHero(content: HomeHeroContent): Promise<Hom
 
   if (error) throw new ApiError(500, 'ADMIN_HOME_HERO_UPDATE_FAILED', error.message)
   return mergeHomeHeroRows(rows)
+}
+
+// ── Homepage CMS: review classes/packages ────────────────────────────────────
+
+export interface AdminReviewPackageFeature {
+  id: string
+  featureText: string
+  sortOrder: number
+}
+
+export interface AdminReviewPackageOption {
+  id: string
+  title: string
+  price: string
+  sortOrder: number
+  isActive: boolean
+  features: AdminReviewPackageFeature[]
+}
+
+export interface AdminReviewPackage {
+  id: string
+  title: string
+  description: string
+  badge: string | null
+  price: string | null
+  onlineAccessMonths: number
+  sortOrder: number
+  isActive: boolean
+  features: AdminReviewPackageFeature[]
+  options: AdminReviewPackageOption[]
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface AdminReviewClassesContent {
+  eyebrow: string
+  heading: string
+  packages: AdminReviewPackage[]
+}
+
+interface AdminReviewPackageFeatureRow {
+  id: string
+  feature_text: string
+  sort_order: number
+}
+
+interface AdminReviewPackageOptionRow {
+  id: string
+  title: string
+  price: string
+  sort_order: number
+  is_active: boolean
+  review_package_option_features: AdminReviewPackageFeatureRow[] | null
+}
+
+interface AdminReviewPackageRow {
+  id: string
+  title: string
+  description: string
+  badge: string | null
+  price: string | null
+  online_access_months: number
+  sort_order: number
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+  review_package_features: AdminReviewPackageFeatureRow[] | null
+  review_package_options: AdminReviewPackageOptionRow[] | null
+}
+
+interface IdRow {
+  id: string
+}
+
+const REVIEW_PACKAGE_SELECT = `
+  id,
+  title,
+  description,
+  badge,
+  price,
+  online_access_months,
+  sort_order,
+  is_active,
+  created_at,
+  updated_at,
+  review_package_features (
+    id,
+    feature_text,
+    sort_order
+  ),
+  review_package_options (
+    id,
+    title,
+    price,
+    sort_order,
+    is_active,
+    review_package_option_features (
+      id,
+      feature_text,
+      sort_order
+    )
+  )
+`
+
+function sortAdminRows<T extends { sort_order: number; id: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id))
+}
+
+function toAdminReviewPackageFeature(row: AdminReviewPackageFeatureRow): AdminReviewPackageFeature {
+  return {
+    id: row.id,
+    featureText: row.feature_text,
+    sortOrder: row.sort_order,
+  }
+}
+
+function toAdminReviewPackageOption(row: AdminReviewPackageOptionRow): AdminReviewPackageOption {
+  return {
+    id: row.id,
+    title: row.title,
+    price: row.price,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    features: sortAdminRows(row.review_package_option_features ?? []).map(toAdminReviewPackageFeature),
+  }
+}
+
+function toAdminReviewPackage(row: AdminReviewPackageRow): AdminReviewPackage {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    badge: row.badge,
+    price: row.price,
+    onlineAccessMonths: row.online_access_months,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    features: sortAdminRows(row.review_package_features ?? []).map(toAdminReviewPackageFeature),
+    options: sortAdminRows(row.review_package_options ?? []).map(toAdminReviewPackageOption),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+async function deleteRowsMissingFrom(
+  table: string,
+  keepIds: Set<string>,
+  fetchCode: string,
+  deleteCode: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from(table)
+    .select('id')
+
+  if (error) throw new ApiError(500, fetchCode, error.message)
+
+  const staleIds = ((data ?? []) as IdRow[])
+    .map((row) => row.id)
+    .filter((id) => !keepIds.has(id))
+
+  if (staleIds.length === 0) return
+
+  const { error: deleteError } = await supabase
+    .from(table)
+    .delete()
+    .in('id', staleIds)
+
+  if (deleteError) throw new ApiError(500, deleteCode, deleteError.message)
+}
+
+export async function getAdminReviewClassesContent(): Promise<AdminReviewClassesContent> {
+  const { data: copyRows, error: copyError } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', REVIEW_CLASSES_SECTION)
+    .in('key', Array.from(REVIEW_CLASSES_DB_KEYS))
+
+  if (copyError) throw new ApiError(500, 'ADMIN_REVIEW_CLASSES_COPY_FAILED', copyError.message)
+
+  const { data: packageRows, error: packageError } = await supabase
+    .from('review_packages')
+    .select(REVIEW_PACKAGE_SELECT)
+    .order('sort_order', { ascending: true })
+
+  if (packageError) throw new ApiError(500, 'ADMIN_REVIEW_PACKAGES_FAILED', packageError.message)
+
+  const section = mergeReviewClassesRows(copyRows as SiteContentReviewClassesRow[], [])
+
+  return {
+    eyebrow: section.eyebrow,
+    heading: section.heading,
+    packages: sortAdminRows((packageRows ?? []) as AdminReviewPackageRow[]).map(toAdminReviewPackage),
+  }
+}
+
+export async function saveAdminReviewClassesContent(
+  content: AdminReviewClassesContent,
+): Promise<AdminReviewClassesContent> {
+  const sectionRows = reviewClassesContentToRows(content)
+  const { error: sectionError } = await supabase
+    .from('site_content')
+    .upsert(sectionRows, { onConflict: 'section,key' })
+
+  if (sectionError) {
+    throw new ApiError(500, 'ADMIN_REVIEW_CLASSES_COPY_UPDATE_FAILED', sectionError.message)
+  }
+
+  const packages = content.packages.map((pkg, packageIndex) => ({
+    ...pkg,
+    sortOrder: packageIndex,
+    features: pkg.features.map((feature, featureIndex) => ({
+      ...feature,
+      sortOrder: featureIndex,
+    })),
+    options: pkg.options.map((option, optionIndex) => ({
+      ...option,
+      sortOrder: optionIndex,
+      features: option.features.map((feature, featureIndex) => ({
+        ...feature,
+        sortOrder: featureIndex,
+      })),
+    })),
+  }))
+
+  const packageRows = packages.map((pkg) => ({
+    id: pkg.id,
+    title: pkg.title.trim(),
+    description: pkg.description.trim(),
+    badge: pkg.badge?.trim() || null,
+    price: pkg.price?.trim() || null,
+    online_access_months: pkg.onlineAccessMonths,
+    sort_order: pkg.sortOrder,
+    is_active: pkg.isActive,
+  }))
+
+  if (packageRows.length > 0) {
+    const { error } = await supabase
+      .from('review_packages')
+      .upsert(packageRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_REVIEW_PACKAGES_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'review_packages',
+    new Set(packageRows.map((row) => row.id)),
+    'ADMIN_REVIEW_PACKAGES_STALE_FETCH_FAILED',
+    'ADMIN_REVIEW_PACKAGES_DELETE_FAILED',
+  )
+
+  const featureRows = packages.flatMap((pkg) =>
+    pkg.features.map((feature) => ({
+      id: feature.id,
+      package_id: pkg.id,
+      feature_text: feature.featureText.trim(),
+      sort_order: feature.sortOrder,
+    })),
+  )
+
+  if (featureRows.length > 0) {
+    const { error } = await supabase
+      .from('review_package_features')
+      .upsert(featureRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_REVIEW_PACKAGE_FEATURES_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'review_package_features',
+    new Set(featureRows.map((row) => row.id)),
+    'ADMIN_REVIEW_PACKAGE_FEATURES_STALE_FETCH_FAILED',
+    'ADMIN_REVIEW_PACKAGE_FEATURES_DELETE_FAILED',
+  )
+
+  const optionRows = packages.flatMap((pkg) =>
+    pkg.options.map((option) => ({
+      id: option.id,
+      package_id: pkg.id,
+      title: option.title.trim(),
+      price: option.price.trim(),
+      sort_order: option.sortOrder,
+      is_active: option.isActive,
+    })),
+  )
+
+  if (optionRows.length > 0) {
+    const { error } = await supabase
+      .from('review_package_options')
+      .upsert(optionRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_REVIEW_PACKAGE_OPTIONS_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'review_package_options',
+    new Set(optionRows.map((row) => row.id)),
+    'ADMIN_REVIEW_PACKAGE_OPTIONS_STALE_FETCH_FAILED',
+    'ADMIN_REVIEW_PACKAGE_OPTIONS_DELETE_FAILED',
+  )
+
+  const optionFeatureRows = packages.flatMap((pkg) =>
+    pkg.options.flatMap((option) =>
+      option.features.map((feature) => ({
+        id: feature.id,
+        option_id: option.id,
+        feature_text: feature.featureText.trim(),
+        sort_order: feature.sortOrder,
+      })),
+    ),
+  )
+
+  if (optionFeatureRows.length > 0) {
+    const { error } = await supabase
+      .from('review_package_option_features')
+      .upsert(optionFeatureRows, { onConflict: 'id' })
+
+    if (error) throw new ApiError(500, 'ADMIN_REVIEW_PACKAGE_OPTION_FEATURES_SAVE_FAILED', error.message)
+  }
+
+  await deleteRowsMissingFrom(
+    'review_package_option_features',
+    new Set(optionFeatureRows.map((row) => row.id)),
+    'ADMIN_REVIEW_PACKAGE_OPTION_FEATURES_STALE_FETCH_FAILED',
+    'ADMIN_REVIEW_PACKAGE_OPTION_FEATURES_DELETE_FAILED',
+  )
+
+  return getAdminReviewClassesContent()
 }
 
 // ── Homepage CMS: announcements ───────────────────────────────────────────────

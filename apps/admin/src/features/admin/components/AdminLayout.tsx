@@ -51,6 +51,7 @@ const NAV_SECTIONS = [
       { to: ROUTES.ADMIN_HERO_BANNER,    label: 'Hero Banner',    icon: Type,       end: false },
       { to: ROUTES.ADMIN_ANNOUNCEMENTS,  label: 'Announcements',  icon: Bell,       end: false },
       { to: ROUTES.ADMIN_WELCOME_VIDEOS, label: 'Welcome Videos', icon: PlayCircle, end: false },
+      { to: ROUTES.ADMIN_REVIEW_PACKAGES, label: 'Reviewer Packages', icon: Package, end: false },
     ],
   },
   {
@@ -75,6 +76,7 @@ const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN_HERO_BANNER]:      'Hero Banner',
   [ROUTES.ADMIN_ANNOUNCEMENTS]:    'Announcements',
   [ROUTES.ADMIN_WELCOME_VIDEOS]:   'Welcome Videos',
+  [ROUTES.ADMIN_REVIEW_PACKAGES]:  'Reviewer Packages',
   [ROUTES.ADMIN_USERS]:            'Users',
   [ROUTES.ADMIN_SUBSCRIPTIONS]:    'Subscriptions',
 }

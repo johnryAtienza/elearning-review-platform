@@ -37,3 +37,30 @@ export interface HomeHeroContent {
   primaryButton: string
   secondaryButton: string
 }
+
+export interface ReviewPackageOption {
+  id: string
+  title: string
+  price: string
+  sortOrder: number
+  features: string[]
+}
+
+export interface ReviewPackage {
+  id: string
+  title: string
+  description: string
+  badge: string | null
+  /** Null means the package price is represented by its options. */
+  price: string | null
+  onlineAccessMonths: number
+  sortOrder: number
+  features: string[]
+  options: ReviewPackageOption[]
+}
+
+export interface ReviewClassesContent {
+  eyebrow: string
+  heading: string
+  packages: ReviewPackage[]
+}

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import {
   ArrowDown,
   ArrowUp,
-  CheckCircle2,
   Eye,
   EyeOff,
   Link as LinkIcon,
@@ -141,7 +140,6 @@ export function AdminContactPage() {
   const [saving,    setSaving]    = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success,   setSuccess]   = useState<string | null>(null)
   const [channelModal, setChannelModal] = useState<ContactChannelModalState | null>(null)
 
   useEffect(() => {
@@ -169,7 +167,6 @@ export function AdminContactPage() {
   function updateForm(updater: (current: AdminContactPageContent) => AdminContactPageContent) {
     setForm(updater)
     setSaveError(null)
-    setSuccess(null)
   }
 
   function setHeroField(
@@ -262,18 +259,15 @@ export function AdminContactPage() {
 
     if (missing) {
       setSaveError(missing)
-      setSuccess(null)
       return
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
       const saved = await updateAdminContactPage(payload)
       setForm(saved)
-      setSuccess('Contact page saved.')
       toast.success('Contact page saved.')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save contact page.')
@@ -302,13 +296,6 @@ export function AdminContactPage() {
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

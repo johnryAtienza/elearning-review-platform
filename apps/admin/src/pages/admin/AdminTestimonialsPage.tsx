@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
-  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
@@ -22,6 +21,7 @@ import { toast } from '@/lib/toast'
 import {
   getAdminTestimonialsContent,
   saveAdminTestimonialsContent,
+  updateAdminTestimonialsHeading,
   type AdminTestimonial,
   type AdminTestimonialsContent,
 } from '@s-class/api/admin.service'
@@ -108,16 +108,47 @@ function validateTestimonial(testimonial: AdminTestimonial, fallbackLabel: strin
   return null
 }
 
-function validate(content: AdminTestimonialsContent): string | null {
+function validateHeading(
+  content: Pick<AdminTestimonialsContent, 'eyebrow' | 'heading'>,
+): string | null {
   if (!content.eyebrow) return 'Section eyebrow is required.'
   if (!content.heading) return 'Section heading is required.'
 
-  for (const [index, testimonial] of content.testimonials.entries()) {
+  return null
+}
+
+function validateTestimonials(testimonials: AdminTestimonial[]): string | null {
+  for (const [index, testimonial] of testimonials.entries()) {
     const error = validateTestimonial(testimonial, `Testimonial ${index + 1}`)
     if (error) return error
   }
 
   return null
+}
+
+function applyTestimonialChange(
+  content: AdminTestimonialsContent,
+  testimonial: AdminTestimonial,
+  mode: 'create' | 'edit',
+): AdminTestimonialsContent {
+  if (mode === 'create') {
+    return {
+      ...content,
+      testimonials: [
+        ...content.testimonials,
+        normalizeTestimonial(testimonial, content.testimonials.length),
+      ],
+    }
+  }
+
+  return {
+    ...content,
+    testimonials: content.testimonials.map((item) =>
+      item.id === testimonial.id
+        ? normalizeTestimonial(testimonial, item.sortOrder)
+        : item,
+    ),
+  }
 }
 
 export function AdminTestimonialsPage() {
@@ -126,7 +157,6 @@ export function AdminTestimonialsPage() {
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [modal, setModal] = useState<TestimonialModalState>({ open: false })
 
   useEffect(() => {
@@ -154,16 +184,15 @@ export function AdminTestimonialsPage() {
   function updateForm(updater: (current: AdminTestimonialsContent) => AdminTestimonialsContent) {
     setForm(updater)
     setSaveError(null)
-    setSuccess(null)
   }
 
-  function setTestimonial(testimonialId: string, nextTestimonial: AdminTestimonial) {
-    updateForm((current) => ({
+  async function setTestimonial(testimonialId: string, nextTestimonial: AdminTestimonial) {
+    await saveTestimonialsContent((current) => ({
       ...current,
       testimonials: current.testimonials.map((testimonial) =>
         testimonial.id === testimonialId ? nextTestimonial : testimonial,
       ),
-    }))
+    }), 'Reviewer updated.')
   }
 
   function addTestimonial() {
@@ -173,77 +202,105 @@ export function AdminTestimonialsPage() {
       testimonial: createTestimonial(form.testimonials.length),
     })
     setSaveError(null)
-    setSuccess(null)
   }
 
   function editTestimonial(testimonial: AdminTestimonial) {
     setModal({ open: true, mode: 'edit', testimonial })
     setSaveError(null)
-    setSuccess(null)
   }
 
-  function handleModalSave(testimonial: AdminTestimonial) {
-    if (!modal.open) return
+  async function handleModalSave(testimonial: AdminTestimonial) {
+    if (!modal.open || saving) return
 
-    updateForm((current) => {
-      if (modal.mode === 'create') {
-        return {
-          ...current,
-          testimonials: [
-            ...current.testimonials,
-            normalizeTestimonial(testimonial, current.testimonials.length),
-          ],
-        }
-      }
+    const message = modal.mode === 'create' ? 'Reviewer added.' : 'Reviewer updated.'
+    const saved = await saveTestimonialsContent(
+      (current) => applyTestimonialChange(current, testimonial, modal.mode),
+      message,
+    )
 
-      return {
-        ...current,
-        testimonials: current.testimonials.map((item) =>
-          item.id === testimonial.id
-            ? normalizeTestimonial(testimonial, item.sortOrder)
-            : item,
-        ),
-      }
-    })
-    setModal({ open: false })
+    if (saved) {
+      setModal({ open: false })
+    }
   }
 
-  function removeTestimonial(testimonialId: string) {
-    updateForm((current) => ({
+  async function removeTestimonial(testimonialId: string) {
+    await saveTestimonialsContent((current) => ({
       ...current,
       testimonials: current.testimonials.filter((testimonial) => testimonial.id !== testimonialId),
-    }))
+    }), 'Reviewer deleted.')
   }
 
-  function moveTestimonial(index: number, direction: -1 | 1) {
-    updateForm((current) => ({
+  async function moveTestimonial(index: number, direction: -1 | 1) {
+    await saveTestimonialsContent((current) => ({
       ...current,
       testimonials: moveItem(current.testimonials, index, direction),
-    }))
+    }), 'Reviewer order updated.')
   }
 
-  async function handleSave() {
-    if (saving) return
+  async function saveHeadingContent(): Promise<boolean> {
+    if (saving) return false
 
-    const normalized = normalizeForSave(form)
-    const validationError = validate(normalized)
+    const normalized = {
+      eyebrow: form.eyebrow.trim(),
+      heading: form.heading.trim(),
+    }
+    const validationError = validateHeading(normalized)
     if (validationError) {
       setSaveError(validationError)
-      setSuccess(null)
-      return
+      return false
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
-      const saved = await saveAdminTestimonialsContent(normalized)
+      const saved = await updateAdminTestimonialsHeading(normalized)
       setForm(saved)
-      setSuccess('Testimonials saved.')
-      toast.success('Testimonials saved.')
+      toast.success('Testimonials heading saved.')
+      return true
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save testimonials heading.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveTestimonialsContent(
+    updater: (current: AdminTestimonialsContent) => AdminTestimonialsContent,
+    successMessage: string,
+  ): Promise<boolean> {
+    if (saving) return false
+
+    const nextContent = updater(form)
+    const normalizedTestimonials = normalizeForSave(nextContent).testimonials
+    const validationError = validateTestimonials(normalizedTestimonials)
+    if (validationError) {
+      setSaveError(validationError)
+      return false
+    }
+
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const latest = await getAdminTestimonialsContent()
+      const contentToSave = normalizeForSave({
+        ...nextContent,
+        eyebrow: latest.eyebrow,
+        heading: latest.heading,
+      })
+      const saved = await saveAdminTestimonialsContent(contentToSave)
+      setForm((current) => ({
+        ...saved,
+        eyebrow: current.eyebrow,
+        heading: current.heading,
+      }))
+      toast.success(successMessage)
+      return true
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save testimonials.')
+      return false
     } finally {
       setSaving(false)
     }
@@ -253,7 +310,7 @@ export function AdminTestimonialsPage() {
   const activeCount = form.testimonials.filter((testimonial) => testimonial.isActive).length
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Testimonials</h1>
@@ -267,21 +324,10 @@ export function AdminTestimonialsPage() {
             <Plus className="mr-2 size-4" />
             Reviewer
           </Button>
-          <Button type="button" onClick={handleSave} disabled={disabled}>
-            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
         </div>
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -290,14 +336,21 @@ export function AdminTestimonialsPage() {
       )}
 
       <section className="rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center gap-3 border-b px-5 py-4">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
-            <Star className="size-4 text-primary" />
+        <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
+              <Star className="size-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">Testimonials Heading</h2>
+              <p className="text-xs text-muted-foreground">Landing page testimonials heading</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-semibold">Section Copy</h2>
-            <p className="text-xs text-muted-foreground">Landing page testimonials heading</p>
-          </div>
+
+          <Button type="button" onClick={saveHeadingContent} disabled={disabled} className="sm:shrink-0">
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2">
@@ -362,17 +415,12 @@ export function AdminTestimonialsPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button type="button" onClick={handleSave} disabled={disabled}>
-          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </div>
-
       {modal.open && (
         <TestimonialModal
           mode={modal.mode}
           testimonial={modal.testimonial}
+          disabled={disabled}
+          submitError={saveError}
           onClose={() => setModal({ open: false })}
           onSave={handleModalSave}
         />
@@ -497,11 +545,20 @@ function TestimonialEditor({
 interface TestimonialModalProps {
   mode: 'create' | 'edit'
   testimonial: AdminTestimonial
+  disabled: boolean
+  submitError: string | null
   onClose: () => void
-  onSave: (testimonial: AdminTestimonial) => void
+  onSave: (testimonial: AdminTestimonial) => void | Promise<void>
 }
 
-function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialModalProps) {
+function TestimonialModal({
+  mode,
+  testimonial,
+  disabled,
+  submitError,
+  onClose,
+  onSave,
+}: TestimonialModalProps) {
   const [draft, setDraft] = useState<AdminTestimonial>(testimonial)
   const [error, setError] = useState<string | null>(null)
   const isEdit = mode === 'edit'
@@ -524,7 +581,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
       return
     }
 
-    onSave(normalized)
+    void onSave(normalized)
   }
 
   return (
@@ -552,6 +609,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                   id="testimonial-modal-name"
                   value={draft.name}
                   onChange={(e) => updateDraft({ name: e.target.value })}
+                  disabled={disabled}
                   autoFocus
                 />
               </div>
@@ -565,6 +623,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                   value={draft.initials}
                   onChange={(e) => updateDraft({ initials: e.target.value })}
                   maxLength={3}
+                  disabled={disabled}
                 />
               </div>
 
@@ -579,6 +638,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                   max={5}
                   value={draft.rating}
                   onChange={(e) => updateDraft({ rating: Number(e.target.value) || 0 })}
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -592,6 +652,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                   id="testimonial-modal-title"
                   value={draft.title}
                   onChange={(e) => updateDraft({ title: e.target.value })}
+                  disabled={disabled}
                 />
               </div>
 
@@ -603,6 +664,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                   id="testimonial-modal-affiliation"
                   value={draft.affiliation}
                   onChange={(e) => updateDraft({ affiliation: e.target.value })}
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -616,6 +678,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                 value={draft.quote}
                 onChange={(e) => updateDraft({ quote: e.target.value })}
                 rows={5}
+                disabled={disabled}
                 className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
@@ -625,6 +688,7 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                 type="checkbox"
                 checked={draft.isActive}
                 onChange={(e) => updateDraft({ isActive: e.target.checked })}
+                disabled={disabled}
                 className="size-4 rounded border-input"
               />
               Active
@@ -635,13 +699,19 @@ function TestimonialModal({ mode, testimonial, onClose, onSave }: TestimonialMod
                 {error}
               </div>
             )}
+
+            {submitError && !error && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {submitError}
+              </div>
+            )}
           </div>
 
           <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={disabled}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={disabled}>
               {isEdit ? 'Update Reviewer' : 'Add Reviewer'}
             </Button>
           </div>

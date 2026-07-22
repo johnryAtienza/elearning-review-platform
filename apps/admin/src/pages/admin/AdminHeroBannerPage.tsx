@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Loader2, Save, Type } from 'lucide-react'
+import { Loader2, Save, Type } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -38,7 +38,6 @@ export function AdminHeroBannerPage() {
   const [saving,    setSaving]    = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success,   setSuccess]   = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -65,7 +64,6 @@ export function AdminHeroBannerPage() {
   function setField(field: HeroField, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
     setSaveError(null)
-    setSuccess(null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,18 +76,15 @@ export function AdminHeroBannerPage() {
 
     if (missing) {
       setSaveError(`${FIELD_LABELS[missing]} is required.`)
-      setSuccess(null)
       return
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
       const saved = await updateAdminHomeHero(payload)
       setForm(saved)
-      setSuccess('Hero banner saved.')
       toast.success('Hero banner saved.')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save hero banner.')
@@ -108,13 +103,6 @@ export function AdminHeroBannerPage() {
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

@@ -2459,6 +2459,21 @@ export async function saveAdminReviewClassesContent(
   return getAdminReviewClassesContent()
 }
 
+export async function updateAdminReviewClassesHeading(
+  content: Pick<AdminReviewClassesContent, 'eyebrow' | 'heading'>,
+): Promise<AdminReviewClassesContent> {
+  const sectionRows = reviewClassesContentToRows(content)
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(sectionRows, { onConflict: 'section,key' })
+
+  if (error) {
+    throw new ApiError(500, 'ADMIN_REVIEW_CLASSES_COPY_UPDATE_FAILED', error.message)
+  }
+
+  return getAdminReviewClassesContent()
+}
+
 // ── Homepage CMS: testimonials ───────────────────────────────────────────────
 
 export interface AdminTestimonial {
@@ -2579,6 +2594,21 @@ export async function saveAdminTestimonialsContent(
     'ADMIN_TESTIMONIALS_STALE_FETCH_FAILED',
     'ADMIN_TESTIMONIALS_DELETE_FAILED',
   )
+
+  return getAdminTestimonialsContent()
+}
+
+export async function updateAdminTestimonialsHeading(
+  content: Pick<AdminTestimonialsContent, 'eyebrow' | 'heading'>,
+): Promise<AdminTestimonialsContent> {
+  const sectionRows = testimonialsContentToRows(content)
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(sectionRows, { onConflict: 'section,key' })
+
+  if (error) {
+    throw new ApiError(500, 'ADMIN_TESTIMONIALS_COPY_UPDATE_FAILED', error.message)
+  }
 
   return getAdminTestimonialsContent()
 }

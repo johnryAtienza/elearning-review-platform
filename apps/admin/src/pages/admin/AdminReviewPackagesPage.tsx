@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
-  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
   Package,
+  Pencil,
   Plus,
   Save,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +21,7 @@ import { toast } from '@/lib/toast'
 import {
   getAdminReviewClassesContent,
   saveAdminReviewClassesContent,
+  updateAdminReviewClassesHeading,
   type AdminReviewClassesContent,
   type AdminReviewPackage,
   type AdminReviewPackageFeature,
@@ -31,6 +33,10 @@ const EMPTY_CONTENT: AdminReviewClassesContent = {
   heading: '',
   packages: [],
 }
+
+type PackageModalState =
+  | { open: false }
+  | { open: true; mode: 'create' | 'edit'; pkg: AdminReviewPackage }
 
 function newId(): string {
   return crypto.randomUUID()
@@ -114,11 +120,17 @@ function normalizeForSave(content: AdminReviewClassesContent): AdminReviewClasse
   }
 }
 
-function validate(content: AdminReviewClassesContent): string | null {
+function validateHeading(
+  content: Pick<AdminReviewClassesContent, 'eyebrow' | 'heading'>,
+): string | null {
   if (!content.eyebrow) return 'Section eyebrow is required.'
   if (!content.heading) return 'Section heading is required.'
 
-  for (const [packageIndex, pkg] of content.packages.entries()) {
+  return null
+}
+
+function validatePackages(packages: AdminReviewPackage[]): string | null {
+  for (const [packageIndex, pkg] of packages.entries()) {
     const label = pkg.title || `Package ${packageIndex + 1}`
     if (!pkg.title) return `${label} needs a title.`
     if (!Number.isInteger(pkg.onlineAccessMonths) || pkg.onlineAccessMonths < 1) {
@@ -138,13 +150,33 @@ function validate(content: AdminReviewClassesContent): string | null {
   return null
 }
 
+function applyPackageChange(
+  content: AdminReviewClassesContent,
+  pkg: AdminReviewPackage,
+  mode: 'create' | 'edit',
+): AdminReviewClassesContent {
+  if (mode === 'create') {
+    return {
+      ...content,
+      packages: [...content.packages, { ...pkg, sortOrder: content.packages.length }],
+    }
+  }
+
+  return {
+    ...content,
+    packages: content.packages.map((item) =>
+      item.id === pkg.id ? { ...pkg, sortOrder: item.sortOrder } : item,
+    ),
+  }
+}
+
 export function AdminReviewPackagesPage() {
   const [form, setForm] = useState<AdminReviewClassesContent>(EMPTY_CONTENT)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [modal, setModal] = useState<PackageModalState>({ open: false })
 
   useEffect(() => {
     let cancelled = false
@@ -171,70 +203,137 @@ export function AdminReviewPackagesPage() {
   function updateForm(updater: (current: AdminReviewClassesContent) => AdminReviewClassesContent) {
     setForm(updater)
     setSaveError(null)
-    setSuccess(null)
   }
 
-  function setPackage(packageId: string, nextPackage: AdminReviewPackage) {
-    updateForm((current) => ({
+  async function setPackage(packageId: string, nextPackage: AdminReviewPackage) {
+    await savePackagesContent((current) => ({
       ...current,
       packages: current.packages.map((pkg) => pkg.id === packageId ? nextPackage : pkg),
-    }))
+    }), 'Package updated.')
   }
 
   function addPackage() {
-    updateForm((current) => ({
-      ...current,
-      packages: [...current.packages, createPackage(current.packages.length)],
-    }))
+    setModal({
+      open: true,
+      mode: 'create',
+      pkg: createPackage(form.packages.length),
+    })
+    setSaveError(null)
   }
 
-  function removePackage(packageId: string) {
-    updateForm((current) => ({
+  function editPackage(pkg: AdminReviewPackage) {
+    setModal({ open: true, mode: 'edit', pkg })
+    setSaveError(null)
+  }
+
+  async function handleModalSave(pkg: AdminReviewPackage) {
+    if (!modal.open || saving) return
+
+    const message = modal.mode === 'create' ? 'Package added.' : 'Package updated.'
+    const saved = await savePackagesContent(
+      (current) => applyPackageChange(current, pkg, modal.mode),
+      message,
+    )
+
+    if (saved) {
+      setModal({ open: false })
+    }
+  }
+
+  async function removePackage(packageId: string) {
+    await savePackagesContent((current) => ({
       ...current,
       packages: current.packages.filter((pkg) => pkg.id !== packageId),
-    }))
+    }), 'Package deleted.')
   }
 
-  function movePackage(index: number, direction: -1 | 1) {
-    updateForm((current) => ({
+  async function movePackage(index: number, direction: -1 | 1) {
+    await savePackagesContent((current) => ({
       ...current,
       packages: moveItem(current.packages, index, direction),
-    }))
+    }), 'Package order updated.')
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (saving) return
+  async function saveHeadingContent(): Promise<boolean> {
+    if (saving) return false
 
-    const normalized = normalizeForSave(form)
-    const validationError = validate(normalized)
+    const normalized = {
+      eyebrow: form.eyebrow.trim(),
+      heading: form.heading.trim(),
+    }
+    const validationError = validateHeading(normalized)
     if (validationError) {
       setSaveError(validationError)
-      setSuccess(null)
-      return
+      return false
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
-      const saved = await saveAdminReviewClassesContent(normalized)
+      const saved = await updateAdminReviewClassesHeading(normalized)
       setForm(saved)
-      setSuccess('Review packages saved.')
-      toast.success('Review packages saved.')
+      toast.success('Review package heading saved.')
+      return true
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save review packages.')
+      setSaveError(err instanceof Error ? err.message : 'Failed to save review package heading.')
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  async function savePackagesContent(
+    updater: (current: AdminReviewClassesContent) => AdminReviewClassesContent,
+    successMessage: string,
+  ): Promise<boolean> {
+    if (saving) return false
+
+    const nextContent = updater(form)
+    const normalizedPackages = normalizeForSave(nextContent).packages
+    const validationError = validatePackages(normalizedPackages)
+    if (validationError) {
+      setSaveError(validationError)
+      return false
+    }
+
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const latest = await getAdminReviewClassesContent()
+      const contentToSave = normalizeForSave({
+        ...nextContent,
+        eyebrow: latest.eyebrow,
+        heading: latest.heading,
+      })
+      const saved = await saveAdminReviewClassesContent(contentToSave)
+      setForm((current) => ({
+        ...saved,
+        eyebrow: current.eyebrow,
+        heading: current.heading,
+      }))
+      toast.success(successMessage)
+      return true
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save review packages.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleHeadingSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    await saveHeadingContent()
   }
 
   const disabled = loading || saving
   const activeCount = form.packages.filter((pkg) => pkg.isActive).length
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      <form onSubmit={handleHeadingSubmit} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Reviewer Packages</h1>
@@ -248,21 +347,10 @@ export function AdminReviewPackagesPage() {
             <Plus className="mr-2 size-4" />
             Package
           </Button>
-          <Button type="submit" disabled={disabled}>
-            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
         </div>
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -271,14 +359,21 @@ export function AdminReviewPackagesPage() {
       )}
 
       <section className="rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center gap-3 border-b px-5 py-4">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
-            <Package className="size-4 text-primary" />
+        <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
+              <Package className="size-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">Review Package Heading</h2>
+              <p className="text-xs text-muted-foreground">Landing page heading</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-semibold">Section Copy</h2>
-            <p className="text-xs text-muted-foreground">Landing page heading</p>
-          </div>
+
+          <Button type="submit" disabled={disabled} className="sm:shrink-0">
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2">
@@ -333,6 +428,7 @@ export function AdminReviewPackagesPage() {
               packageIndex={index}
               packageCount={form.packages.length}
               disabled={disabled}
+              onEdit={() => editPackage(pkg)}
               onChange={(nextPackage) => setPackage(pkg.id, nextPackage)}
               onRemove={() => removePackage(pkg.id)}
               onMoveUp={() => movePackage(index, -1)}
@@ -342,13 +438,19 @@ export function AdminReviewPackagesPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={disabled}>
-          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </div>
-    </form>
+      </form>
+
+      {modal.open && (
+        <PackageModal
+          mode={modal.mode}
+          pkg={modal.pkg}
+          disabled={disabled}
+          error={saveError}
+          onClose={() => setModal({ open: false })}
+          onSave={handleModalSave}
+        />
+      )}
+    </>
   )
 }
 
@@ -357,6 +459,7 @@ interface PackageEditorProps {
   packageIndex: number
   packageCount: number
   disabled: boolean
+  onEdit: () => void
   onChange: (pkg: AdminReviewPackage) => void
   onRemove: () => void
   onMoveUp: () => void
@@ -368,12 +471,18 @@ function PackageEditor({
   packageIndex,
   packageCount,
   disabled,
+  onEdit,
   onChange,
   onRemove,
   onMoveUp,
   onMoveDown,
 }: PackageEditorProps) {
   const packageLabel = pkg.title.trim() || `Package ${packageIndex + 1}`
+  const description = pkg.description.trim()
+  const price = pkg.price?.trim()
+  const featureCount = pkg.features.filter((feature) => feature.featureText.trim().length > 0).length
+  const optionCount = pkg.options.length
+  const activeOptionCount = pkg.options.filter((option) => option.isActive).length
 
   return (
     <section className="rounded-xl border bg-card shadow-sm">
@@ -389,6 +498,12 @@ function PackageEditor({
         </div>
 
         <div className="flex items-center gap-1">
+          <IconButton
+            label="Edit package"
+            disabled={disabled}
+            onClick={onEdit}
+            icon={<Pencil className="size-4" />}
+          />
           <IconButton
             label="Move package up"
             disabled={disabled || packageIndex === 0}
@@ -417,81 +532,180 @@ function PackageEditor({
         </div>
       </div>
 
-      <div className="space-y-5 p-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_12rem_10rem]">
-          <div className="space-y-1.5">
-            <label htmlFor={`package-title-${pkg.id}`} className="text-sm font-medium">Title</label>
-            <Input
-              id={`package-title-${pkg.id}`}
-              value={pkg.title}
-              onChange={(e) => onChange({ ...pkg, title: e.target.value })}
-              disabled={disabled}
-            />
+      <button
+        type="button"
+        onClick={disabled ? undefined : onEdit}
+        disabled={disabled}
+        className="block w-full p-5 text-left transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <div className="grid gap-5 lg:grid-cols-[1fr_16rem]">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {pkg.badge && (
+                <Badge variant="secondary">{pkg.badge}</Badge>
+              )}
+              <Badge variant="outline">{pkg.onlineAccessMonths} month access</Badge>
+            </div>
+
+            <p className="line-clamp-2 text-sm text-muted-foreground">
+              {description || 'No description yet'}
+            </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor={`package-price-${pkg.id}`} className="text-sm font-medium">Price</label>
-            <Input
-              id={`package-price-${pkg.id}`}
-              value={pkg.price ?? ''}
-              onChange={(e) => onChange({ ...pkg, price: e.target.value })}
-              placeholder="Php x,xxx"
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor={`package-months-${pkg.id}`} className="text-sm font-medium">Access months</label>
-            <Input
-              id={`package-months-${pkg.id}`}
-              type="number"
-              min={1}
-              value={pkg.onlineAccessMonths}
-              onChange={(e) => onChange({ ...pkg, onlineAccessMonths: Number(e.target.value) || 0 })}
-              disabled={disabled}
-            />
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <PackageSummaryItem label="Price" value={price || (optionCount > 0 ? 'Uses options' : 'No price')} />
+            <PackageSummaryItem label="Features" value={`${featureCount} total`} />
+            <PackageSummaryItem label="Options" value={`${optionCount} total / ${activeOptionCount} active`} />
           </div>
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-          <div className="space-y-1.5">
-            <label htmlFor={`package-description-${pkg.id}`} className="text-sm font-medium">Description</label>
-            <textarea
-              id={`package-description-${pkg.id}`}
-              value={pkg.description}
-              onChange={(e) => onChange({ ...pkg, description: e.target.value })}
-              rows={3}
-              disabled={disabled}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor={`package-badge-${pkg.id}`} className="text-sm font-medium">Badge</label>
-            <Input
-              id={`package-badge-${pkg.id}`}
-              value={pkg.badge ?? ''}
-              onChange={(e) => onChange({ ...pkg, badge: e.target.value })}
-              placeholder="Most Complete"
-              disabled={disabled}
-            />
-          </div>
-        </div>
-
-        <FeatureList
-          title="Package Features"
-          features={pkg.features}
-          disabled={disabled}
-          onChange={(features) => onChange({ ...pkg, features })}
-        />
-
-        <OptionsList
-          options={pkg.options}
-          disabled={disabled}
-          onChange={(options) => onChange({ ...pkg, options })}
-        />
-      </div>
+      </button>
     </section>
+  )
+}
+
+interface PackageSummaryItemProps {
+  label: string
+  value: string
+}
+
+function PackageSummaryItem({ label, value }: PackageSummaryItemProps) {
+  return (
+    <div className="rounded-lg border bg-background/40 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium">{value}</p>
+    </div>
+  )
+}
+
+interface PackageModalProps {
+  mode: 'create' | 'edit'
+  pkg: AdminReviewPackage
+  disabled: boolean
+  error: string | null
+  onClose: () => void
+  onSave: (pkg: AdminReviewPackage) => void | Promise<void>
+}
+
+function PackageModal({ mode, pkg, disabled, error, onClose, onSave }: PackageModalProps) {
+  const [draft, setDraft] = useState<AdminReviewPackage>(pkg)
+  const isEdit = mode === 'edit'
+
+  function updateDraft(patch: Partial<AdminReviewPackage>) {
+    setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    void onSave(draft)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border bg-background shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
+          <h2 className="text-lg font-semibold">
+            {isEdit ? 'Update Package' : 'Add Package'}
+          </h2>
+          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={onClose}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            <div className="grid gap-4 lg:grid-cols-[1fr_12rem_10rem]">
+              <div className="space-y-1.5">
+                <label htmlFor={`package-title-${draft.id}`} className="text-sm font-medium">Title</label>
+                <Input
+                  id={`package-title-${draft.id}`}
+                  value={draft.title}
+                  onChange={(e) => updateDraft({ title: e.target.value })}
+                  disabled={disabled}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor={`package-price-${draft.id}`} className="text-sm font-medium">Price</label>
+                <Input
+                  id={`package-price-${draft.id}`}
+                  value={draft.price ?? ''}
+                  onChange={(e) => updateDraft({ price: e.target.value })}
+                  placeholder="Php x,xxx"
+                  disabled={disabled}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor={`package-months-${draft.id}`} className="text-sm font-medium">Access months</label>
+                <Input
+                  id={`package-months-${draft.id}`}
+                  type="number"
+                  min={1}
+                  value={draft.onlineAccessMonths}
+                  onChange={(e) => updateDraft({ onlineAccessMonths: Number(e.target.value) || 0 })}
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
+              <div className="space-y-1.5">
+                <label htmlFor={`package-description-${draft.id}`} className="text-sm font-medium">Description</label>
+                <textarea
+                  id={`package-description-${draft.id}`}
+                  value={draft.description}
+                  onChange={(e) => updateDraft({ description: e.target.value })}
+                  rows={3}
+                  disabled={disabled}
+                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor={`package-badge-${draft.id}`} className="text-sm font-medium">Badge</label>
+                <Input
+                  id={`package-badge-${draft.id}`}
+                  value={draft.badge ?? ''}
+                  onChange={(e) => updateDraft({ badge: e.target.value })}
+                  placeholder="Most Complete"
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+
+            <FeatureList
+              title="Package Features"
+              features={draft.features}
+              disabled={disabled}
+              onChange={(features) => updateDraft({ features })}
+            />
+
+            <OptionsList
+              options={draft.options}
+              disabled={disabled}
+              onChange={(options) => updateDraft({ options })}
+            />
+
+            {error && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={disabled}>
+              {isEdit ? 'Update package' : 'Add package'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
 

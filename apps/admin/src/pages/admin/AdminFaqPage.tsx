@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
-  CheckCircle2,
   CircleHelp,
   Eye,
   EyeOff,
@@ -234,7 +233,6 @@ export function AdminFaqPage() {
   const [pendingFocusFaqId, setPendingFocusFaqId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -280,7 +278,6 @@ export function AdminFaqPage() {
   function updateForm(updater: (current: AdminFaqPageContent) => AdminFaqPageContent) {
     setForm(updater)
     setSaveError(null)
-    setSuccess(null)
   }
 
   function setPageField(field: FaqPageField, value: string) {
@@ -456,18 +453,15 @@ export function AdminFaqPage() {
     const validationError = validate(normalized)
     if (validationError) {
       setSaveError(validationError)
-      setSuccess(null)
       return
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
       const saved = await saveAdminFaqPageContent(normalized)
       setForm(saved)
-      setSuccess('FAQ page saved.')
       toast.success('FAQ page saved.')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save FAQ page.')
@@ -500,13 +494,6 @@ export function AdminFaqPage() {
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { toast } from '@/lib/toast'
 import { AdminTableSearch, Tip, LoadError, matchesAdminSearch } from '../../features/admin/components/AdminTable'
 import {
   getCoursesWithCount,
@@ -51,20 +52,24 @@ export function AdminCoursesPage() {
   function openEdit(c: Course) { setEditing(c); setModalOpen(true) }
 
   function handleSaved(c: Course) {
+    const isEdit = editing !== null
     setCourses((prev) => {
       const exists = prev.find((row) => row.id === c.id)
       if (exists) return prev.map((row) => (row.id === c.id ? { ...row, ...c } : row))
       return [{ ...c, subjectCount: 0 }, ...prev]
     })
     setModalOpen(false)
+    toast.success(isEdit ? `"${c.name}" updated` : `"${c.name}" created`)
   }
 
   async function handleDelete(id: string) {
+    const course = courses.find((c) => c.id === id)
     setDeleteLoading(true)
     try {
       await deleteCourse(id)
       setCourses((prev) => prev.filter((c) => c.id !== id))
       setDeletingId(null)
+      toast.success(course ? `"${course.name}" deleted` : 'Course deleted')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete course.')
     } finally {

@@ -8,6 +8,7 @@ import {
   matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
+import { toast } from '@/lib/toast'
 import { getAdminOrders } from '@s-class/api/admin.service'
 import { formatPHP } from '@/utils/money'
 import type { BookOrder, OrderStatus } from '@/features/books/types'
@@ -63,6 +64,9 @@ export function AdminOrdersPage() {
   function handleUpdated(next: BookOrder) {
     setOrders((prev) => prev.map((o) => o.id === next.id ? next : o))
     setOpenOrder(next)
+    if (next.status !== openOrder?.status) {
+      toast.success(orderStatusSuccessMessage(next.status))
+    }
   }
 
   const counts = useMemo(() => {
@@ -186,4 +190,19 @@ function OrderRow({ order, onOpen }: { order: BookOrder; onOpen: () => void }) {
       </div>
     </div>
   )
+}
+
+function orderStatusSuccessMessage(status: OrderStatus): string {
+  switch (status) {
+    case 'paid':
+      return 'Order marked as paid.'
+    case 'shipped':
+      return 'Order marked as shipped.'
+    case 'delivered':
+      return 'Order marked as delivered.'
+    case 'cancelled':
+      return 'Order cancelled.'
+    default:
+      return 'Order updated.'
+  }
 }

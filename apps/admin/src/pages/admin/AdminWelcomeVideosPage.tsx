@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, ImageIcon, Loader2, PlayCircle, Save, Upload } from 'lucide-react'
+import { ImageIcon, Loader2, PlayCircle, Save, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -66,7 +66,6 @@ export function AdminWelcomeVideosPage() {
   const [saving,         setSaving]         = useState(false)
   const [loadError,      setLoadError]      = useState<string | null>(null)
   const [saveError,      setSaveError]      = useState<string | null>(null)
-  const [success,        setSuccess]        = useState<string | null>(null)
   const [thumbFile,      setThumbFile]      = useState<File | null>(null)
   const [thumbPreview,   setThumbPreview]   = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -107,7 +106,6 @@ export function AdminWelcomeVideosPage() {
 
   function clearFeedback() {
     setSaveError(null)
-    setSuccess(null)
   }
 
   function setTextField(field: WelcomeVideoTextField, value: string) {
@@ -126,7 +124,6 @@ export function AdminWelcomeVideosPage() {
 
     if (file.size > UPLOAD_LIMITS.IMAGE) {
       setSaveError('Thumbnail must be under 5 MB.')
-      setSuccess(null)
       return
     }
 
@@ -147,19 +144,16 @@ export function AdminWelcomeVideosPage() {
 
     if (!title) {
       setSaveError('Video title is required.')
-      setSuccess(null)
       return
     }
 
     if ((ctaLabel === '') !== (ctaHref === '')) {
       setSaveError('CTA needs both a label and a link, or neither.')
-      setSuccess(null)
       return
     }
 
     setSaving(true)
     setSaveError(null)
-    setSuccess(null)
 
     try {
       let saved: AdminWelcomeVideo
@@ -200,7 +194,6 @@ export function AdminWelcomeVideosPage() {
       setForm(toWelcomeVideoForm(saved))
       setThumbFile(null)
       setThumbPreview(saved.thumbnailUrl)
-      setSuccess('Welcome video saved.')
       toast.success('Welcome video saved.')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save welcome video.')
@@ -220,13 +213,6 @@ export function AdminWelcomeVideosPage() {
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

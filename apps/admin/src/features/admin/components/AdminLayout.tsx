@@ -17,6 +17,7 @@ import {
   Bell,
   PlayCircle,
   LogOut,
+  Type,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@s-class/auth/authStore'
@@ -47,6 +48,7 @@ const NAV_SECTIONS = [
     label: 'Members',
     items: [
       { to: ROUTES.ADMIN_USERS,          label: 'Users',          icon: Users,      end: false },
+      { to: ROUTES.ADMIN_HERO_BANNER,    label: 'Hero Banner',    icon: Type,       end: false },
       { to: ROUTES.ADMIN_ANNOUNCEMENTS,  label: 'Announcements',  icon: Bell,       end: false },
       { to: ROUTES.ADMIN_WELCOME_VIDEOS, label: 'Welcome Videos', icon: PlayCircle, end: false },
     ],
@@ -70,6 +72,7 @@ const ROUTE_LABELS: Record<string, string> = {
   [ROUTES.ADMIN_QUIZZES]:       'Problem Sets',
   [ROUTES.ADMIN_BOOKS]:            'Books',
   [ROUTES.ADMIN_ORDERS]:           'Orders',
+  [ROUTES.ADMIN_HERO_BANNER]:      'Hero Banner',
   [ROUTES.ADMIN_ANNOUNCEMENTS]:    'Announcements',
   [ROUTES.ADMIN_WELCOME_VIDEOS]:   'Welcome Videos',
   [ROUTES.ADMIN_USERS]:            'Users',

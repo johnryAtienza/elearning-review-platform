@@ -29,3 +29,11 @@ export interface WelcomeVideo {
   ctaHref: string | null
   displayOrder: number
 }
+
+export interface HomeHeroContent {
+  eyebrow: string
+  title: string
+  description: string
+  primaryButton: string
+  secondaryButton: string
+}

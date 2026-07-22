@@ -5,6 +5,7 @@
  */
 
 import type { Announcement, WelcomeVideo } from '@s-class/types/home'
+export { DEFAULT_HOME_HERO } from '../homeHeroContent'
 
 export const MOCK_ANNOUNCEMENTS: Announcement[] = [
   {

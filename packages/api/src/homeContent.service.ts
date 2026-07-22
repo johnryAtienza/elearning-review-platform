@@ -11,7 +11,13 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
-import type { Announcement, WelcomeVideo } from '@s-class/types/home'
+import {
+  HOME_HERO_DB_KEYS,
+  HOME_HERO_SECTION,
+  mergeHomeHeroRows,
+  type SiteContentHeroRow,
+} from './homeHeroContent'
+import type { Announcement, HomeHeroContent, WelcomeVideo } from '@s-class/types/home'
 
 // ── Raw DB row shapes ────────────────────────────────────────────────────────
 
@@ -78,6 +84,17 @@ export async function getPublicAnnouncements(): Promise<Announcement[]> {
 
   if (error) throw new ApiError(500, 'ANNOUNCEMENTS_FETCH_FAILED', error.message)
   return (data as AnnouncementRow[]).map(toAnnouncement)
+}
+
+export async function getPublicHomeHero(): Promise<HomeHeroContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', HOME_HERO_SECTION)
+    .in('key', Array.from(HOME_HERO_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'HOME_HERO_FETCH_FAILED', error.message)
+  return mergeHomeHeroRows(data as SiteContentHeroRow[])
 }
 
 /** Returns at most one welcome video — the top-of-order row. */

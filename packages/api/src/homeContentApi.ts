@@ -9,10 +9,19 @@
 
 import config from '@s-class/config'
 import * as homeContent from './homeContent.service'
+import { DEFAULT_HOME_HERO } from './homeHeroContent'
 import { MOCK_ANNOUNCEMENTS, MOCK_WELCOME_VIDEO } from './data/homeMock'
-import type { Announcement, WelcomeVideo } from '@s-class/types/home'
+import type { Announcement, HomeHeroContent, WelcomeVideo } from '@s-class/types/home'
+
+export { DEFAULT_HOME_HERO } from './homeHeroContent'
 
 export const homeContentApi = {
+  async getHomeHero(): Promise<HomeHeroContent> {
+    if (config.api.useMock)                  return DEFAULT_HOME_HERO
+    if (config.auth.provider === 'supabase') return homeContent.getPublicHomeHero()
+    return DEFAULT_HOME_HERO
+  },
+
   async getAnnouncements(): Promise<Announcement[]> {
     if (config.api.useMock)                  return MOCK_ANNOUNCEMENTS
     if (config.auth.provider === 'supabase') return homeContent.getPublicAnnouncements()

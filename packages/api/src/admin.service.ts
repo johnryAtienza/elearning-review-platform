@@ -16,7 +16,15 @@ import {
 } from './bookCoverUrl'
 import { normalizeBookTitle } from './bookContent'
 import { normalizePublicAssetDisplayUrl } from './publicAssetUrl'
+import {
+  HOME_HERO_DB_KEYS,
+  HOME_HERO_SECTION,
+  homeHeroContentToRows,
+  mergeHomeHeroRows,
+  type SiteContentHeroRow,
+} from './homeHeroContent'
 import type { BookOrder, OrderStatus, ShippingAddress } from '@s-class/types/books'
+import type { HomeHeroContent } from '@s-class/types/home'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1613,6 +1621,30 @@ export async function cancelOrderAndRestock(order: BookOrder): Promise<void> {
     p_qty:     order.qty,
   })
   if (error) throw new ApiError(500, 'ADMIN_ORDER_RESTOCK_FAILED', error.message)
+}
+
+// ── Homepage CMS: hero banner ────────────────────────────────────────────────
+
+export async function getAdminHomeHero(): Promise<HomeHeroContent> {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value')
+    .eq('section', HOME_HERO_SECTION)
+    .in('key', Array.from(HOME_HERO_DB_KEYS))
+
+  if (error) throw new ApiError(500, 'ADMIN_HOME_HERO_FAILED', error.message)
+  return mergeHomeHeroRows(data as SiteContentHeroRow[])
+}
+
+export async function updateAdminHomeHero(content: HomeHeroContent): Promise<HomeHeroContent> {
+  const rows = homeHeroContentToRows(content)
+
+  const { error } = await supabase
+    .from('site_content')
+    .upsert(rows, { onConflict: 'section,key' })
+
+  if (error) throw new ApiError(500, 'ADMIN_HOME_HERO_UPDATE_FAILED', error.message)
+  return mergeHomeHeroRows(rows)
 }
 
 // ── Homepage CMS: announcements ───────────────────────────────────────────────

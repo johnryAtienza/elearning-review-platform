@@ -36,10 +36,12 @@
 | See risks and clean-up backlog | [technical-debt.md](technical-debt.md) · [recommendations.md](recommendations.md) |
 | Prime an AI assistant | [ai-context.md](ai-context.md) |
 | See module/route/dependency maps | [system-map.md](system-map.md) |
+| Use the admin panel day to day | [s-class-admin-panel-user-manual.md](s-class-admin-panel-user-manual.md) |
 
 ## Full index
 
 ### Core
+- [s-class-admin-panel-user-manual.md](s-class-admin-panel-user-manual.md) — admin staff user manual
 - [overview.md](overview.md) — purpose, goals, users, architecture, status
 - [tech-stack.md](tech-stack.md) — every technology, why, where, how
 - [repository-structure.md](repository-structure.md) — folder map + ownership

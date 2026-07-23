@@ -316,51 +316,56 @@ export function AdminFaqPage() {
     updateForm((current) => ({ ...current, [field]: value }))
   }
 
-  function removeCategory(categoryId: string) {
-    updateForm((current) => {
-      const remainingCategories = renumberCategories(
-        current.categories.filter((category) => category.id !== categoryId),
-      )
-      const affectedFaqs = current.faqs.filter((faq) => faq.categoryId === categoryId)
+  function getContentAfterRemoveCategory(
+    current: AdminFaqPageContent,
+    categoryId: string,
+  ): AdminFaqPageContent {
+    const remainingCategories = renumberCategories(
+      current.categories.filter((category) => category.id !== categoryId),
+    )
+    const affectedFaqs = current.faqs.filter((faq) => faq.categoryId === categoryId)
 
-      if (affectedFaqs.length === 0) {
-        return {
-          ...current,
-          categories: remainingCategories,
-        }
+    if (affectedFaqs.length === 0) {
+      return {
+        ...current,
+        categories: remainingCategories,
       }
+    }
 
-      const fallbackCategories = remainingCategories.length > 0
-        ? remainingCategories
-        : [createCategory(0, 'Uncategorized')]
-      const fallbackCategory = fallbackCategories[0]
-      if (!fallbackCategory) {
-        return {
-          ...current,
-          categories: fallbackCategories,
-        }
-      }
-
+    const fallbackCategories = remainingCategories.length > 0
+      ? remainingCategories
+      : [createCategory(0, 'Uncategorized')]
+    const fallbackCategory = fallbackCategories[0]
+    if (!fallbackCategory) {
       return {
         ...current,
         categories: fallbackCategories,
-        faqs: renumberFaqsByCategory(
-          current.faqs.map((faq) =>
-            faq.categoryId === categoryId
-              ? { ...faq, categoryId: fallbackCategory.id, category: fallbackCategory.name }
-              : faq,
-          ),
-          fallbackCategories,
-        ),
       }
-    })
+    }
+
+    return {
+      ...current,
+      categories: fallbackCategories,
+      faqs: renumberFaqsByCategory(
+        current.faqs.map((faq) =>
+          faq.categoryId === categoryId
+            ? { ...faq, categoryId: fallbackCategory.id, category: fallbackCategory.name }
+            : faq,
+        ),
+        fallbackCategories,
+      ),
+    }
   }
 
-  function moveCategory(index: number, direction: -1 | 1) {
-    updateForm((current) => ({
+  function getContentAfterMoveCategory(
+    current: AdminFaqPageContent,
+    index: number,
+    direction: -1 | 1,
+  ): AdminFaqPageContent {
+    return {
       ...current,
       categories: renumberCategories(moveItem(sortCategories(current.categories), index, direction)),
-    }))
+    }
   }
 
   function createCategoryDraft(): AdminFaqCategory {
@@ -485,10 +490,6 @@ export function AdminFaqPage() {
     }
   }
 
-  async function handleSaveCategories() {
-    await saveFaqsOnly(form, 'FAQ categories saved.')
-  }
-
   async function handleSaveCategory(nextCategory: AdminFaqCategory, mode: CategoryModalState['mode']) {
     const categoryName = nextCategory.name.trim()
     const categoryWithName = { ...nextCategory, name: categoryName }
@@ -506,6 +507,14 @@ export function AdminFaqPage() {
     const saved = await saveFaqsOnly(nextForm, mode === 'create' ? 'FAQ category added.' : 'FAQ category updated.')
 
     if (saved) setCategoryModal(null)
+  }
+
+  async function handleRemoveCategory(categoryId: string) {
+    await saveFaqsOnly(getContentAfterRemoveCategory(form, categoryId), 'FAQ category deleted.')
+  }
+
+  async function handleMoveCategory(index: number, direction: -1 | 1) {
+    await saveFaqsOnly(getContentAfterMoveCategory(form, index, direction), 'FAQ category order saved.')
   }
 
   async function handleSaveFaqItem(nextFaq: AdminFaq, mode: FaqModalState['mode']) {
@@ -603,12 +612,7 @@ export function AdminFaqPage() {
           </div>
 
           <div className="flex items-center pb-4 sm:pb-0">
-            {activeTab === 'content' ? (
-              <Button type="button" onClick={() => openAddFaq()} disabled={disabled}>
-                <Plus className="mr-2 size-4" />
-                Add FAQ Item
-              </Button>
-            ) : (
+            {activeTab === 'categories' && (
               <Button type="button" onClick={openAddCategory} disabled={disabled}>
                 <Plus className="mr-2 size-4" />
                 Add Category
@@ -619,17 +623,13 @@ export function AdminFaqPage() {
 
         {activeTab === 'categories' ? (
           <div className="space-y-4 p-4 sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <div>
                 <h2 className="text-sm font-semibold">FAQ Categories</h2>
                 <p className="text-xs text-muted-foreground mt-1">
                   {loading ? 'Loading...' : `${form.categories.length} total / ${activeCategoryCount} active`}
                 </p>
               </div>
-              <Button type="button" onClick={handleSaveCategories} disabled={disabled}>
-                {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-                {saving ? 'Saving...' : 'Save Categories'}
-              </Button>
             </div>
 
             {loading ? (
@@ -650,8 +650,8 @@ export function AdminFaqPage() {
                     faqCount={form.faqs.filter((faq) => faq.categoryId === category.id).length}
                     onEdit={() => openEditCategory(category)}
                     onChange={(nextCategory) => void handleSaveCategory(nextCategory, 'edit')}
-                    onMove={(direction) => moveCategory(index, direction)}
-                    onRemove={() => removeCategory(category.id)}
+                    onMove={(direction) => void handleMoveCategory(index, direction)}
+                    onRemove={() => void handleRemoveCategory(category.id)}
                   />
                 ))}
               </div>

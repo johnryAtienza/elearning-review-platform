@@ -1031,12 +1031,14 @@ function CategoryEditor({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
             disabled={disabled}
             onClick={onEdit}
+            aria-label="Update category"
+            title="Update"
           >
-            <Pencil className="mr-2 size-4" />
-            Update
+            <Pencil className="size-4" />
           </Button>
           <Button
             type="button"
@@ -1195,12 +1197,14 @@ function FaqItemEditor({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
             disabled={disabled}
             onClick={onEdit}
+            aria-label="Update FAQ"
+            title="Update"
           >
-            <Pencil className="mr-2 size-4" />
-            Update
+            <Pencil className="size-4" />
           </Button>
           <Button
             type="button"

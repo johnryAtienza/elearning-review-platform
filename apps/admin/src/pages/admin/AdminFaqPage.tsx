@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LoadError } from '../../features/admin/components/AdminTable'
+import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
 import { toast } from '@/lib/toast'
 import { cn } from '@/utils/cn'
 import { DEFAULT_FAQ_CATEGORIES, DEFAULT_FAQ_PAGE } from '@s-class/api/faqApi'
@@ -40,6 +40,9 @@ type CategoryModalState = {
   mode: 'create' | 'edit'
   category: AdminFaqCategory
 }
+type FaqDeleteTarget =
+  | { kind: 'category'; id: string; label: string; faqCount: number }
+  | { kind: 'faq'; id: string; label: string }
 
 const PAGE_TABS = [
   { id: 'content',    label: 'FAQ Content',    icon: List },
@@ -264,6 +267,7 @@ export function AdminFaqPage() {
   const [pendingFocusFaqId, setPendingFocusFaqId] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<FaqDeleteTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -510,7 +514,8 @@ export function AdminFaqPage() {
   }
 
   async function handleRemoveCategory(categoryId: string) {
-    await saveFaqsOnly(getContentAfterRemoveCategory(form, categoryId), 'FAQ category deleted.')
+    const saved = await saveFaqsOnly(getContentAfterRemoveCategory(form, categoryId), 'FAQ category deleted.')
+    if (saved) setDeleteTarget(null)
   }
 
   async function handleMoveCategory(index: number, direction: -1 | 1) {
@@ -542,7 +547,8 @@ export function AdminFaqPage() {
       ...form,
       faqs: form.faqs.filter((faq) => faq.id !== faqId),
     }
-    await saveFaqsOnly(nextForm, 'FAQ item deleted.')
+    const saved = await saveFaqsOnly(nextForm, 'FAQ item deleted.')
+    if (saved) setDeleteTarget(null)
   }
 
   async function handleChangeFaq(nextFaq: AdminFaq) {
@@ -651,7 +657,12 @@ export function AdminFaqPage() {
                     onEdit={() => openEditCategory(category)}
                     onChange={(nextCategory) => void handleSaveCategory(nextCategory, 'edit')}
                     onMove={(direction) => void handleMoveCategory(index, direction)}
-                    onRemove={() => void handleRemoveCategory(category.id)}
+                    onRemove={() => setDeleteTarget({
+                      kind: 'category',
+                      id: category.id,
+                      label: category.name.trim() || `Category ${index + 1}`,
+                      faqCount: form.faqs.filter((faq) => faq.categoryId === category.id).length,
+                    })}
                   />
                 ))}
               </div>
@@ -762,7 +773,11 @@ export function AdminFaqPage() {
                       onEditFaq={openEditFaq}
                       onChangeFaq={(nextFaq) => void handleChangeFaq(nextFaq)}
                       onMoveFaq={(faqId, direction) => void handleMoveFaq(group.category?.id ?? null, faqId, direction)}
-                      onRemoveFaq={(faqId) => void handleRemoveFaq(faqId)}
+                      onRemoveFaq={(faq) => setDeleteTarget({
+                        kind: 'faq',
+                        id: faq.id,
+                        label: faq.question.trim() || 'Untitled FAQ item',
+                      })}
                     />
                   ))}
                 </div>
@@ -790,6 +805,36 @@ export function AdminFaqPage() {
         disabled={disabled}
         onClose={() => setFaqModal(null)}
         onSave={(nextFaq) => void handleSaveFaqItem(nextFaq, faqModal.mode)}
+      />
+    )}
+    {deleteTarget && (
+      <DestructiveConfirmModal
+        title={deleteTarget.kind === 'category' ? 'Delete FAQ category?' : 'Delete FAQ item?'}
+        description={
+          deleteTarget.kind === 'category' ? (
+            <>
+              Delete category <strong>{deleteTarget.label}</strong>?
+              {deleteTarget.faqCount > 0
+                ? ` ${deleteTarget.faqCount} FAQ ${deleteTarget.faqCount === 1 ? 'item will' : 'items will'} be moved to another category.`
+                : ' No FAQ items are assigned to this category.'}
+            </>
+          ) : (
+            <>
+              Delete FAQ item <strong>{deleteTarget.label}</strong>? This removes it from the public
+              FAQ page.
+            </>
+          )
+        }
+        confirmLabel="Confirm Delete"
+        isWorking={saving}
+        onConfirm={() => {
+          if (deleteTarget.kind === 'category') {
+            void handleRemoveCategory(deleteTarget.id)
+          } else {
+            void handleRemoveFaq(deleteTarget.id)
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
       />
     )}
     </>
@@ -1083,7 +1128,7 @@ function FaqGroupEditor({
   onEditFaq: (faq: AdminFaq) => void
   onChangeFaq: (faq: AdminFaq) => void
   onMoveFaq: (faqId: string, direction: -1 | 1) => void
-  onRemoveFaq: (faqId: string) => void
+  onRemoveFaq: (faq: AdminFaq) => void
 }) {
   const heading = group.category?.name ?? 'Uncategorized'
   const activeFaqCount = group.faqs.filter((faq) => faq.isActive).length
@@ -1122,7 +1167,7 @@ function FaqGroupEditor({
               onEdit={() => onEditFaq(faq)}
               onChange={(nextFaq) => onChangeFaq(nextFaq)}
               onMove={(direction) => onMoveFaq(faq.id, direction)}
-              onRemove={() => onRemoveFaq(faq.id)}
+              onRemove={() => onRemoveFaq(faq)}
             />
           ))
         )}

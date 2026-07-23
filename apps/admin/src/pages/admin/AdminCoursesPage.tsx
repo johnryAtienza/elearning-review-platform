@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/lib/toast'
-import { AdminTableSearch, Tip, LoadError, matchesAdminSearch } from '../../features/admin/components/AdminTable'
+import { AdminTableSearch, DestructiveConfirmModal, Tip, LoadError, matchesAdminSearch } from '../../features/admin/components/AdminTable'
 import {
   getCoursesWithCount,
   createCourse,
@@ -297,6 +297,7 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
   const [slugEdited,  setSlugEdited]  = useState(isEdit)
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
 
   const nameRef = useRef<HTMLInputElement>(null)
   useEffect(() => { nameRef.current?.focus() }, [])
@@ -315,10 +316,14 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
     return null
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function saveCourse(archiveConfirmed = false) {
     const validationError = validate()
     if (validationError) { setError(validationError); return }
+
+    if (isEdit && course.status !== 'archived' && status === 'archived' && !archiveConfirmed) {
+      setConfirmArchive(true)
+      return
+    }
 
     setSaving(true)
     setError(null)
@@ -345,6 +350,11 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    void saveCourse()
   }
 
   return (
@@ -452,6 +462,24 @@ function CourseModal({ course, existingNames, existingSlugs, onClose, onSaved }:
           </div>
         </form>
       </div>
+      {confirmArchive && (
+        <DestructiveConfirmModal
+          title="Archive course?"
+          description={
+            <>
+              Archive course <strong>{name.trim() || course?.name}</strong>? This hides it from public
+              navigation while retaining it for records.
+            </>
+          }
+          confirmLabel="Confirm Archive"
+          isWorking={saving}
+          onConfirm={() => {
+            setConfirmArchive(false)
+            void saveCourse(true)
+          }}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      )}
     </div>
   )
 }

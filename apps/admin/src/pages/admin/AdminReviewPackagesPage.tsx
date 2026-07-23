@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LoadError } from '../../features/admin/components/AdminTable'
+import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
 import { toast } from '@/lib/toast'
 import {
   getAdminReviewClassesContent,
@@ -37,6 +37,11 @@ const EMPTY_CONTENT: AdminReviewClassesContent = {
 type PackageModalState =
   | { open: false }
   | { open: true; mode: 'create' | 'edit'; pkg: AdminReviewPackage }
+
+type PackageDeleteTarget = {
+  id: string
+  label: string
+}
 
 function newId(): string {
   return crypto.randomUUID()
@@ -177,6 +182,7 @@ export function AdminReviewPackagesPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [modal, setModal] = useState<PackageModalState>({ open: false })
+  const [deleteTarget, setDeleteTarget] = useState<PackageDeleteTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -241,10 +247,12 @@ export function AdminReviewPackagesPage() {
   }
 
   async function removePackage(packageId: string) {
-    await savePackagesContent((current) => ({
+    const saved = await savePackagesContent((current) => ({
       ...current,
       packages: current.packages.filter((pkg) => pkg.id !== packageId),
     }), 'Package deleted.')
+
+    if (saved) setDeleteTarget(null)
   }
 
   async function movePackage(index: number, direction: -1 | 1) {
@@ -430,7 +438,10 @@ export function AdminReviewPackagesPage() {
               disabled={disabled}
               onEdit={() => editPackage(pkg)}
               onChange={(nextPackage) => setPackage(pkg.id, nextPackage)}
-              onRemove={() => removePackage(pkg.id)}
+              onRemove={() => setDeleteTarget({
+                id: pkg.id,
+                label: pkg.title.trim() || `Package ${index + 1}`,
+              })}
               onMoveUp={() => movePackage(index, -1)}
               onMoveDown={() => movePackage(index, 1)}
             />
@@ -448,6 +459,21 @@ export function AdminReviewPackagesPage() {
           error={saveError}
           onClose={() => setModal({ open: false })}
           onSave={handleModalSave}
+        />
+      )}
+      {deleteTarget && (
+        <DestructiveConfirmModal
+          title="Delete package?"
+          description={
+            <>
+              Delete review package <strong>{deleteTarget.label}</strong>? This removes the package,
+              its options, and its features from the public Review Classes page.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          isWorking={saving}
+          onConfirm={() => removePackage(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </>
@@ -588,6 +614,11 @@ interface PackageModalProps {
 
 function PackageModal({ mode, pkg, disabled, error, onClose, onSave }: PackageModalProps) {
   const [draft, setDraft] = useState<AdminReviewPackage>(pkg)
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: 'option'; id: string; label: string }
+    | { kind: 'package-feature' | 'option-feature'; id: string; label: string; optionId?: string }
+    | null
+  >(null)
   const isEdit = mode === 'edit'
 
   function updateDraft(patch: Partial<AdminReviewPackage>) {
@@ -680,12 +711,28 @@ function PackageModal({ mode, pkg, disabled, error, onClose, onSave }: PackageMo
               features={draft.features}
               disabled={disabled}
               onChange={(features) => updateDraft({ features })}
+              onRequestRemove={(feature, index) => setDeleteTarget({
+                kind: 'package-feature',
+                id: feature.id,
+                label: feature.featureText.trim() || `Package feature ${index + 1}`,
+              })}
             />
 
             <OptionsList
               options={draft.options}
               disabled={disabled}
               onChange={(options) => updateDraft({ options })}
+              onRequestRemoveOption={(option, index) => setDeleteTarget({
+                kind: 'option',
+                id: option.id,
+                label: option.title.trim() || `Option ${index + 1}`,
+              })}
+              onRequestRemoveFeature={(option, feature, featureIndex) => setDeleteTarget({
+                kind: 'option-feature',
+                id: feature.id,
+                optionId: option.id,
+                label: feature.featureText.trim() || `${option.title.trim() || 'Option'} feature ${featureIndex + 1}`,
+              })}
             />
 
             {error && (
@@ -705,6 +752,47 @@ function PackageModal({ mode, pkg, disabled, error, onClose, onSave }: PackageMo
           </div>
         </form>
       </div>
+
+      {deleteTarget && (
+        <DestructiveConfirmModal
+          title={
+            deleteTarget.kind === 'option'
+              ? 'Delete option?'
+              : 'Delete feature?'
+          }
+          description={
+            deleteTarget.kind === 'option' ? (
+              <>
+                Remove option <strong>{deleteTarget.label}</strong> from this package draft? Save the
+                package to apply the change.
+              </>
+            ) : (
+              <>
+                Remove feature <strong>{deleteTarget.label}</strong> from this package draft? Save the
+                package to apply the change.
+              </>
+            )
+          }
+          confirmLabel={deleteTarget.kind === 'option' ? 'Confirm Delete' : 'Confirm Remove'}
+          onConfirm={() => {
+            if (deleteTarget.kind === 'option') {
+              updateDraft({ options: draft.options.filter((option) => option.id !== deleteTarget.id) })
+            } else if (deleteTarget.kind === 'package-feature') {
+              updateDraft({ features: draft.features.filter((feature) => feature.id !== deleteTarget.id) })
+            } else {
+              updateDraft({
+                options: draft.options.map((option) =>
+                  option.id === deleteTarget.optionId
+                    ? { ...option, features: option.features.filter((feature) => feature.id !== deleteTarget.id) }
+                    : option,
+                ),
+              })
+            }
+            setDeleteTarget(null)
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }
@@ -713,9 +801,21 @@ interface OptionsListProps {
   options: AdminReviewPackageOption[]
   disabled: boolean
   onChange: (options: AdminReviewPackageOption[]) => void
+  onRequestRemoveOption: (option: AdminReviewPackageOption, index: number) => void
+  onRequestRemoveFeature: (
+    option: AdminReviewPackageOption,
+    feature: AdminReviewPackageFeature,
+    featureIndex: number,
+  ) => void
 }
 
-function OptionsList({ options, disabled, onChange }: OptionsListProps) {
+function OptionsList({
+  options,
+  disabled,
+  onChange,
+  onRequestRemoveOption,
+  onRequestRemoveFeature,
+}: OptionsListProps) {
   function setOption(optionId: string, nextOption: AdminReviewPackageOption) {
     onChange(options.map((option) => option.id === optionId ? nextOption : option))
   }
@@ -774,7 +874,7 @@ function OptionsList({ options, disabled, onChange }: OptionsListProps) {
                   <IconButton
                     label="Delete option"
                     disabled={disabled}
-                    onClick={() => onChange(options.filter((item) => item.id !== option.id))}
+                    onClick={() => onRequestRemoveOption(option, optionIndex)}
                     icon={<Trash2 className="size-4" />}
                     danger
                   />
@@ -810,6 +910,7 @@ function OptionsList({ options, disabled, onChange }: OptionsListProps) {
                   features={option.features}
                   disabled={disabled}
                   onChange={(features) => setOption(option.id, { ...option, features })}
+                  onRequestRemove={(feature, featureIndex) => onRequestRemoveFeature(option, feature, featureIndex)}
                 />
               </div>
             </div>
@@ -825,9 +926,10 @@ interface FeatureListProps {
   features: AdminReviewPackageFeature[]
   disabled: boolean
   onChange: (features: AdminReviewPackageFeature[]) => void
+  onRequestRemove: (feature: AdminReviewPackageFeature, index: number) => void
 }
 
-function FeatureList({ title, features, disabled, onChange }: FeatureListProps) {
+function FeatureList({ title, features, disabled, onChange, onRequestRemove }: FeatureListProps) {
   function setFeature(featureId: string, featureText: string) {
     onChange(features.map((feature) =>
       feature.id === featureId ? { ...feature, featureText } : feature,
@@ -878,7 +980,7 @@ function FeatureList({ title, features, disabled, onChange }: FeatureListProps) 
               <IconButton
                 label="Delete feature"
                 disabled={disabled}
-                onClick={() => onChange(features.filter((item) => item.id !== feature.id))}
+                onClick={() => onRequestRemove(feature, featureIndex)}
                 icon={<Trash2 className="size-4" />}
                 danger
               />

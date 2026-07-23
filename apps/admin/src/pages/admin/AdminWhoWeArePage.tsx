@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LoadError } from '../../features/admin/components/AdminTable'
+import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
 import {
   getAdminWhoWeArePage,
   saveAdminWhoWeArePage,
@@ -37,6 +37,11 @@ const EMPTY_CONTENT: AdminWhoWeArePageContent = {
     createdAt: null,
     updatedAt: null,
   })),
+}
+
+type SectionDeleteTarget = {
+  id: string
+  label: string
 }
 
 function createSection(sortOrder: number): AdminWhoWeAreSection {
@@ -97,6 +102,7 @@ export function AdminWhoWeArePage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [success,   setSuccess]   = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SectionDeleteTarget | null>(null)
   const hasLoadedContentRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const latestFormRef = useRef(form)
@@ -201,6 +207,7 @@ export function AdminWhoWeArePage() {
       ...current,
       sections: current.sections.filter((section) => section.id !== sectionId),
     }))
+    setDeleteTarget(null)
   }
 
   function moveSection(index: number, direction: -1 | 1) {
@@ -348,7 +355,10 @@ export function AdminWhoWeArePage() {
               disabled={disabled}
               onChange={(nextSection) => setSection(section.id, nextSection)}
               onEdit={() => setEditingSection(section)}
-              onRemove={() => removeSection(section.id)}
+              onRemove={() => setDeleteTarget({
+                id: section.id,
+                label: section.title.trim() || `Section ${index + 1}`,
+              })}
               onMoveUp={() => moveSection(index, -1)}
               onMoveDown={() => moveSection(index, 1)}
             />
@@ -372,6 +382,21 @@ export function AdminWhoWeArePage() {
           disabled={disabled}
           onClose={() => setEditingSection(null)}
           onSubmit={(title, body) => updateSectionContent(editingSection.id, title, body)}
+        />
+      )}
+      {deleteTarget && (
+        <DestructiveConfirmModal
+          title="Delete section?"
+          description={
+            <>
+              Delete Who We Are section <strong>{deleteTarget.label}</strong>? This change will be
+              auto-saved after confirmation.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          isWorking={saving}
+          onConfirm={() => removeSection(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

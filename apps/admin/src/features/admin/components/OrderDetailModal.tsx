@@ -3,6 +3,7 @@ import { X, Loader2, Truck, CheckCircle2, XCircle, PackageCheck } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { DestructiveConfirmModal } from './AdminTable'
 import {
   updateOrderStatus,
   cancelOrderAndRestock,
@@ -21,6 +22,7 @@ export function OrderDetailModal({ order, onClose, onUpdated }: OrderDetailModal
   const [trackingNo, setTrackingNo] = useState<string>(order.trackingNo ?? '')
   const [working, setWorking] = useState<OrderStatus | 'cancel' | null>(null)
   const [error, setError]     = useState<string | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   async function handleAdvance(next: OrderStatus) {
     setWorking(next)
@@ -45,6 +47,7 @@ export function OrderDetailModal({ order, onClose, onUpdated }: OrderDetailModal
   }
 
   async function handleCancel() {
+    setConfirmCancel(false)
     setWorking('cancel')
     setError(null)
     try {
@@ -171,7 +174,7 @@ export function OrderDetailModal({ order, onClose, onUpdated }: OrderDetailModal
             )}
             <Button
               variant="outline"
-              onClick={handleCancel}
+              onClick={() => setConfirmCancel(true)}
               disabled={!!working}
               className="text-destructive hover:text-destructive"
             >
@@ -181,6 +184,23 @@ export function OrderDetailModal({ order, onClose, onUpdated }: OrderDetailModal
           </div>
         )}
       </div>
+
+      {confirmCancel && (
+        <DestructiveConfirmModal
+          title="Cancel order?"
+          description={
+            <>
+              Cancel order <span className="font-mono">{order.id.slice(0, 8)}...</span>
+              {order.bookTitle ? <> for <strong>{order.bookTitle}</strong></> : null}
+              ? This will mark the order as cancelled and restock the book quantity.
+            </>
+          }
+          confirmLabel="Confirm Cancel"
+          isWorking={working === 'cancel'}
+          onConfirm={handleCancel}
+          onCancel={() => setConfirmCancel(false)}
+        />
+      )}
     </div>
   )
 }

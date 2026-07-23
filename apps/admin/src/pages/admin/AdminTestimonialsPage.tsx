@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LoadError } from '../../features/admin/components/AdminTable'
+import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
 import { toast } from '@/lib/toast'
 import {
   getAdminTestimonialsContent,
@@ -35,6 +35,11 @@ const EMPTY_CONTENT: AdminTestimonialsContent = {
 type TestimonialModalState =
   | { open: false }
   | { open: true; mode: 'create' | 'edit'; testimonial: AdminTestimonial }
+
+type TestimonialDeleteTarget = {
+  id: string
+  label: string
+}
 
 function newId(): string {
   return crypto.randomUUID()
@@ -158,6 +163,7 @@ export function AdminTestimonialsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [modal, setModal] = useState<TestimonialModalState>({ open: false })
+  const [deleteTarget, setDeleteTarget] = useState<TestimonialDeleteTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -224,10 +230,12 @@ export function AdminTestimonialsPage() {
   }
 
   async function removeTestimonial(testimonialId: string) {
-    await saveTestimonialsContent((current) => ({
+    const saved = await saveTestimonialsContent((current) => ({
       ...current,
       testimonials: current.testimonials.filter((testimonial) => testimonial.id !== testimonialId),
     }), 'Reviewer deleted.')
+
+    if (saved) setDeleteTarget(null)
   }
 
   async function moveTestimonial(index: number, direction: -1 | 1) {
@@ -407,7 +415,10 @@ export function AdminTestimonialsPage() {
               disabled={disabled}
               onEdit={() => editTestimonial(testimonial)}
               onToggleActive={() => setTestimonial(testimonial.id, { ...testimonial, isActive: !testimonial.isActive })}
-              onRemove={() => removeTestimonial(testimonial.id)}
+              onRemove={() => setDeleteTarget({
+                id: testimonial.id,
+                label: testimonial.name.trim() || `Testimonial ${index + 1}`,
+              })}
               onMoveUp={() => moveTestimonial(index, -1)}
               onMoveDown={() => moveTestimonial(index, 1)}
             />
@@ -423,6 +434,21 @@ export function AdminTestimonialsPage() {
           submitError={saveError}
           onClose={() => setModal({ open: false })}
           onSave={handleModalSave}
+        />
+      )}
+      {deleteTarget && (
+        <DestructiveConfirmModal
+          title="Delete testimonial?"
+          description={
+            <>
+              Delete testimonial from <strong>{deleteTarget.label}</strong>? This removes it from the
+              public testimonials section.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          isWorking={saving}
+          onConfirm={() => removeTestimonial(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

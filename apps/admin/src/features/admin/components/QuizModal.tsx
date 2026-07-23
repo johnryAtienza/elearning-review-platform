@@ -10,6 +10,7 @@ import { storagePaths } from '@s-class/api/storagePaths'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
 import { MathText } from '@/components/MathText'
+import { DestructiveConfirmModal } from './AdminTable'
 import {
   getAdminLessons,
   createAdminQuiz,
@@ -594,6 +595,12 @@ function QuestionEditor({
 }: QuestionEditorProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const prevShowPreview = useRef(false)
+  const [removeTarget, setRemoveTarget] = useState<
+    | { kind: 'question'; label: string }
+    | { kind: 'option'; key: string; label: string }
+    | { kind: 'question-image' | 'answer-image'; label: string }
+    | null
+  >(null)
 
   // Scroll into view when preview opens
   useEffect(() => {
@@ -624,6 +631,7 @@ function QuestionEditor({
   }
 
   return (
+    <>
     <div className="rounded-xl border bg-card">
       {/* Question header */}
       <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5 rounded-t-xl">
@@ -655,7 +663,13 @@ function QuestionEditor({
             <ChevronDown className="size-3.5" />
           </Button>
           {total > 1 && (
-            <Button variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive hover:bg-destructive/10" disabled={disabled} onClick={onRemove}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={disabled}
+              onClick={() => setRemoveTarget({ kind: 'question', label: `Question ${index + 1}` })}
+            >
               <Trash2 className="size-3.5" />
             </Button>
           )}
@@ -700,7 +714,7 @@ function QuestionEditor({
                   questionPreview: file ? URL.createObjectURL(file) : null,
                 })
               }}
-              onRemove={() => onChange({ questionFile: null, questionPreview: null })}
+              onRemove={() => setRemoveTarget({ kind: 'question-image', label: `Question ${index + 1} image` })}
             />
           )}
         </div>
@@ -738,7 +752,11 @@ function QuestionEditor({
                 canRemove={question.options.length > 2}
                 onSelect={() => onChange({ correctAnswer: oi })}
                 onChange={(patch) => updateOption(opt.key, patch)}
-                onRemove={() => removeOption(opt.key)}
+                onRemove={() => setRemoveTarget({
+                  kind: 'option',
+                  key: opt.key,
+                  label: opt.text.trim() || `Option ${OPTION_LABELS[oi]}`,
+                })}
               />
             ))}
           </div>
@@ -796,7 +814,7 @@ function QuestionEditor({
                 answerFile:    file,
                 answerPreview: file ? URL.createObjectURL(file) : null,
               })}
-              onRemove={() => onChange({ answerFile: null, answerPreview: null })}
+              onRemove={() => setRemoveTarget({ kind: 'answer-image', label: `Question ${index + 1} answer image` })}
             />
           )}
         </div>
@@ -853,6 +871,49 @@ function QuestionEditor({
         )}
       </div>
     </div>
+    {removeTarget && (
+      <DestructiveConfirmModal
+        title={
+          removeTarget.kind === 'question'
+            ? 'Delete question?'
+            : removeTarget.kind === 'option'
+              ? 'Remove option?'
+              : 'Remove image?'
+        }
+        description={
+          removeTarget.kind === 'question' ? (
+            <>
+              Delete <strong>{removeTarget.label}</strong> from this problem set? Save changes to apply the
+              database delete.
+            </>
+          ) : removeTarget.kind === 'option' ? (
+            <>
+              Remove <strong>{removeTarget.label}</strong> from this question? Save changes to apply the
+              update.
+            </>
+          ) : (
+            <>
+              Remove <strong>{removeTarget.label}</strong>? Save changes to apply the update.
+            </>
+          )
+        }
+        confirmLabel={removeTarget.kind === 'question' ? 'Confirm Delete' : 'Confirm Remove'}
+        onConfirm={() => {
+          if (removeTarget.kind === 'question') {
+            onRemove()
+          } else if (removeTarget.kind === 'option') {
+            removeOption(removeTarget.key)
+          } else if (removeTarget.kind === 'question-image') {
+            onChange({ questionFile: null, questionPreview: null })
+          } else {
+            onChange({ answerFile: null, answerPreview: null })
+          }
+          setRemoveTarget(null)
+        }}
+        onCancel={() => setRemoveTarget(null)}
+      />
+    )}
+    </>
   )
 }
 
@@ -876,7 +937,10 @@ function OptionRow({
   option, index, isCorrect, useImage, disabled, canRemove,
   onSelect, onChange, onRemove,
 }: OptionRowProps) {
+  const [confirmRemoveImage, setConfirmRemoveImage] = useState(false)
+
   return (
+    <>
     <div
       className={cn(
         'rounded-lg border transition-colors cursor-pointer',
@@ -917,7 +981,7 @@ function OptionRow({
               disabled={disabled}
               compact
               onFile={(file) => onChange({ file, preview: file ? URL.createObjectURL(file) : null })}
-              onRemove={() => onChange({ file: null, preview: null })}
+              onRemove={() => setConfirmRemoveImage(true)}
             />
           )}
         </div>
@@ -935,6 +999,24 @@ function OptionRow({
         )}
       </div>
     </div>
+    {confirmRemoveImage && (
+      <DestructiveConfirmModal
+        title="Remove option image?"
+        description={
+          <>
+            Remove the image from <strong>Option {OPTION_LABELS[index]}</strong>? Save changes to apply
+            the update.
+          </>
+        }
+        confirmLabel="Confirm Remove"
+        onConfirm={() => {
+          onChange({ file: null, preview: null })
+          setConfirmRemoveImage(false)
+        }}
+        onCancel={() => setConfirmRemoveImage(false)}
+      />
+    )}
+    </>
   )
 }
 

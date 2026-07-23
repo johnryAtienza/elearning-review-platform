@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LoadError } from '../../features/admin/components/AdminTable'
+import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
 import { toast } from '@/lib/toast'
 import {
   getAdminContactPage,
@@ -35,6 +35,11 @@ type BusinessHoursKey = keyof AdminContactPageContent['businessHours']
 type ContactChannelModalState =
   | { mode: 'add'; channel: AdminContactChannel }
   | { mode: 'edit'; channel: AdminContactChannel }
+
+type ContactChannelDeleteTarget = {
+  id: string
+  label: string
+}
 
 const BUSINESS_HOURS_LABELS: Record<BusinessHoursKey, string> = {
   weekdays: 'Monday-Friday hours',
@@ -141,6 +146,7 @@ export function AdminContactPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [channelModal, setChannelModal] = useState<ContactChannelModalState | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ContactChannelDeleteTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -231,6 +237,7 @@ export function AdminContactPage() {
       ...current,
       channels: current.channels.filter((channel) => channel.id !== channelId),
     }))
+    setDeleteTarget(null)
   }
 
   function moveChannel(index: number, direction: -1 | 1) {
@@ -382,7 +389,10 @@ export function AdminContactPage() {
                 disabled={disabled}
                 onChange={(nextChannel) => setChannel(channel.id, nextChannel)}
                 onEdit={() => openEditChannelModal(channel)}
-                onRemove={() => removeChannel(channel.id)}
+                onRemove={() => setDeleteTarget({
+                  id: channel.id,
+                  label: channel.label.trim() || `Contact card ${index + 1}`,
+                })}
                 onMoveUp={() => moveChannel(index, -1)}
                 onMoveDown={() => moveChannel(index, 1)}
               />
@@ -455,6 +465,20 @@ export function AdminContactPage() {
           disabled={disabled}
           onClose={() => setChannelModal(null)}
           onSubmit={saveChannelFromModal}
+        />
+      )}
+      {deleteTarget && (
+        <DestructiveConfirmModal
+          title="Delete contact card?"
+          description={
+            <>
+              Remove contact card <strong>{deleteTarget.label}</strong> from this page draft? Save the
+              page to apply the change.
+            </>
+          }
+          confirmLabel="Confirm Delete"
+          onConfirm={() => removeChannel(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

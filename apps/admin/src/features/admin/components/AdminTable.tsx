@@ -162,6 +162,66 @@ export function DeleteConfirmRow({ message, onConfirm, onCancel }: DeleteConfirm
   )
 }
 
+// ── DestructiveConfirmModal ───────────────────────────────────────────────────
+
+interface DestructiveConfirmModalProps {
+  title: string
+  description: React.ReactNode
+  confirmLabel?: string
+  cancelLabel?: string
+  isWorking?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+export function DestructiveConfirmModal({
+  title,
+  description,
+  confirmLabel = 'Confirm Delete',
+  cancelLabel = 'Cancel',
+  isWorking = false,
+  onConfirm,
+  onCancel,
+}: DestructiveConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={isWorking ? undefined : onCancel} />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="destructive-confirm-title"
+        className="relative w-full max-w-md rounded-xl border bg-background shadow-xl"
+      >
+        <div className="border-b px-6 py-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="size-4 text-destructive" />
+            </span>
+            <div>
+              <h2 id="destructive-confirm-title" className="text-lg font-semibold">
+                {title}
+              </h2>
+              <div className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 px-6 py-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isWorking}>
+            {cancelLabel}
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isWorking}>
+            {isWorking ? 'Working...' : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── filterTabClass ────────────────────────────────────────────────────────────
 
 export function filterTabClass(active: boolean): string {

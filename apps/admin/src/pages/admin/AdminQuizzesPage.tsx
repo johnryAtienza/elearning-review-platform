@@ -12,6 +12,7 @@ import { cn } from '@/utils/cn'
 import { QuizModal } from '../../features/admin/components/QuizModal'
 import {
   AdminTableHeader, AdminTableSearch, EmptyState, DeleteConfirmRow, ADMIN_ROW_BASE, Tip, LoadError,
+  DestructiveConfirmModal,
   matchesAdminSearch,
   type ColConfig,
 } from '../../features/admin/components/AdminTable'
@@ -946,6 +947,7 @@ function ScoringTemplateModal({ template, templates, onClose, onSaved }: Scoring
   )
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState<string | null>(null)
+  const [deleteBandTarget, setDeleteBandTarget] = useState<DraftScoringBand | null>(null)
 
   useEffect(() => {
     getAdminLessons()
@@ -975,6 +977,7 @@ function ScoringTemplateModal({ template, templates, onClose, onSaved }: Scoring
 
   function removeBand(key: string) {
     setBands((prev) => prev.filter((band) => band.key !== key))
+    setDeleteBandTarget(null)
   }
 
   function validate(): { maxScore: number; bands: ParsedScoringBand[] } | { error: string } {
@@ -1199,7 +1202,7 @@ function ScoringTemplateModal({ template, templates, onClose, onSaved }: Scoring
                           size="icon"
                           className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           disabled={saving || bands.length === 1}
-                          onClick={() => removeBand(band.key)}
+                          onClick={() => setDeleteBandTarget(band)}
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -1224,6 +1227,22 @@ function ScoringTemplateModal({ template, templates, onClose, onSaved }: Scoring
           </Button>
         </div>
       </form>
+      {deleteBandTarget && (
+        <DestructiveConfirmModal
+          title="Remove grade band?"
+          description={
+            <>
+              Remove grade band{' '}
+              <strong>{deleteBandTarget.classLabel.trim() || `${deleteBandTarget.minScore}-${deleteBandTarget.maxScore}`}</strong>
+              ? Save the scoring template to apply the change.
+            </>
+          }
+          confirmLabel="Confirm Remove"
+          isWorking={saving}
+          onConfirm={() => removeBand(deleteBandTarget.key)}
+          onCancel={() => setDeleteBandTarget(null)}
+        />
+      )}
     </div>
   )
 }

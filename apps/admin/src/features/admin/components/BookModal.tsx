@@ -13,6 +13,7 @@ import { normalizeBookTitle } from '@s-class/api/bookContent'
 import { BookCover } from '@/features/books/components/BookCover'
 import { UPLOAD_LIMITS } from '@/constants/upload'
 import { cn } from '@/utils/cn'
+import { DestructiveConfirmModal } from './AdminTable'
 
 interface BookModalProps {
   /** null = create mode, non-null = edit mode */
@@ -39,6 +40,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
   const [saving,        setSaving]        = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]         = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -54,8 +56,7 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
     setError(null)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function saveBook(archiveConfirmed = false) {
     if (saving) return
 
     const normalizedTitle = normalizeBookTitle(title)
@@ -70,6 +71,11 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
 
     if (!Number.isInteger(stock) || stock < 0) {
       setError('Stock must be a non-negative integer.')
+      return
+    }
+
+    if (isEdit && book.status !== 'archived' && status === 'archived' && !archiveConfirmed) {
+      setConfirmArchive(true)
       return
     }
 
@@ -131,6 +137,11 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
       setSaving(false)
       setUploadProgress(0)
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    void saveBook()
   }
 
   return (
@@ -337,6 +348,24 @@ export function BookModal({ book, onClose, onSaved }: BookModalProps) {
           </div>
         </form>
       </div>
+      {confirmArchive && (
+        <DestructiveConfirmModal
+          title="Archive book?"
+          description={
+            <>
+              Archive <strong>{normalizeBookTitle(title) || book?.title}</strong>? This hides the book from
+              customers while retaining it for existing orders.
+            </>
+          }
+          confirmLabel="Confirm Archive"
+          isWorking={saving}
+          onConfirm={() => {
+            setConfirmArchive(false)
+            void saveBook(true)
+          }}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      )}
     </div>
   )
 }

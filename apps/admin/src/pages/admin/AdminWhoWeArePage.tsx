@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import {
   ArrowDown,
   ArrowUp,
-  CheckCircle2,
   Eye,
   EyeOff,
   FileText,
@@ -19,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DestructiveConfirmModal, LoadError } from '../../features/admin/components/AdminTable'
+import { toast } from '@/lib/toast'
 import {
   getAdminWhoWeArePage,
   saveAdminWhoWeArePage,
@@ -95,19 +95,24 @@ function validate(content: AdminWhoWeArePageContent): string | null {
 
 export function AdminWhoWeArePage() {
   const [form,      setForm]      = useState<AdminWhoWeArePageContent>(EMPTY_CONTENT)
+  const [headerDraft, setHeaderDraft] = useState({
+    eyebrow: EMPTY_CONTENT.eyebrow,
+    title: EMPTY_CONTENT.title,
+  })
   const [loading,   setLoading]   = useState(true)
   const [saving,    setSaving]    = useState(false)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<AdminWhoWeAreSection | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [success,   setSuccess]   = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SectionDeleteTarget | null>(null)
   const hasLoadedContentRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const latestFormRef = useRef(form)
   const savingRef = useRef(false)
   const pendingSaveRef = useRef(false)
+  const pendingSuccessToastRef = useRef<string | null>(null)
+  const skipNextAutoSaveRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -118,8 +123,11 @@ export function AdminWhoWeArePage() {
       .then((content) => {
         if (!cancelled) {
           setForm(content)
+          setHeaderDraft({
+            eyebrow: content.eyebrow,
+            title: content.title,
+          })
           setSaveError(null)
-          setSuccess(null)
           setLoading(false)
         }
       })
@@ -145,6 +153,11 @@ export function AdminWhoWeArePage() {
       return
     }
 
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false
+      return
+    }
+
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current)
     }
@@ -163,7 +176,11 @@ export function AdminWhoWeArePage() {
   function updateForm(updater: (current: AdminWhoWeArePageContent) => AdminWhoWeArePageContent) {
     setForm(updater)
     setSaveError(null)
-    setSuccess(null)
+  }
+
+  function setHeaderField(field: 'eyebrow' | 'title', value: string) {
+    setHeaderDraft((current) => ({ ...current, [field]: value }))
+    setSaveError(null)
   }
 
   function setSection(sectionId: string, nextSection: AdminWhoWeAreSection) {
@@ -173,11 +190,21 @@ export function AdminWhoWeArePage() {
     }))
   }
 
+  function toggleSectionActive(section: AdminWhoWeAreSection, fallbackLabel: string) {
+    const nextIsActive = !section.isActive
+    const sectionLabel = section.title.trim() || fallbackLabel
+    pendingSuccessToastRef.current = nextIsActive
+      ? `${sectionLabel} activated.`
+      : `${sectionLabel} deactivated.`
+    setSection(section.id, { ...section, isActive: nextIsActive })
+  }
+
   function openAddSectionModal() {
     setAddModalOpen(true)
   }
 
   function addSection(title: string, body: string) {
+    pendingSuccessToastRef.current = 'Section added.'
     updateForm((current) => ({
       ...current,
       sections: [
@@ -193,6 +220,7 @@ export function AdminWhoWeArePage() {
   }
 
   function updateSectionContent(sectionId: string, title: string, body: string) {
+    pendingSuccessToastRef.current = 'Section updated.'
     updateForm((current) => ({
       ...current,
       sections: current.sections.map((section) =>
@@ -203,6 +231,8 @@ export function AdminWhoWeArePage() {
   }
 
   function removeSection(sectionId: string) {
+    const sectionLabel = deleteTarget?.label ?? 'Section'
+    pendingSuccessToastRef.current = `${sectionLabel} deleted.`
     updateForm((current) => ({
       ...current,
       sections: current.sections.filter((section) => section.id !== sectionId),
@@ -211,10 +241,60 @@ export function AdminWhoWeArePage() {
   }
 
   function moveSection(index: number, direction: -1 | 1) {
+    const section = form.sections[index]
+    const sectionLabel = section?.title.trim() || `Section ${index + 1}`
+    pendingSuccessToastRef.current = direction === -1
+      ? `${sectionLabel} moved up.`
+      : `${sectionLabel} moved down.`
     updateForm((current) => ({
       ...current,
       sections: moveItem(current.sections, index, direction),
     }))
+  }
+
+  async function savePageHeader() {
+    if (savingRef.current) return
+
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    pendingSaveRef.current = false
+    pendingSuccessToastRef.current = null
+
+    const nextContent = normalizeForSave({
+      ...latestFormRef.current,
+      eyebrow: headerDraft.eyebrow,
+      title: headerDraft.title,
+    })
+    const validationError = validate(nextContent)
+
+    if (validationError) {
+      setSaveError(validationError)
+      return
+    }
+
+    savingRef.current = true
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const saved = await saveAdminWhoWeArePage(nextContent)
+      skipNextAutoSaveRef.current = true
+      latestFormRef.current = saved
+      setForm(saved)
+      setHeaderDraft({
+        eyebrow: saved.eyebrow,
+        title: saved.title,
+      })
+      toast.success('Page header saved.')
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save Who We Are page.')
+      pendingSuccessToastRef.current = null
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }
 
   async function saveLatestContent() {
@@ -235,7 +315,7 @@ export function AdminWhoWeArePage() {
 
         if (validationError) {
           setSaveError(validationError)
-          setSuccess(null)
+          pendingSuccessToastRef.current = null
           return
         }
 
@@ -243,17 +323,18 @@ export function AdminWhoWeArePage() {
       } while (pendingSaveRef.current)
 
       setSaveError(null)
-      setSuccess('Changes saved.')
+      toast.success(pendingSuccessToastRef.current ?? 'Changes saved.')
+      pendingSuccessToastRef.current = null
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save Who We Are page.')
-      setSuccess(null)
+      pendingSuccessToastRef.current = null
     } finally {
       savingRef.current = false
       setSaving(false)
     }
   }
 
-  const disabled = loading
+  const disabled = loading || saving
   const activeCount = form.sections.filter((section) => section.isActive).length
 
   return (
@@ -271,23 +352,10 @@ export function AdminWhoWeArePage() {
             <Plus className="mr-2 size-4" />
             Add Section
           </Button>
-          {saving && (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Saving changes...
-            </span>
-          )}
         </div>
       </div>
 
       <LoadError message={loadError} />
-
-      {success && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          {success}
-        </div>
-      )}
 
       {saveError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -306,28 +374,40 @@ export function AdminWhoWeArePage() {
           </div>
         </div>
 
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
+        <div className="space-y-5 p-5">
           {loading ? (
-            <>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
-            </>
+            </div>
           ) : (
             <>
-              <TextField
-                id="who-we-are-page-eyebrow"
-                label="Page eyebrow"
-                value={form.eyebrow}
-                onChange={(value) => updateForm((current) => ({ ...current, eyebrow: value }))}
-                disabled={disabled}
-              />
-              <TextField
-                id="who-we-are-page-title"
-                label="Page title"
-                value={form.title}
-                onChange={(value) => updateForm((current) => ({ ...current, title: value }))}
-                disabled={disabled}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  id="who-we-are-page-eyebrow"
+                  label="Page eyebrow"
+                  value={headerDraft.eyebrow}
+                  onChange={(value) => setHeaderField('eyebrow', value)}
+                  disabled={disabled}
+                />
+                <TextField
+                  id="who-we-are-page-title"
+                  label="Page title"
+                  value={headerDraft.title}
+                  onChange={(value) => setHeaderField('title', value)}
+                  disabled={disabled}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={savePageHeader} disabled={disabled}>
+                  {saving ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 size-4" />
+                  )}
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
             </>
           )}
         </div>
@@ -339,7 +419,7 @@ export function AdminWhoWeArePage() {
         <div className="rounded-xl border py-16 text-center">
           <FileText className="mx-auto size-10 text-muted-foreground/60" />
           <p className="mt-3 text-sm font-medium">No sections</p>
-          <Button type="button" size="sm" className="mt-4" onClick={openAddSectionModal}>
+          <Button type="button" size="sm" className="mt-4" onClick={openAddSectionModal} disabled={disabled}>
             <Plus className="mr-2 size-4" />
             Add Section
           </Button>
@@ -353,7 +433,7 @@ export function AdminWhoWeArePage() {
               sectionIndex={index}
               sectionCount={form.sections.length}
               disabled={disabled}
-              onChange={(nextSection) => setSection(section.id, nextSection)}
+              onToggleActive={() => toggleSectionActive(section, `Section ${index + 1}`)}
               onEdit={() => setEditingSection(section)}
               onRemove={() => setDeleteTarget({
                 id: section.id,
@@ -525,7 +605,7 @@ function SectionEditor({
   sectionIndex,
   sectionCount,
   disabled,
-  onChange,
+  onToggleActive,
   onEdit,
   onRemove,
   onMoveUp,
@@ -535,7 +615,7 @@ function SectionEditor({
   sectionIndex: number
   sectionCount: number
   disabled: boolean
-  onChange: (section: AdminWhoWeAreSection) => void
+  onToggleActive: () => void
   onEdit: () => void
   onRemove: () => void
   onMoveUp: () => void
@@ -578,7 +658,7 @@ function SectionEditor({
           <IconButton
             label={section.isActive ? 'Deactivate section' : 'Activate section'}
             disabled={disabled}
-            onClick={() => onChange({ ...section, isActive: !section.isActive })}
+            onClick={onToggleActive}
             icon={section.isActive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           />
           <IconButton

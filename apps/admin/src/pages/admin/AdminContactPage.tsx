@@ -182,18 +182,6 @@ export function AdminContactPage() {
     updateForm((current) => ({ ...current, [field]: value }))
   }
 
-  function setChannel(
-    channelId: string,
-    nextChannel: AdminContactChannel,
-  ) {
-    updateForm((current) => ({
-      ...current,
-      channels: current.channels.map((channel) =>
-        channel.id === channelId ? nextChannel : channel,
-      ),
-    }))
-  }
-
   function openAddChannelModal() {
     setChannelModal({ mode: 'add', channel: createChannel(form.channels.length) })
   }
@@ -202,7 +190,37 @@ export function AdminContactPage() {
     setChannelModal({ mode: 'edit', channel: { ...channel } })
   }
 
-  function saveChannelFromModal(nextChannel: AdminContactChannel) {
+  async function saveContactPageContent(
+    nextContent: AdminContactPageContent,
+    successMessage: string,
+  ): Promise<boolean> {
+    if (saving) return false
+
+    const payload = normalizeContactPageContent(nextContent)
+    const missing = findMissingField(payload)
+
+    if (missing) {
+      setSaveError(missing)
+      return false
+    }
+
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const saved = await updateAdminContactPage(payload)
+      setForm(saved)
+      toast.success(successMessage)
+      return true
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save contact page.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveChannelFromModal(nextChannel: AdminContactChannel) {
     const normalizedChannel = {
       ...nextChannel,
       label: nextChannel.label.trim(),
@@ -211,40 +229,77 @@ export function AdminContactPage() {
       href: nextChannel.href.trim(),
     }
 
-    updateForm((current) => {
-      if (channelModal?.mode === 'edit') {
-        return {
-          ...current,
-          channels: current.channels.map((channel) =>
+    const nextContent = channelModal?.mode === 'edit'
+      ? {
+          ...form,
+          channels: form.channels.map((channel) =>
             channel.id === normalizedChannel.id ? normalizedChannel : channel,
           ),
         }
-      }
+      : {
+          ...form,
+          channels: [
+            ...form.channels,
+            { ...normalizedChannel, sortOrder: form.channels.length },
+          ],
+        }
 
-      return {
-        ...current,
-        channels: [
-          ...current.channels,
-          { ...normalizedChannel, sortOrder: current.channels.length },
-        ],
-      }
-    })
-    setChannelModal(null)
+    const saved = await saveContactPageContent(
+      nextContent,
+      channelModal?.mode === 'edit'
+        ? `${normalizedChannel.label} updated.`
+        : `${normalizedChannel.label} added.`,
+    )
+
+    if (saved) setChannelModal(null)
   }
 
-  function removeChannel(channelId: string) {
-    updateForm((current) => ({
-      ...current,
-      channels: current.channels.filter((channel) => channel.id !== channelId),
-    }))
-    setDeleteTarget(null)
+  async function removeChannel(channelId: string) {
+    const channelLabel = deleteTarget?.label ?? 'Contact card'
+    const saved = await saveContactPageContent(
+      {
+        ...form,
+        channels: form.channels.filter((channel) => channel.id !== channelId),
+      },
+      `${channelLabel} deleted.`,
+    )
+
+    if (saved) setDeleteTarget(null)
   }
 
-  function moveChannel(index: number, direction: -1 | 1) {
-    updateForm((current) => ({
-      ...current,
-      channels: moveItem(current.channels, index, direction),
-    }))
+  async function moveChannel(index: number, direction: -1 | 1) {
+    const channel = form.channels[index]
+    if (!channel) return
+
+    const nextChannels = moveItem(form.channels, index, direction)
+    if (nextChannels === form.channels) return
+
+    const channelLabel = channel.label.trim() || `Contact card ${index + 1}`
+    await saveContactPageContent(
+      {
+        ...form,
+        channels: nextChannels,
+      },
+      direction === -1
+        ? `${channelLabel} moved up.`
+        : `${channelLabel} moved down.`,
+    )
+  }
+
+  async function toggleChannelActive(channel: AdminContactChannel, fallbackLabel: string) {
+    const nextIsActive = !channel.isActive
+    const channelLabel = channel.label.trim() || fallbackLabel
+    await saveContactPageContent(
+      {
+        ...form,
+        channels: form.channels.map((item) =>
+          item.id === channel.id ? { ...item, isActive: nextIsActive } : item,
+        ),
+      },
+      nextIsActive
+        ? `${channelLabel} activated.`
+        : `${channelLabel} deactivated.`,
+    )
   }
 
   function setBusinessHoursField(field: BusinessHoursKey, value: string) {
@@ -261,26 +316,7 @@ export function AdminContactPage() {
     e.preventDefault()
     if (saving) return
 
-    const payload = normalizeContactPageContent(form)
-    const missing = findMissingField(payload)
-
-    if (missing) {
-      setSaveError(missing)
-      return
-    }
-
-    setSaving(true)
-    setSaveError(null)
-
-    try {
-      const saved = await updateAdminContactPage(payload)
-      setForm(saved)
-      toast.success('Contact page saved.')
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save contact page.')
-    } finally {
-      setSaving(false)
-    }
+    await saveContactPageContent(form, 'Contact page saved.')
   }
 
   const disabled = loading || saving
@@ -296,10 +332,6 @@ export function AdminContactPage() {
           </p>
         </div>
 
-        <Button type="button" variant="outline" onClick={openAddChannelModal} disabled={disabled}>
-          <Plus className="mr-2 size-4" />
-          Add Contact Card
-        </Button>
       </div>
 
       <LoadError message={loadError} />
@@ -356,50 +388,6 @@ export function AdminContactPage() {
           </div>
         </section>
 
-        <section className="space-y-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold">Contact Cards</h2>
-              <p className="text-xs text-muted-foreground">Active cards show on the public Contact page</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={openAddChannelModal} disabled={disabled}>
-              <Plus className="mr-2 size-4" />
-              Add Contact Card
-            </Button>
-          </div>
-
-          {loading ? (
-            <ChannelsSkeleton />
-          ) : form.channels.length === 0 ? (
-            <div className="rounded-xl border py-14 text-center">
-              <MessageCircle className="mx-auto size-10 text-muted-foreground/60" />
-              <p className="mt-3 text-sm font-medium">No contact cards</p>
-              <Button type="button" size="sm" className="mt-4" onClick={openAddChannelModal}>
-                <Plus className="mr-2 size-4" />
-                Add Contact Card
-              </Button>
-            </div>
-          ) : (
-            form.channels.map((channel, index) => (
-              <ChannelEditor
-                key={channel.id}
-                channel={channel}
-                channelIndex={index}
-                channelCount={form.channels.length}
-                disabled={disabled}
-                onChange={(nextChannel) => setChannel(channel.id, nextChannel)}
-                onEdit={() => openEditChannelModal(channel)}
-                onRemove={() => setDeleteTarget({
-                  id: channel.id,
-                  label: channel.label.trim() || `Contact card ${index + 1}`,
-                })}
-                onMoveUp={() => moveChannel(index, -1)}
-                onMoveDown={() => moveChannel(index, 1)}
-              />
-            ))
-          )}
-        </section>
-
         <section className="rounded-xl border bg-card shadow-sm">
           <div className="flex items-center gap-3 border-b px-5 py-4">
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
@@ -407,7 +395,7 @@ export function AdminContactPage() {
             </div>
             <div>
               <h2 className="text-sm font-semibold">Business Hours</h2>
-              <p className="text-xs text-muted-foreground">Shown below the contact cards</p>
+              <p className="text-xs text-muted-foreground">Business hours shown on the public Contact page</p>
             </div>
           </div>
 
@@ -456,6 +444,50 @@ export function AdminContactPage() {
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </div>
+
+        <section className="space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Contact Cards</h2>
+              <p className="text-xs text-muted-foreground">Active cards show on the public Contact page</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={openAddChannelModal} disabled={disabled}>
+              <Plus className="mr-2 size-4" />
+              Add Contact Card
+            </Button>
+          </div>
+
+          {loading ? (
+            <ChannelsSkeleton />
+          ) : form.channels.length === 0 ? (
+            <div className="rounded-xl border py-14 text-center">
+              <MessageCircle className="mx-auto size-10 text-muted-foreground/60" />
+              <p className="mt-3 text-sm font-medium">No contact cards</p>
+              <Button type="button" size="sm" className="mt-4" onClick={openAddChannelModal} disabled={disabled}>
+                <Plus className="mr-2 size-4" />
+                Add Contact Card
+              </Button>
+            </div>
+          ) : (
+            form.channels.map((channel, index) => (
+              <ChannelEditor
+                key={channel.id}
+                channel={channel}
+                channelIndex={index}
+                channelCount={form.channels.length}
+                disabled={disabled}
+                onToggleActive={() => toggleChannelActive(channel, `Contact card ${index + 1}`)}
+                onEdit={() => openEditChannelModal(channel)}
+                onRemove={() => setDeleteTarget({
+                  id: channel.id,
+                  label: channel.label.trim() || `Contact card ${index + 1}`,
+                })}
+                onMoveUp={() => moveChannel(index, -1)}
+                onMoveDown={() => moveChannel(index, 1)}
+              />
+            ))
+          )}
+        </section>
       </form>
 
       {channelModal && (
@@ -472,11 +504,11 @@ export function AdminContactPage() {
           title="Delete contact card?"
           description={
             <>
-              Remove contact card <strong>{deleteTarget.label}</strong> from this page draft? Save the
-              page to apply the change.
+              Remove contact card <strong>{deleteTarget.label}</strong> from this page?
             </>
           }
           confirmLabel="Confirm Delete"
+          isWorking={saving}
           onConfirm={() => removeChannel(deleteTarget.id)}
           onCancel={() => setDeleteTarget(null)}
         />
@@ -490,7 +522,7 @@ function ChannelEditor({
   channelIndex,
   channelCount,
   disabled,
-  onChange,
+  onToggleActive,
   onEdit,
   onRemove,
   onMoveUp,
@@ -500,7 +532,7 @@ function ChannelEditor({
   channelIndex: number
   channelCount: number
   disabled: boolean
-  onChange: (channel: AdminContactChannel) => void
+  onToggleActive: () => void
   onEdit: () => void
   onRemove: () => void
   onMoveUp: () => void
@@ -553,7 +585,7 @@ function ChannelEditor({
           <IconButton
             label={channel.isActive ? 'Hide contact card' : 'Show contact card'}
             disabled={disabled}
-            onClick={() => onChange({ ...channel, isActive: !channel.isActive })}
+            onClick={onToggleActive}
             icon={channel.isActive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           />
           <IconButton

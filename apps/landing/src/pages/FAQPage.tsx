@@ -5,6 +5,7 @@ import { DEFAULT_FAQ_PAGE, faqApi } from '@s-class/api/faqApi'
 import type { FaqItem, FaqPageData } from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /**
  * Public FAQ page.
@@ -14,7 +15,7 @@ import { CanonicalLink } from '@/components/CanonicalLink'
  * collapsible Q&A items.
  */
 export function FAQPage() {
-  const [content, setContent] = useState<FaqPageData>(DEFAULT_FAQ_PAGE)
+  const [content, setContent] = useState<FaqPageData | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -25,6 +26,8 @@ export function FAQPage() {
 
     return () => { cancelled = true }
   }, [])
+
+  if (content === null) return <FAQPageSkeleton />
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
@@ -69,6 +72,49 @@ export function FAQPage() {
           {content.page.ctaButtonLabel}
           <ChevronRight className="size-4" />
         </Link>
+      </section>
+    </div>
+  )
+}
+
+function FAQPageSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
+      <CanonicalLink path={ROUTES.FAQ} owner="landing" />
+      <header className="space-y-3 text-center sm:text-left">
+        <Skeleton className="h-3 w-28 mx-auto sm:mx-0 bg-primary/20" />
+        <Skeleton className="h-9 sm:h-11 w-full max-w-xl mx-auto sm:mx-0" />
+        <div className="space-y-2 max-w-xl mx-auto sm:mx-0">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+        </div>
+      </header>
+
+      {[0, 1, 2].map((group) => (
+        <section key={group} className="space-y-3">
+          <Skeleton className="h-3 w-36" />
+          <ul className="space-y-2">
+            {[0, 1, 2].map((item) => (
+              <li key={item}>
+                <div className="rounded-xl border bg-card px-5 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <Skeleton className="h-4 w-full max-w-lg" />
+                    <Skeleton className="size-4 rounded-sm shrink-0" />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+
+      <section className="rounded-xl border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-2 w-full max-w-xl">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+        <Skeleton className="h-5 w-28 shrink-0 bg-primary/20" />
       </section>
     </div>
   )

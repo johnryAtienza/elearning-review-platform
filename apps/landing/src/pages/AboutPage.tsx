@@ -6,6 +6,7 @@ import {
 import type { WhoWeArePageContent } from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /**
  * Public "Who we are" page.
@@ -14,7 +15,7 @@ import { CanonicalLink } from '@/components/CanonicalLink'
  */
 export function AboutPage() {
   const [content, setContent] =
-    useState<WhoWeArePageContent>(DEFAULT_WHO_WE_ARE_PAGE_CONTENT)
+    useState<WhoWeArePageContent | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -25,6 +26,8 @@ export function AboutPage() {
 
     return () => { cancelled = true }
   }, [])
+
+  if (content === null) return <AboutPageSkeleton />
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
@@ -49,6 +52,32 @@ export function AboutPage() {
                 {para}
               </p>
             ))}
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AboutPageSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <CanonicalLink path={ROUTES.ABOUT} owner="landing" />
+      <header className="mb-10">
+        <Skeleton className="h-3 w-28 bg-primary/20 mb-4" />
+        <Skeleton className="h-9 sm:h-11 w-full max-w-2xl" />
+      </header>
+
+      <div className="space-y-12">
+        {[0, 1, 2, 3].map((section) => (
+          <section key={section} className="space-y-3">
+            <Skeleton className="h-3 w-36" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-11/12" />
+              <Skeleton className="h-5 w-4/5" />
+              {section < 2 && <Skeleton className="h-5 w-9/12" />}
+            </div>
           </section>
         ))}
       </div>

@@ -320,6 +320,17 @@ export interface AdminUser {
   createdAt: string
 }
 
+export interface CreateAdminUserInput {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  mobileNumber?: string
+  school?: string
+  schoolId?: string
+  role?: 'user' | 'admin'
+}
+
 export type AdminDeviceResetKind = 'desktop' | 'mobile' | 'all'
 
 interface AdminDeviceResetResponse {
@@ -1219,6 +1230,44 @@ export async function updateAdminUser(
     .eq('id', userId)
 
   if (error) throw new ApiError(500, 'ADMIN_USER_UPDATE_FAILED', error.message)
+}
+
+export async function createAdminUser(input: CreateAdminUserInput): Promise<AdminUser> {
+  const { data, error } = await supabase.functions.invoke<{ user: AdminUser }>(
+    'admin-users',
+    {
+      body: {
+        action: 'create_user',
+        ...input,
+      },
+    },
+  )
+
+  if (error) {
+    let status = 500
+    let code = 'ADMIN_USER_CREATE_FAILED'
+    let message = error.message || 'Failed to create user.'
+
+    const context = (error as { context?: unknown }).context
+    if (context instanceof Response) {
+      status = context.status
+      try {
+        const payload = await context.clone().json() as { error?: string; code?: string }
+        if (payload.error) message = payload.error
+        if (payload.code)  code    = payload.code
+      } catch {
+        // Keep the default function error message.
+      }
+    }
+
+    throw new ApiError(status, code, message, error)
+  }
+
+  if (!data?.user) {
+    throw new ApiError(500, 'ADMIN_USER_CREATE_FAILED', 'User creation returned an empty response.')
+  }
+
+  return data.user
 }
 
 export async function resetUserDevices(

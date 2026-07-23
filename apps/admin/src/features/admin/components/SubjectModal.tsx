@@ -132,10 +132,10 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-lg rounded-xl border bg-background shadow-xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border bg-background shadow-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold">
             {isEdit ? 'Edit Subject' : 'New Subject'}
           </h2>
@@ -145,7 +145,8 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
 
           {/* Thumbnail picker */}
           <div className="space-y-1.5">
@@ -294,9 +295,10 @@ export function SubjectModal({ subject, onClose, onSaved }: SubjectModalProps) {
 
           {/* Error */}
           {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>

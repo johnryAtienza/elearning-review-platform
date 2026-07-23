@@ -43,9 +43,9 @@ import { cn } from '@/utils/cn'
  */
 export function HomePage() {
   const [reviewClasses, setReviewClasses] =
-    useState<ReviewClassesContent>(DEFAULT_REVIEW_CLASSES)
+    useState<ReviewClassesContent | null>(null)
   const [contactCta, setContactCta] =
-    useState<LandingContactCtaContent>(DEFAULT_LANDING_CONTACT_CTA)
+    useState<LandingContactCtaContent | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,7 +75,9 @@ export function HomePage() {
       <HomeContentRow />
 
       {/* ── Review classes offered ── */}
-      {reviewClasses.packages.length > 0 && (
+      {reviewClasses === null ? (
+        <ReviewClassesSectionSkeleton />
+      ) : reviewClasses.packages.length > 0 ? (
         <section className="space-y-5">
           <header className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">
@@ -92,26 +94,30 @@ export function HomePage() {
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* ── Testimonials ── */}
       <TestimonialsSection />
 
       {/* ── Contact ── */}
-      <section className="rounded-xl border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-primary/15 p-2 shrink-0">
-            <Mail className="size-5 text-primary" />
+      {contactCta === null ? (
+        <ContactCtaSkeleton />
+      ) : (
+        <section className="rounded-xl border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-primary/15 p-2 shrink-0">
+              <Mail className="size-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">{contactCta.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">{contactCta.description}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-lg">{contactCta.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">{contactCta.description}</p>
-          </div>
-        </div>
-        <Button asChild size="lg" variant="outline" className="shrink-0">
-          <a href={getAbsoluteUrl(ROUTES.REGISTER)}>{contactCta.buttonLabel}</a>
-        </Button>
-      </section>
+          <Button asChild size="lg" variant="outline" className="shrink-0">
+            <a href={getAbsoluteUrl(ROUTES.REGISTER)}>{contactCta.buttonLabel}</a>
+          </Button>
+        </section>
+      )}
     </div>
   )
 }
@@ -119,7 +125,7 @@ export function HomePage() {
 // ── Announcements + welcome video row ────────────────────────────────────────
 
 function HomeContentRow() {
-  const [announcements, setAnnouncements] = useState<Announcement[] | null>(null)
+  const [announcements, setAnnouncements] = useState<Announcement[] | undefined>(undefined)
   const [welcomeVideo,  setWelcomeVideo]  = useState<WelcomeVideo | null | undefined>(undefined)
 
   useEffect(() => {
@@ -133,12 +139,13 @@ function HomeContentRow() {
     return () => { cancelled = true }
   }, [])
 
-  const isLoading      = announcements === null || welcomeVideo === undefined
-  const showAnnouncements = isLoading || (announcements?.length ?? 0) > 0
-  const showVideo         = isLoading || welcomeVideo !== null
+  const announcementsLoading = announcements === undefined
+  const videoLoading         = welcomeVideo === undefined
+  const showAnnouncements    = announcementsLoading || (announcements?.length ?? 0) > 0
+  const showVideo            = videoLoading || welcomeVideo !== null
 
   // Both sections empty + finished loading → render nothing.
-  if (!isLoading && !showAnnouncements && !showVideo) return null
+  if (!announcementsLoading && !videoLoading && !showAnnouncements && !showVideo) return null
 
   return (
     <section
@@ -147,7 +154,12 @@ function HomeContentRow() {
         showAnnouncements && showVideo ? 'lg:grid-cols-[2fr_3fr]' : '',
       )}
     >
-      {showAnnouncements && <AnnouncementsBlock items={announcements} />}
+      {showAnnouncements && (
+        <AnnouncementsBlock
+          items={announcements ?? []}
+          loading={announcementsLoading}
+        />
+      )}
       {showVideo         && <WelcomeVideoBlock video={welcomeVideo === undefined ? null : welcomeVideo} loading={welcomeVideo === undefined} />}
     </section>
   )
@@ -155,7 +167,7 @@ function HomeContentRow() {
 
 // ── Announcements ────────────────────────────────────────────────────────────
 
-function AnnouncementsBlock({ items }: { items: Announcement[] | null }) {
+function AnnouncementsBlock({ items, loading }: { items: Announcement[]; loading: boolean }) {
   return (
     <div className="rounded-xl border bg-card p-5 sm:p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -165,7 +177,7 @@ function AnnouncementsBlock({ items }: { items: Announcement[] | null }) {
         </h2>
       </div>
 
-      {items === null ? (
+      {loading ? (
         <AnnouncementsSkeleton />
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">No announcements yet.</p>
@@ -191,6 +203,95 @@ function AnnouncementsBlock({ items }: { items: Announcement[] | null }) {
         </ol>
       )}
     </div>
+  )
+}
+
+function ReviewClassesSectionSkeleton() {
+  return (
+    <section className="space-y-5">
+      <SectionHeadingSkeleton titleWidth="w-full max-w-md" />
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <OfferingCardSkeleton />
+        <OfferingCardSkeleton variant="options" />
+      </div>
+    </section>
+  )
+}
+
+function SectionHeadingSkeleton({ titleWidth }: { titleWidth: string }) {
+  return (
+    <header className="space-y-2">
+      <Skeleton className="h-3 w-40 bg-primary/20" />
+      <Skeleton className={cn('h-7 sm:h-8', titleWidth)} />
+    </header>
+  )
+}
+
+function OfferingCardSkeleton({ variant = 'features' }: { variant?: 'features' | 'options' }) {
+  return (
+    <div className="rounded-xl border bg-card p-6 flex flex-col gap-5 h-full min-h-[22rem]">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <Skeleton className="h-5 w-64 max-w-[70%]" />
+          <Skeleton className="h-5 w-24 rounded-full bg-primary/20" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-10/12" />
+        </div>
+      </div>
+
+      {variant === 'options' ? (
+        <div className="space-y-4">
+          {[0, 1].map((option) => (
+            <div key={option} className="rounded-lg border bg-background/40 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-4 w-44" />
+                <Skeleton className="h-4 w-20 bg-primary/20" />
+              </div>
+              <FeatureListSkeleton count={option === 0 ? 5 : 3} dense />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <FeatureListSkeleton count={8} />
+      )}
+
+      <div className="mt-auto pt-4 border-t flex items-center justify-between gap-3">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-5 w-24 bg-primary/20" />
+      </div>
+    </div>
+  )
+}
+
+function FeatureListSkeleton({ count, dense = false }: { count: number; dense?: boolean }) {
+  return (
+    <ul className={cn('space-y-2', dense && 'space-y-1.5')}>
+      {Array.from({ length: count }).map((_, i) => (
+        <li key={i} className="flex items-start gap-2">
+          <Skeleton className={cn('shrink-0 rounded-full bg-primary/20 mt-0.5', dense ? 'size-3.5' : 'size-4')} />
+          <Skeleton className={cn(dense ? 'h-3' : 'h-4', featureWidth(i))} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ContactCtaSkeleton() {
+  return (
+    <section className="rounded-xl border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="size-9 rounded-lg bg-primary/20 shrink-0" />
+        <div className="space-y-2 w-full max-w-xl">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-10/12" />
+        </div>
+      </div>
+      <Skeleton className="h-11 w-full sm:w-32 rounded-md shrink-0" />
+    </section>
   )
 }
 
@@ -415,4 +516,9 @@ function formatDate(iso: string): string {
 
 function formatAccessDuration(months: number): string {
   return months === 1 ? '1 month' : `${months} months`
+}
+
+function featureWidth(index: number): string {
+  const widths = ['w-11/12', 'w-full', 'w-10/12', 'w-4/5', 'w-9/12']
+  return widths[index % widths.length]
 }

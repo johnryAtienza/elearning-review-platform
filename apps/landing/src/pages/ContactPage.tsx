@@ -18,6 +18,7 @@ import type {
 } from '@s-class/types/home'
 import { ROUTES } from '@/constants/routes'
 import { CanonicalLink } from '@/components/CanonicalLink'
+import { Skeleton } from '@/components/ui/skeleton'
 
 /**
  * Public Contact Us page.
@@ -29,7 +30,7 @@ import { CanonicalLink } from '@/components/CanonicalLink'
  */
 export function ContactPage() {
   const [content, setContent] =
-    useState<ContactPageContent>(DEFAULT_CONTACT_PAGE_CONTENT)
+    useState<ContactPageContent | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -40,6 +41,8 @@ export function ContactPage() {
 
     return () => { cancelled = true }
   }, [])
+
+  if (content === null) return <ContactPageSkeleton />
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
@@ -84,6 +87,53 @@ export function ContactPage() {
             <span className="text-muted-foreground">Sunday</span>
             <span className="font-medium tabular-nums">{content.businessHours.sunday}</span>
           </li>
+        </ul>
+      </section>
+    </div>
+  )
+}
+
+function ContactPageSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-3xl space-y-10">
+      <CanonicalLink path={ROUTES.CONTACT} owner="landing" />
+      <header className="space-y-3 text-center sm:text-left">
+        <Skeleton className="h-3 w-28 mx-auto sm:mx-0 bg-primary/20" />
+        <Skeleton className="h-9 sm:h-11 w-full max-w-xl mx-auto sm:mx-0" />
+        <div className="space-y-2 max-w-xl mx-auto sm:mx-0">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
+        {[0, 1, 2].map((card) => (
+          <div key={card} className="flex flex-col gap-3 rounded-xl border bg-card p-5">
+            <div className="flex items-center justify-between">
+              <Skeleton className="size-9 rounded-lg bg-primary/20" />
+              <Skeleton className="size-4 rounded-sm" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-3 w-4/5" />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="rounded-xl border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-4 rounded-sm bg-primary/20" />
+          <Skeleton className="h-3 w-36" />
+        </div>
+        <ul className="divide-y -mx-6">
+          {[0, 1, 2].map((row) => (
+            <li key={row} className="px-6 py-2.5 flex items-center justify-between gap-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-28" />
+            </li>
+          ))}
         </ul>
       </section>
     </div>

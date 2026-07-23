@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   DEFAULT_TESTIMONIALS_CONTENT,
   testimonialsApi,
@@ -16,7 +17,7 @@ import { cn } from '@/utils/cn'
  */
 export function TestimonialsSection() {
   const [content, setContent] =
-    useState<TestimonialsContent>(DEFAULT_TESTIMONIALS_CONTENT)
+    useState<TestimonialsContent | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +29,7 @@ export function TestimonialsSection() {
     return () => { cancelled = true }
   }, [])
 
+  if (content === null) return <TestimonialsSectionSkeleton />
   if (content.testimonials.length === 0) return null
 
   return (
@@ -47,6 +49,50 @@ export function TestimonialsSection() {
         ))}
       </div>
     </section>
+  )
+}
+
+function TestimonialsSectionSkeleton() {
+  return (
+    <section className="space-y-6">
+      <header className="space-y-2 text-center sm:text-left">
+        <Skeleton className="h-3 w-48 mx-auto sm:mx-0 bg-primary/20" />
+        <Skeleton className="h-7 sm:h-8 w-full max-w-md mx-auto sm:mx-0" />
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <TestimonialCardSkeleton key={i} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TestimonialCardSkeleton() {
+  return (
+    <article className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:p-6 h-full min-h-52">
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="size-4 rounded-sm bg-primary/20" />
+        ))}
+      </div>
+
+      <div className="space-y-2 flex-1">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-4/5" />
+      </div>
+
+      <footer className="flex items-center gap-3 pt-2 border-t">
+        <Skeleton className="size-10 shrink-0 rounded-full bg-primary/20" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48 max-w-full" />
+          <Skeleton className="h-3 w-36 max-w-full" />
+        </div>
+      </footer>
+    </article>
   )
 }
 

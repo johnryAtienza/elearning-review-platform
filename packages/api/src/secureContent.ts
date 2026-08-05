@@ -62,8 +62,7 @@ export async function getSignedContentUrls(lessonId: string): Promise<SecureCont
   const anonKey  = import.meta.env.VITE_SUPABASE_ANON_KEY as string
   const bearer   = session?.access_token ?? anonKey
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-playback-session`
-  const res = await fetch(url, {
+  const request = (endpoint: string) => fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -72,6 +71,27 @@ export async function getSignedContentUrls(lessonId: string): Promise<SecureCont
     },
     body: JSON.stringify({ lessonId }),
   })
+
+  const playbackUrl = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-playback-session`
+  const legacyUrl = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-signed-urls`
+  const allowLegacyFallback = import.meta.env.DEV
+    || import.meta.env.VITE_ALLOW_LEGACY_PLAYBACK_FALLBACK === 'true'
+  let res: Response
+  try {
+    res = await request(playbackUrl)
+    // A missing/un-deployed function commonly appears as a CORS failure in
+    // browsers. A 404/405 is also safe to treat as an old deployment during
+    // the rollout window. Do not fall back for authorization or DRM errors.
+    if (allowLegacyFallback && (res.status === 404 || res.status === 405)) {
+      res = await request(legacyUrl)
+    }
+  } catch (error) {
+    // Keep existing legacy lessons playable while the new Edge Function is
+    // being deployed locally. Production must deploy the new endpoint before
+    // enabling this client path, or a missing function could weaken DRM.
+    if (!allowLegacyFallback) throw error
+    res = await request(legacyUrl)
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string }
@@ -83,5 +103,14 @@ export async function getSignedContentUrls(lessonId: string): Promise<SecureCont
     throw new SecureContentFetchError('SERVER_ERROR', message)
   }
 
-  return res.json() as Promise<SecureContentResult>
+  const payload = await res.json() as Partial<SecureContentResult>
+  // Older deployed get-signed-urls functions do not return the new playback
+  // fields. Normalize that response so the player stays on the legacy path.
+  return {
+    playbackMode: payload.playbackMode ?? 'legacy',
+    videoUrl: payload.videoUrl ?? null,
+    pdfUrl: payload.pdfUrl ?? null,
+    playback: payload.playback ?? null,
+    tier: payload.tier ?? 'free',
+  }
 }

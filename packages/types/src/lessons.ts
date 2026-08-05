@@ -30,6 +30,11 @@ export interface Lesson {
   isFreePreview?: boolean
   /** Present when fetched from Supabase as a subscribed user. */
   videoUrl?: string
+  /**
+   * Student-safe video presence metadata. This is derived from video_url by
+   * the lesson_previews view; the storage key itself is never exposed.
+   */
+  hasVideo?: boolean
   /** Present when fetched from Supabase as a subscribed user. */
   reviewerPdfUrl?: string
 }

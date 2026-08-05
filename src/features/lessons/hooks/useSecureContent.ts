@@ -1,8 +1,8 @@
 /**
  * useSecureContent
  *
- * Fetches presigned R2 GET URLs for a lesson's video and PDF via the
- * get-signed-urls Edge Function. Callers control when the fetch fires via
+ * Fetches authorized playback information for a lesson's video and a signed
+ * PDF via the playback-session Edge Function. Callers control when the fetch fires via
  * `canFetch` — typically `isAuthenticated || isFreePreview(lesson)`.
  *
  *   • Subscribed users   → signed URLs for every lesson.
@@ -23,12 +23,15 @@ import {
 import type { SubscriptionTier } from '@/features/subscription/types'
 
 export interface UseSecureContentResult {
+  playbackMode: 'legacy' | 'drm'
   videoUrl: string | null
   pdfUrl: string | null
+  playback: SecureContentResult['playback']
   /** Tier confirmed by the server — drives client-side restrictions */
   tier: SubscriptionTier
   loading: boolean
   error: SecureContentFetchError | null
+  retry: () => void
 }
 
 export function useSecureContent(
@@ -36,16 +39,22 @@ export function useSecureContent(
   canFetch: boolean,
 ): UseSecureContentResult {
   const [result, setResult] = useState<SecureContentResult>({
+    playbackMode: 'legacy',
     videoUrl: null,
     pdfUrl: null,
+    playback: null,
     tier: 'free',
   })
   const [loading, setLoading]  = useState(false)
   const [error, setError]      = useState<SecureContentFetchError | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     if (!canFetch || !lessonId) {
-      setResult({ videoUrl: null, pdfUrl: null, tier: 'free' })
+      // Clear a prior authorized session immediately when entitlement is lost
+      // or the lesson changes; retaining it would be a content leak.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResult({ playbackMode: 'legacy', videoUrl: null, pdfUrl: null, playback: null, tier: 'free' })
       setLoading(false)
       setError(null)
       return
@@ -75,7 +84,7 @@ export function useSecureContent(
       })
 
     return () => { cancelled = true }
-  }, [lessonId, canFetch])
+  }, [lessonId, canFetch, retryCount])
 
-  return { ...result, loading, error }
+  return { ...result, loading, error, retry: () => setRetryCount((count) => count + 1) }
 }

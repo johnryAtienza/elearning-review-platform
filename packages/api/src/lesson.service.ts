@@ -7,8 +7,10 @@
  * regardless of subscription status.
  *
  * video_url and reviewer_pdf_url are NEVER fetched by the browser directly.
- * They are read server-side by the get-signed-urls Edge Function, which checks
- * subscription and returns short-lived presigned R2 GET URLs.
+ * They are read server-side by the playback-session Edge Function, which
+ * checks subscription and returns short-lived playback credentials. The safe
+ * lesson preview does expose a derived has_video boolean so the client can
+ * avoid requesting playback for lessons that have no asset.
  *
  * Called by lessonApi.ts when VITE_AUTH_PROVIDER=supabase.
  */
@@ -28,12 +30,13 @@ interface LessonPreviewRow {
   week_number: number | null
   day_number: number | null
   is_free_preview: boolean | null
+  has_video: boolean | null
   duration: string
   duration_minutes: number | null
 }
 
 const LESSON_PREVIEW_COLUMNS =
-  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, duration, duration_minutes'
+  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, has_video, duration, duration_minutes'
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +54,7 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
     weekNumber:      row.week_number ?? null,
     dayNumber:       row.day_number  ?? null,
     isFreePreview:   row.is_free_preview === true,
+    hasVideo:        row.has_video === true,
   }
 }
 

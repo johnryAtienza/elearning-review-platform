@@ -217,6 +217,11 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
         durationMinutes: durationMinutes,
         videoUrl,
         reviewerPdfUrl: lesson?.reviewerPdfUrl ?? null,
+        drmProvider: lesson?.drmProvider ?? null,
+        drmAssetId: lesson?.drmAssetId ?? null,
+        drmEnabled: lesson?.drmEnabled ?? false,
+        drmProcessingStatus: lesson?.drmProcessingStatus ?? 'legacy',
+        drmLastProcessingError: lesson?.drmLastProcessingError ?? null,
         createdAt:       lesson?.createdAt ?? new Date().toISOString(),
       })
     } catch (err) {

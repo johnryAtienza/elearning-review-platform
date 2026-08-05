@@ -130,6 +130,11 @@ export interface AdminLesson {
   durationMinutes: number | null
   videoUrl: string | null
   reviewerPdfUrl: string | null
+  drmProvider: string | null
+  drmAssetId: string | null
+  drmEnabled: boolean
+  drmProcessingStatus: 'legacy' | 'pending' | 'processing' | 'ready' | 'failed' | 'retired'
+  drmLastProcessingError: string | null
   createdAt: string
 }
 
@@ -437,6 +442,11 @@ interface LessonRow {
   duration_minutes: number | null
   video_url: string | null
   reviewer_pdf_url: string | null
+  drm_provider: string | null
+  drm_asset_id: string | null
+  drm_enabled: boolean | null
+  drm_processing_status: AdminLesson['drmProcessingStatus'] | null
+  drm_last_processing_error: string | null
   created_at: string
   subjects: { title: string } | null
 }
@@ -609,7 +619,7 @@ export async function deleteSubject(subjectId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, created_at, subjects(title)')
+    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, drm_provider, drm_asset_id, drm_enabled, drm_processing_status, drm_last_processing_error, created_at, subjects(title)')
     .order('subject_id')
     .order('order', { ascending: true })
 
@@ -629,6 +639,11 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
     durationMinutes: row.duration_minutes ?? null,
     videoUrl:        row.video_url,
     reviewerPdfUrl:  row.reviewer_pdf_url,
+    drmProvider:     row.drm_provider,
+    drmAssetId:      row.drm_asset_id,
+    drmEnabled:      row.drm_enabled === true,
+    drmProcessingStatus: row.drm_processing_status ?? 'legacy',
+    drmLastProcessingError: row.drm_last_processing_error,
     createdAt:       row.created_at,
   }))
 }
@@ -682,7 +697,20 @@ export async function createAdminLesson(data: LessonFormData): Promise<string> {
 
 export async function updateAdminLesson(
   lessonId: string,
-  data: Partial<LessonFormData & { videoUrl: string; reviewerPdfUrl: string }>,
+  data: Partial<LessonFormData & {
+    videoUrl: string
+    reviewerPdfUrl: string
+    drmProvider: string | null
+    drmAssetId: string | null
+    drmEnabled: boolean
+    drmProcessingStatus: AdminLesson['drmProcessingStatus']
+    drmDashManifestUrl: string | null
+    drmHlsManifestUrl: string | null
+    drmOriginalSource: string | null
+    drmLastProcessingError: string | null
+    drmReadyAt: string | null
+    drmMigratedAt: string | null
+  }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
   if (data.courseId        !== undefined) update.subject_id        = data.courseId
@@ -694,6 +722,16 @@ export async function updateAdminLesson(
   if (data.durationMinutes !== undefined) update.duration_minutes  = data.durationMinutes
   if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
   if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl
+  if (data.drmProvider     !== undefined) update.drm_provider = data.drmProvider
+  if (data.drmAssetId      !== undefined) update.drm_asset_id = data.drmAssetId
+  if (data.drmEnabled      !== undefined) update.drm_enabled = data.drmEnabled
+  if (data.drmProcessingStatus !== undefined) update.drm_processing_status = data.drmProcessingStatus
+  if (data.drmDashManifestUrl !== undefined) update.drm_dash_manifest_url = data.drmDashManifestUrl
+  if (data.drmHlsManifestUrl !== undefined) update.drm_hls_manifest_url = data.drmHlsManifestUrl
+  if (data.drmOriginalSource !== undefined) update.drm_original_source = data.drmOriginalSource
+  if (data.drmLastProcessingError !== undefined) update.drm_last_processing_error = data.drmLastProcessingError
+  if (data.drmReadyAt !== undefined) update.drm_ready_at = data.drmReadyAt
+  if (data.drmMigratedAt !== undefined) update.drm_migrated_at = data.drmMigratedAt
 
   const { error } = await supabase
     .from('lessons')

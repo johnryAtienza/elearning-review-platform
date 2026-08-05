@@ -267,7 +267,9 @@ create trigger trg_lessons_updated_at
 -- ============================================================
 
 -- lesson_previews — safe to expose to ALL authenticated users.
--- Excludes video_url and reviewer_pdf_url (premium columns).
+-- Excludes video_url and reviewer_pdf_url (premium columns), but exposes the
+-- derived has_video flag so clients can render an empty state without asking
+-- for signed playback credentials.
 -- Used by CourseDetailPage to show the locked lesson list.
 --
 -- security_invoker = false means this view runs with the
@@ -284,6 +286,7 @@ as
     title,
     description,
     "order",
+    (NULLIF(BTRIM(video_url), '') IS NOT NULL) AS has_video,
     duration,
     created_at
   from public.lessons

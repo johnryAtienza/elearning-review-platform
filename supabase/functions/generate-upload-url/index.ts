@@ -48,6 +48,9 @@ Deno.serve(async (req: Request) => {
   if (authError || !user) {
     return json({ error: 'Unauthorized' }, 401)
   }
+  if (user.app_metadata?.role !== 'admin') {
+    return json({ error: 'Admin access required' }, 403)
+  }
 
   // ── Parse body ───────────────────────────────────────────────────────────────
   let body: { path?: string; contentType?: string }
@@ -60,6 +63,9 @@ Deno.serve(async (req: Request) => {
   const { path, contentType } = body
   if (!path || !contentType) {
     return json({ error: 'path and contentType are required' }, 400)
+  }
+  if (!isAllowedAdminUploadPath(path) || path.includes('..') || path.includes('\\')) {
+    return json({ error: 'Invalid upload path' }, 400)
   }
 
   // ── Build R2 client ──────────────────────────────────────────────────────────
@@ -105,4 +111,14 @@ function json(data: unknown, status = 200): Response {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
+}
+
+function isAllowedAdminUploadPath(path: string): boolean {
+  return [
+    'videos/lessons/',
+    'covers/',
+    'thumbnails/',
+    'quizzes/questions/',
+    'cms/',
+  ].some((prefix) => path.startsWith(prefix))
 }

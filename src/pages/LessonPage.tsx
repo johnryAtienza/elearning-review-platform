@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
+import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
-import { VideoPlayer } from '@/features/lessons/components/VideoPlayer'
+import { VideoPlayer, VideoEmptyState, VideoPlaybackErrorState } from '@/features/lessons/components/VideoPlayer'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
 import { LessonList } from '@/features/lessons/components/LessonList'
 import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
 import { ContentWatermark } from '@/components/ContentWatermark'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
-import { useContentProtection } from '@/hooks/useContentProtection'
-import { useScreenRecordingDetection } from '@/hooks/useScreenRecordingDetection'
 import { useQuizStore } from '@/store/quizStore'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
@@ -23,6 +21,7 @@ import { getEffectivePermissions, tierFromSubscribed, isUnlimited, isFreePreview
 import { getLessonWatchedStatus, markLessonWatched } from '@/services/lessonProgressApi'
 import { loadResume, saveResume, clearResume } from '@/features/lessons/services/lessonResumeStorage'
 import type { ProblemSet } from '@/features/quiz/types'
+import type { Lesson } from '@/features/lessons/types'
 import { cn } from '@/utils/cn'
 import config from '@/config'
 
@@ -41,6 +40,14 @@ interface ProblemSetCategoryGroup {
   sortOrder: number
   questionCount: number
   problemSets: ProblemSet[]
+}
+
+type LessonVideoState = 'loading' | 'ready' | 'noVideo' | 'playbackError'
+
+function hasVideoReference(lesson: Lesson | undefined): boolean {
+  if (!lesson) return false
+  if (typeof lesson.hasVideo === 'boolean') return lesson.hasVideo
+  return typeof lesson.videoUrl === 'string' && lesson.videoUrl.trim().length > 0
 }
 
 function groupProblemSets(problemSets: ProblemSet[]): ProblemSetCategoryGroup[] {
@@ -89,6 +96,8 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   // ── Per-lesson UI state ──────────────────────────────────────────────────
   const [videoProgress,   setVideoProgress]   = useState(0)
   const [previewEnded,    setPreviewEnded]     = useState(false)
+  const [playerFailed,    setPlayerFailed]     = useState(false)
+  const [playbackRetrying, setPlaybackRetrying] = useState(false)
   const [sidebarOpen,     setSidebarOpen]      = useState(false)
   const [problemSets,     setProblemSets]     = useState<ProblemSet[]>([])
 
@@ -117,19 +126,9 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const isAdmin         = useAuthStore((s) => s.isAdmin)
   const user            = useAuthStore((s) => s.user)
 
-  // ── Content protection (subscribed non-admin users only) ─────────────────
+  // Watermarking is a configurable deterrent layered on top of the actual
+  // DRM/access-control boundary. It is never used as screenshot prevention.
   const protectionActive = config.protection.enabled && isSubscribed && !isAdmin
-
-  useContentProtection(protectionActive && config.protection.blockDevTools)
-
-  const handleSuspiciousCapture = useCallback(() => {
-    // Extend here: POST to an analytics endpoint to log capture attempts
-  }, [])
-
-  useScreenRecordingDetection(
-    protectionActive && config.protection.detectCapture,
-    handleSuspiciousCapture,
-  )
 
   // Tier comes from subscription state alone; effective permissions are
   // computed below once the lesson is loaded (Day 1 unlocks everything).
@@ -142,11 +141,14 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   //   • Free / guest          → only lessons flagged is_free_preview.
   // The Edge Function is the actual gate; this is just the client trigger.
   const lessonIsPreview = isFreePreview(data?.lesson)
+  const lessonHasVideo = hasVideoReference(data?.lesson)
   const {
     videoUrl:    signedVideoUrl,
+    playback,
     loading:     contentLoading,
     error:       contentError,
-  } = useSecureContent(lessonId ?? '', isAuthenticated || lessonIsPreview)
+    retry:       retrySecureContent,
+  } = useSecureContent(lessonId ?? '', lessonHasVideo && (isAuthenticated || lessonIsPreview))
 
   // Reset per-lesson state and reload backend progress when lesson changes
   useEffect(() => {
@@ -155,6 +157,8 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     setLessonId(data.lesson.id)
     setVideoProgress(0)
     setPreviewEnded(false)
+    setPlayerFailed(false)
+    setPlaybackRetrying(false)
     setIsWatched(false)
     setMarkingWatched(false)
     setProblemSets([])
@@ -250,6 +254,18 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
     setResumeChoice('resolved')
   }
 
+  function handleRetryPlayback() {
+    setPlayerFailed(false)
+    setPlaybackRetrying(true)
+    retrySecureContent()
+  }
+
+  useEffect(() => {
+    if (playbackRetrying && !contentLoading) {
+      setPlaybackRetrying(false)
+    }
+  }, [playbackRetrying, contentLoading])
+
   function formatResumeTime(seconds: number): string {
     const m = Math.floor(seconds / 60)
     const s = Math.floor(seconds % 60)
@@ -264,6 +280,14 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   }
 
   const { lesson, subject, siblings, prev, next, progress } = data
+  const canFetchPlayback = lessonHasVideo && (isAuthenticated || lessonIsPreview)
+  const videoState: LessonVideoState = !lessonHasVideo
+    ? 'noVideo'
+    : contentLoading || playbackRetrying || (canFetchPlayback && !contentError && !playerFailed && !signedVideoUrl && !playback)
+      ? 'loading'
+      : playerFailed || contentError || (!signedVideoUrl && !playback)
+        ? 'playbackError'
+        : 'ready'
 
   // Hard gate: authenticated free users (no subscription, not admin) cannot
   // view a lesson unless it's flagged is_free_preview. Guests fall through
@@ -481,20 +505,18 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             <GuestEnrollCTA lessonId={lesson.id} previewMode={previewMode} />
           ) : (
           <>
-          {/* Content error (non-blocking) */}
-          {contentError && !contentError.isSubscriptionRequired && (
-            <FormAlert>Could not load secure content: {contentError.message}</FormAlert>
-          )}
-
           {/* ── Video ── */}
-          {contentLoading ? (
+          {videoState === 'loading' ? (
             <Skeleton className="aspect-video w-full rounded-xl" />
+          ) : videoState === 'noVideo' ? (
+            <VideoEmptyState />
+          ) : videoState === 'playbackError' ? (
+            <VideoPlaybackErrorState onRetry={handleRetryPlayback} />
           ) : (
             <div
               className="relative"
-              onContextMenu={(e) => protectionActive && e.preventDefault()}
             >
-              {resumeChoice === 'pending' && resumeAt !== null && (
+              {resumeChoice === 'pending' && resumeAt !== null && videoState === 'ready' && (
                 <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
                   <p className="text-sm">
                     You left off at <span className="font-semibold">{formatResumeTime(resumeAt)}</span>. Continue where you stopped?
@@ -514,6 +536,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
                 title={lesson.title}
                 thumbnail={subject?.thumbnail ?? 'from-gray-400 to-gray-500'}
                 src={signedVideoUrl ?? undefined}
+                playback={playback}
                 durationSeconds={30}
                 onEnded={() => { setVideoProgress(100); clearResume(lesson.id) }}
                 previewDuration={videoPreviewSec}
@@ -522,40 +545,44 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
                 lockSeekAhead={!isWatched}
                 startAt={playerStartAt}
                 onTimeChange={(s) => saveResume(lesson.id, s)}
+                onPlaybackError={() => setPlayerFailed(true)}
+                onRetry={handleRetryPlayback}
               />
               <ContentWatermark
-                label={user?.email ?? user?.id ?? ''}
+                label={playback?.watermarkLabel ?? maskWatermarkLabel(user?.email ?? user?.id ?? '')}
                 enabled={protectionActive && config.protection.watermark}
               />
             </div>
           )}
 
           {/* ── CTA action bar ── */}
-          <LessonCTAs
-            videoProgress={videoProgress}
-            isWatched={isWatched}
-            markingWatched={markingWatched}
-            onMarkWatched={handleMarkWatched}
-            tabs={problemSetGroups.map((group) => ({
-              id:            group.id,
-              label:         group.name,
-              questionCount: group.questionCount,
-            }))}
-            activeTab={activeCategoryId}
-            onTabChange={handleTabChange}
-          />
+          {videoState === 'ready' && (
+            <LessonCTAs
+              videoProgress={videoProgress}
+              isWatched={isWatched}
+              markingWatched={markingWatched}
+              onMarkWatched={handleMarkWatched}
+              tabs={problemSetGroups.map((group) => ({
+                id:            group.id,
+                label:         group.name,
+                questionCount: group.questionCount,
+              }))}
+              activeTab={activeCategoryId}
+              onTabChange={handleTabChange}
+            />
+          )}
 
           {/* ── Free tier banner ── */}
           {/* Suppressed on free-preview lessons — the preview cap copy would
               lie about limits that don't apply (preview lessons play in full).
               Also suppressed for guests; the PreviewConversionBanner below
               owns the guest call-to-action. */}
-          {isAuthenticated && !isSubscribed && !previewBypass && (
+          {videoState === 'ready' && isAuthenticated && !isSubscribed && !previewBypass && (
             <FreeTierBanner previewEnded={previewEnded} previewSeconds={permissions.videoPreviewSeconds} />
           )}
 
           {/* ── Preview conversion CTA — non-blocking, never gates playback. ── */}
-          {previewBypass && !isSubscribed && (
+          {videoState === 'ready' && previewBypass && !isSubscribed && (
             <PreviewConversionBanner
               isAuthenticated={isAuthenticated}
               lessonId={lesson.id}
@@ -589,7 +616,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           )}
 
           {/* Completion hint */}
-          {completionHint && (
+          {videoState === 'ready' && completionHint && (
             <p className="text-center text-xs text-muted-foreground">{completionHint}</p>
           )}
 
@@ -697,6 +724,13 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   )
 
   return layout
+}
+
+function maskWatermarkLabel(value: string): string {
+  if (!value) return ''
+  const at = value.indexOf('@')
+  if (at > 0) return `${value.slice(0, 1)}***${value.slice(at)}`
+  return `${value.slice(0, 4)}…`
 }
 
 // ── Completion hint ───────────────────────────────────────────────────────────

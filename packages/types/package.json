@@ -14,6 +14,7 @@
     "./devices": "./src/devices.ts",
     "./home": "./src/home.ts",
     "./lessons": "./src/lessons.ts",
+    "./protectedPlayback": "./src/protectedPlayback.ts",
     "./quiz": "./src/quiz.ts",
     "./subscription": "./src/subscription.ts"
   }

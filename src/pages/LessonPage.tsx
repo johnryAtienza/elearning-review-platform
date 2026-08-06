@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { ErrorMessage, FormAlert } from '@/components/ui/ErrorMessage'
 import { LessonPageSkeleton } from '@/pages/LessonPageSkeleton'
 import { VideoPlayer, VideoEmptyState, VideoPlaybackErrorState } from '@/features/lessons/components/VideoPlayer'
 import { QuizComponent } from '@/features/quiz/components/QuizComponent'
@@ -12,6 +12,8 @@ import { LessonCTAs } from '@/features/lessons/components/LessonCTAs'
 import { ContentWatermark } from '@/components/ContentWatermark'
 import { useLesson } from '@/features/lessons/hooks/useLesson'
 import { useSecureContent } from '@/features/lessons/hooks/useSecureContent'
+import { useContentProtection } from '@/hooks/useContentProtection'
+import { useScreenRecordingDetection } from '@/hooks/useScreenRecordingDetection'
 import { useQuizStore } from '@/store/quizStore'
 import { useAuthStore } from '@/store/authStore'
 import { ROUTES } from '@/constants/routes'
@@ -126,9 +128,19 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const isAdmin         = useAuthStore((s) => s.isAdmin)
   const user            = useAuthStore((s) => s.user)
 
-  // Watermarking is a configurable deterrent layered on top of the actual
-  // DRM/access-control boundary. It is never used as screenshot prevention.
+  // ── Content protection (subscribed non-admin users only) ─────────────────
   const protectionActive = config.protection.enabled && isSubscribed && !isAdmin
+
+  useContentProtection(protectionActive && config.protection.blockDevTools)
+
+  const handleSuspiciousCapture = useCallback(() => {
+    // Extend here: POST to an analytics endpoint to log capture attempts
+  }, [])
+
+  useScreenRecordingDetection(
+    protectionActive && config.protection.detectCapture,
+    handleSuspiciousCapture,
+  )
 
   // Tier comes from subscription state alone; effective permissions are
   // computed below once the lesson is loaded (Day 1 unlocks everything).
@@ -144,7 +156,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const lessonHasVideo = hasVideoReference(data?.lesson)
   const {
     videoUrl:    signedVideoUrl,
-    playback,
     loading:     contentLoading,
     error:       contentError,
     retry:       retrySecureContent,
@@ -283,9 +294,9 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   const canFetchPlayback = lessonHasVideo && (isAuthenticated || lessonIsPreview)
   const videoState: LessonVideoState = !lessonHasVideo
     ? 'noVideo'
-    : contentLoading || playbackRetrying || (canFetchPlayback && !contentError && !playerFailed && !signedVideoUrl && !playback)
+    : contentLoading || playbackRetrying || (canFetchPlayback && !contentError && !playerFailed && !signedVideoUrl)
       ? 'loading'
-      : playerFailed || contentError || (!signedVideoUrl && !playback)
+      : playerFailed || contentError || !signedVideoUrl
         ? 'playbackError'
         : 'ready'
 
@@ -505,6 +516,9 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
             <GuestEnrollCTA lessonId={lesson.id} previewMode={previewMode} />
           ) : (
           <>
+          {contentError && !contentError.isSubscriptionRequired && (
+            <FormAlert>Could not load secure content: {contentError.message}</FormAlert>
+          )}
           {/* ── Video ── */}
           {videoState === 'loading' ? (
             <Skeleton className="aspect-video w-full rounded-xl" />
@@ -515,6 +529,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
           ) : (
             <div
               className="relative"
+              onContextMenu={(e) => protectionActive && e.preventDefault()}
             >
               {resumeChoice === 'pending' && resumeAt !== null && videoState === 'ready' && (
                 <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
@@ -536,7 +551,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
                 title={lesson.title}
                 thumbnail={subject?.thumbnail ?? 'from-gray-400 to-gray-500'}
                 src={signedVideoUrl ?? undefined}
-                playback={playback}
                 durationSeconds={30}
                 onEnded={() => { setVideoProgress(100); clearResume(lesson.id) }}
                 previewDuration={videoPreviewSec}
@@ -549,7 +563,7 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
                 onRetry={handleRetryPlayback}
               />
               <ContentWatermark
-                label={playback?.watermarkLabel ?? maskWatermarkLabel(user?.email ?? user?.id ?? '')}
+                label={user?.email ?? user?.id ?? ''}
                 enabled={protectionActive && config.protection.watermark}
               />
             </div>
@@ -724,13 +738,6 @@ export function LessonPage({ previewMode = false }: LessonPageProps = {}) {
   )
 
   return layout
-}
-
-function maskWatermarkLabel(value: string): string {
-  if (!value) return ''
-  const at = value.indexOf('@')
-  if (at > 0) return `${value.slice(0, 1)}***${value.slice(at)}`
-  return `${value.slice(0, 4)}…`
 }
 
 // ── Completion hint ───────────────────────────────────────────────────────────

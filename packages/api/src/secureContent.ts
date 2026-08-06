@@ -10,14 +10,10 @@
 
 import { supabase } from './supabaseClient'
 import type { SubscriptionTier } from '@s-class/types/subscription'
-import type { ProtectedPlaybackConfig } from '@s-class/types/protectedPlayback'
 
 export interface SecureContentResult {
-  /** `legacy` is the migration fallback; `drm` is the protected path. */
-  playbackMode: 'legacy' | 'drm'
   videoUrl: string | null
   pdfUrl: string | null
-  playback: ProtectedPlaybackConfig | null
   /** Tier returned by the server — use this for client-side restrictions */
   tier: SubscriptionTier
 }
@@ -26,7 +22,6 @@ export type SecureContentError =
   | 'UNAUTHORIZED'
   | 'NO_SUBSCRIPTION'
   | 'LESSON_NOT_FOUND'
-  | 'DRM_NOT_READY'
   | 'SERVER_ERROR'
 
 export class SecureContentFetchError extends Error {
@@ -44,7 +39,7 @@ export class SecureContentFetchError extends Error {
 }
 
 /**
- * Fetch an authorized playback session for a lesson's video and a signed PDF.
+ * Fetch short-lived signed URLs for a lesson's video and PDF.
  *
  * The Edge Function is the authoritative access gate:
  *   • Guests          → 200 only for `is_free_preview` lessons (401 otherwise).
@@ -54,15 +49,14 @@ export class SecureContentFetchError extends Error {
  * anon key as the Bearer token. The Edge Function reads `auth.getUser(token)`
  * — the anon key returns no user, so it treats the call as a guest.
  *
- * DRM lessons return only short-lived manifest/license information. Legacy
- * lessons continue to return a short-lived R2 URL during migration.
  */
 export async function getSignedContentUrls(lessonId: string): Promise<SecureContentResult> {
   const { data: { session } } = await supabase.auth.getSession()
   const anonKey  = import.meta.env.VITE_SUPABASE_ANON_KEY as string
   const bearer   = session?.access_token ?? anonKey
 
-  const request = (endpoint: string) => fetch(endpoint, {
+  const url = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-signed-urls`
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -72,45 +66,14 @@ export async function getSignedContentUrls(lessonId: string): Promise<SecureCont
     body: JSON.stringify({ lessonId }),
   })
 
-  const playbackUrl = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-playback-session`
-  const legacyUrl = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-signed-urls`
-  const allowLegacyFallback = import.meta.env.DEV
-    || import.meta.env.VITE_ALLOW_LEGACY_PLAYBACK_FALLBACK === 'true'
-  let res: Response
-  try {
-    res = await request(playbackUrl)
-    // A missing/un-deployed function commonly appears as a CORS failure in
-    // browsers. A 404/405 is also safe to treat as an old deployment during
-    // the rollout window. Do not fall back for authorization or DRM errors.
-    if (allowLegacyFallback && (res.status === 404 || res.status === 405)) {
-      res = await request(legacyUrl)
-    }
-  } catch (error) {
-    // Keep existing legacy lessons playable while the new Edge Function is
-    // being deployed locally. Production must deploy the new endpoint before
-    // enabling this client path, or a missing function could weaken DRM.
-    if (!allowLegacyFallback) throw error
-    res = await request(legacyUrl)
-  }
-
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string }
     const message = body.error ?? `Request failed (${res.status})`
     if (res.status === 401) throw new SecureContentFetchError('UNAUTHORIZED', message)
     if (res.status === 403) throw new SecureContentFetchError('NO_SUBSCRIPTION', message)
     if (res.status === 404) throw new SecureContentFetchError('LESSON_NOT_FOUND', message)
-    if (res.status === 409) throw new SecureContentFetchError('DRM_NOT_READY', message)
     throw new SecureContentFetchError('SERVER_ERROR', message)
   }
 
-  const payload = await res.json() as Partial<SecureContentResult>
-  // Older deployed get-signed-urls functions do not return the new playback
-  // fields. Normalize that response so the player stays on the legacy path.
-  return {
-    playbackMode: payload.playbackMode ?? 'legacy',
-    videoUrl: payload.videoUrl ?? null,
-    pdfUrl: payload.pdfUrl ?? null,
-    playback: payload.playback ?? null,
-    tier: payload.tier ?? 'free',
-  }
+  return res.json() as Promise<SecureContentResult>
 }

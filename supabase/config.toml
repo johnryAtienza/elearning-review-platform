@@ -27,9 +27,3 @@ project_id = "dgnpiexszwsjrqfeefmd"
 # implements equivalent in-function authorization.
 [functions.get-signed-urls]
 verify_jwt = false
-
-# The playback session function retains the guest preview decision in code for
-# legacy preview lessons. DRM-enabled lessons still require a real user JWT
-# before the broker is contacted.
-[functions.get-playback-session]
-verify_jwt = false

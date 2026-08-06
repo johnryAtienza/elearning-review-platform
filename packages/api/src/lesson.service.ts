@@ -7,10 +7,10 @@
  * regardless of subscription status.
  *
  * video_url and reviewer_pdf_url are NEVER fetched by the browser directly.
- * They are read server-side by the playback-session Edge Function, which
- * checks subscription and returns short-lived playback credentials. The safe
- * lesson preview does expose a derived has_video boolean so the client can
- * avoid requesting playback for lessons that have no asset.
+ * They are read server-side by the get-signed-urls Edge Function, which checks
+ * subscription and returns short-lived presigned R2 GET URLs. The safe lesson
+ * preview also exposes a derived has_video boolean so the client can avoid
+ * requesting playback for lessons that have no asset.
  *
  * Called by lessonApi.ts when VITE_AUTH_PROVIDER=supabase.
  */
@@ -110,6 +110,7 @@ export async function getLessonPreviewById(lessonId: string): Promise<Lesson | u
  * structured text content is still served from mock data in that case.
  */
 export async function getReviewerContent(_lessonId: string): Promise<ReviewerContent | undefined> {
+  void _lessonId
   // TODO: query a `reviewer_contents` table once structured content is in the DB.
   // const { data } = await supabase
   //   .from('reviewer_contents')

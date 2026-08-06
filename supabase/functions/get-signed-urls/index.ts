@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
   // ── Fetch lesson storage paths + access flag ─────────────────────────────────
   const { data: lesson, error: lessonError } = await adminClient
     .from('lessons')
-    .select('subject_id, video_url, reviewer_pdf_url, is_free_preview, drm_enabled, drm_processing_status')
+    .select('subject_id, video_url, reviewer_pdf_url, is_free_preview')
     .eq('id', lessonId)
     .maybeSingle()
 
@@ -115,15 +115,6 @@ Deno.serve(async (req: Request) => {
     .eq('is_published', true)
     .maybeSingle()
   if (!subject) return json({ error: 'Lesson not found' }, 404)
-
-  // Prevent the legacy endpoint from becoming a bypass once a lesson is
-  // migrated. DRM-enabled lessons must be served only by the broker-backed
-  // get-playback-session function.
-  if (lesson.drm_enabled === true) {
-    return json({ error: lesson.drm_processing_status === 'ready'
-      ? 'Protected playback required'
-      : 'Protected video is still processing' }, 409)
-  }
 
   // ── Authorize ────────────────────────────────────────────────────────────────
   const isPreview = lesson.is_free_preview === true

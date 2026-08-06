@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { UpgradeOverlay } from './UpgradeOverlay'
-import type { ProtectedPlaybackConfig } from '@s-class/types/protectedPlayback'
 
 interface VideoPlayerProps {
   title: string
@@ -8,8 +7,6 @@ interface VideoPlayerProps {
   durationSeconds?: number
   /** Presigned R2 URL. When present, renders a real <video> element. */
   src?: string
-  /** Server-authorized encrypted DASH/HLS playback session. */
-  playback?: ProtectedPlaybackConfig | null
   onEnded: () => void
   /**
    * Free-tier preview limit in seconds.
@@ -47,26 +44,11 @@ function formatTime(seconds: number): string {
 }
 
 export function VideoPlayer({
-  title, thumbnail, durationSeconds = 30, src, playback, onEnded,
+  title, thumbnail, durationSeconds = 30, src, onEnded,
   previewDuration, onPreviewEnded, onProgress, lockSeekAhead,
   startAt, onTimeChange, onPlaybackError, onRetry,
 }: VideoPlayerProps) {
   const isPreviewMode = typeof previewDuration === 'number'
-
-  if (playback?.mode === 'drm') {
-    return (
-      <DrmVideoPlayer
-        title={title}
-        playback={playback}
-        onEnded={onEnded}
-        onProgress={onProgress}
-        startAt={startAt}
-        onTimeChange={onTimeChange}
-        onPlaybackError={onPlaybackError}
-        onRetry={onRetry}
-      />
-    )
-  }
 
   if (src) {
     return (
@@ -100,188 +82,6 @@ export function VideoPlayer({
       onTimeChange={onTimeChange}
     />
   )
-}
-
-// ── DRM video player ─────────────────────────────────────────────────────────
-
-interface DrmVideoPlayerProps {
-  title: string
-  playback: ProtectedPlaybackConfig
-  onEnded: () => void
-  onProgress?: (percent: number) => void
-  startAt?: number
-  onTimeChange?: (seconds: number) => void
-  onPlaybackError?: () => void
-  onRetry?: () => void
-}
-
-interface ShakaPlayerLike {
-  configure(config: Record<string, unknown>): void
-  getNetworkingEngine(): {
-    registerRequestFilter(filter: (type: string, request: { headers: Record<string, string> }) => void): void
-    unregisterRequestFilter(filter: (type: string, request: { headers: Record<string, string> }) => void): void
-  } | null
-  load(manifestUrl: string): Promise<void>
-  destroy(): Promise<void>
-}
-
-function DrmVideoPlayer({ title, playback, onEnded, onProgress, startAt, onTimeChange, onPlaybackError, onRetry }: DrmVideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const playerRef = useRef<ShakaPlayerLike | null>(null)
-  const filterRef = useRef<((type: string, request: { headers: Record<string, string> }) => void) | null>(null)
-  const [state, setState] = useState<'loading' | 'ready' | 'error' | 'unsupported'>('loading')
-  const lastTimeSentRef = useRef(0)
-  const onPlaybackErrorRef = useRef(onPlaybackError)
-
-  useEffect(() => {
-    onPlaybackErrorRef.current = onPlaybackError
-  }, [onPlaybackError])
-
-  useEffect(() => {
-    let cancelled = false
-    const video = videoRef.current
-    if (!video) return
-    const mediaElement = video
-
-    async function load() {
-      try {
-        // Keep the legacy MP4 path lightweight. The DRM runtime is loaded only
-        // after the server has authorized a DRM playback session.
-        // @ts-expect-error Shaka's bundled global declaration is not a module in app-level TS configs.
-        const { default: shaka } = await import('shaka-player')
-        if (!shaka.Player.isBrowserSupported()) {
-          if (!cancelled) {
-            setState('unsupported')
-            onPlaybackErrorRef.current?.()
-          }
-          return
-        }
-        shaka.polyfill.installAll()
-        const player = await createShakaPlayer(mediaElement, shaka)
-        if (cancelled) {
-          await player.destroy()
-          return
-        }
-
-        const licenseToken = playback.licenseToken
-        const filter = (type: string, request: { headers: Record<string, string> }) => {
-          if (type === shaka.net.NetworkingEngine.RequestType.LICENSE && licenseToken) {
-            request.headers.Authorization = `Bearer ${licenseToken}`
-          }
-        }
-        const networking = player.getNetworkingEngine()
-        if (networking) {
-          networking.registerRequestFilter(filter)
-          filterRef.current = filter
-        }
-
-        player.configure({
-          drm: {
-            servers: toShakaLicenseServers(playback.licenseServers),
-            advanced: playback.fairPlayCertificateUrl
-              ? { 'com.apple.fps': { serverCertificateUri: playback.fairPlayCertificateUrl } }
-              : undefined,
-            logLicenseExchange: false,
-          },
-          streaming: { useNativeHlsForFairPlay: true },
-        })
-
-        const manifest = selectManifest(playback)
-        if (!manifest) throw new Error('Protected manifest is missing')
-        await player.load(manifest)
-        if (cancelled) {
-          await player.destroy()
-          return
-        }
-        playerRef.current = player
-        setState('ready')
-        if (startAt && startAt > 0) {
-          mediaElement.currentTime = startAt
-          void mediaElement.play().catch(() => undefined)
-        }
-      } catch {
-        if (!cancelled) {
-          setState('error')
-          onPlaybackErrorRef.current?.()
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-      const player = playerRef.current
-      const networking = player?.getNetworkingEngine()
-      if (networking && filterRef.current) networking.unregisterRequestFilter(filterRef.current)
-      playerRef.current = null
-      filterRef.current = null
-      if (player) void player.destroy()
-      video.removeAttribute('src')
-      video.load()
-    }
-  }, [playback, startAt])
-
-  function reportTime(force = false) {
-    const video = videoRef.current
-    if (!video || !onTimeChange) return
-    const now = Date.now()
-    if (!force && now - lastTimeSentRef.current < TIME_CHANGE_THROTTLE_MS) return
-    lastTimeSentRef.current = now
-    onTimeChange(video.currentTime)
-  }
-
-  function handleTimeUpdate() {
-    const video = videoRef.current
-    if (!video || !video.duration) return
-    onProgress?.(Math.min(Math.round((video.currentTime / video.duration) * 100), 100))
-    reportTime()
-  }
-
-  if (state === 'unsupported' || state === 'error') return <VideoPlaybackErrorState onRetry={onRetry} />
-
-  return (
-    <div className="rounded-xl overflow-hidden border shadow-sm">
-      <div className="bg-black/80 px-4 py-2">
-        <p className="text-white text-sm font-medium truncate">{title}</p>
-      </div>
-      <video
-        ref={videoRef}
-        controls
-        className="w-full aspect-video bg-black"
-        onEnded={() => { reportTime(true); onEnded() }}
-        onPause={() => reportTime(true)}
-        onError={() => {
-          setState('error')
-          onPlaybackErrorRef.current?.()
-        }}
-        onTimeUpdate={handleTimeUpdate}
-        playsInline
-      />
-      {state === 'loading' && <div className="px-4 py-2 text-xs text-muted-foreground">Starting protected playback…</div>}
-    </div>
-  )
-}
-
-function createShakaPlayer(video: HTMLVideoElement, shakaModule: { Player: new (mediaElement: HTMLMediaElement) => ShakaPlayerLike }) {
-  return new shakaModule.Player(video)
-}
-
-function toShakaLicenseServers(
-  servers: ProtectedPlaybackConfig['licenseServers'],
-): Record<string, string> {
-  return {
-    ...(servers.widevine ? { 'com.widevine.alpha': servers.widevine } : {}),
-    ...(servers.fairplay ? { 'com.apple.fps': servers.fairplay } : {}),
-    ...(servers.playready ? { 'com.microsoft.playready': servers.playready } : {}),
-  }
-}
-
-function selectManifest(playback: ProtectedPlaybackConfig): string | null {
-  const isSafari = /Safari/i.test(navigator.userAgent)
-    && !/Chrome|Chromium|Android/i.test(navigator.userAgent)
-  return isSafari
-    ? playback.hlsManifestUrl ?? playback.manifestUrl ?? playback.dashManifestUrl
-    : playback.dashManifestUrl ?? playback.manifestUrl ?? playback.hlsManifestUrl
 }
 
 function PlaybackMessage({ onRetry }: { onRetry?: () => void }) {
@@ -458,6 +258,7 @@ function RealVideoPlayer({
           ref={videoRef}
           src={src}
           controls={!previewEnded}
+          controlsList="nodownload"
           className="w-full aspect-video bg-black"
           onEnded={() => { reportTime(true); onEnded() }}
           onPause={() => reportTime(true)}
@@ -469,6 +270,7 @@ function RealVideoPlayer({
           onTimeUpdate={handleTimeUpdate}
           onSeeking={enforceSeekCap}
           onSeeked={enforceSeekCap}
+          onContextMenu={(e) => e.preventDefault()}
         />
 
         {previewEnded && (

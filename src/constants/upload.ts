@@ -4,4 +4,6 @@ export const UPLOAD_LIMITS = {
   VIDEO: 2 * 1024 * 1024 * 1024,
   /** 5 MB — course thumbnail or user avatar */
   IMAGE: 5 * 1024 * 1024,
+  /** 50 MB — lesson solution PDF */
+  PDF: 50 * 1024 * 1024,
 } as const

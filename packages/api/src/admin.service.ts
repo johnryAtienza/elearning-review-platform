@@ -130,6 +130,8 @@ export interface AdminLesson {
   durationMinutes: number | null
   videoUrl: string | null
   reviewerPdfUrl: string | null
+  solutionBookId: string | null
+  solutionPdfUrl: string | null
   createdAt: string
 }
 
@@ -228,6 +230,7 @@ export interface LessonFormData {
   dayNumber?: number | null
   isFreePreview?: boolean
   durationMinutes?: number | null
+  solutionBookId?: string | null
 }
 
 export interface SubjectOption {
@@ -437,6 +440,8 @@ interface LessonRow {
   duration_minutes: number | null
   video_url: string | null
   reviewer_pdf_url: string | null
+  solution_book_id: string | null
+  solution_pdf_url: string | null
   created_at: string
   subjects: { title: string } | null
 }
@@ -609,7 +614,7 @@ export async function deleteSubject(subjectId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, created_at, subjects(title)')
+    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, solution_book_id, solution_pdf_url, created_at, subjects(title)')
     .order('subject_id')
     .order('order', { ascending: true })
 
@@ -629,6 +634,8 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
     durationMinutes: row.duration_minutes ?? null,
     videoUrl:        row.video_url,
     reviewerPdfUrl:  row.reviewer_pdf_url,
+    solutionBookId:  row.solution_book_id,
+    solutionPdfUrl:  row.solution_pdf_url,
     createdAt:       row.created_at,
   }))
 }
@@ -670,6 +677,7 @@ export async function createAdminLesson(data: LessonFormData): Promise<string> {
       day_number:       data.dayNumber  ?? null,
       is_free_preview:  data.isFreePreview ?? false,
       duration_minutes: data.durationMinutes ?? null,
+      solution_book_id: data.solutionBookId ?? null,
       description:      '',
       duration:         '',
     })
@@ -682,7 +690,11 @@ export async function createAdminLesson(data: LessonFormData): Promise<string> {
 
 export async function updateAdminLesson(
   lessonId: string,
-  data: Partial<LessonFormData & { videoUrl: string; reviewerPdfUrl: string }>,
+  data: Partial<LessonFormData & {
+    videoUrl: string | null
+    reviewerPdfUrl: string | null
+    solutionPdfUrl: string | null
+  }>,
 ): Promise<void> {
   const update: Record<string, unknown> = {}
   if (data.courseId        !== undefined) update.subject_id        = data.courseId
@@ -694,6 +706,8 @@ export async function updateAdminLesson(
   if (data.durationMinutes !== undefined) update.duration_minutes  = data.durationMinutes
   if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
   if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl
+  if (data.solutionBookId  !== undefined) update.solution_book_id  = data.solutionBookId
+  if (data.solutionPdfUrl  !== undefined) update.solution_pdf_url  = data.solutionPdfUrl
 
   const { error } = await supabase
     .from('lessons')

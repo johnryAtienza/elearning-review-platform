@@ -67,6 +67,11 @@ Deno.serve(async (req: Request) => {
   if (!isAllowedAdminUploadPath(path) || path.includes('..') || path.includes('\\')) {
     return json({ error: 'Invalid upload path' }, 400)
   }
+  if (path.startsWith('solutions/lessons/')) {
+    if (!/^solutions\/lessons\/[0-9a-f-]+\/solution\.pdf$/i.test(path) || contentType.toLowerCase() !== 'application/pdf') {
+      return json({ error: 'Solution uploads must be PDF files at the lesson solution path' }, 400)
+    }
+  }
 
   // ── Build R2 client ──────────────────────────────────────────────────────────
   const accountId       = Deno.env.get('R2_ACCOUNT_ID')
@@ -120,5 +125,6 @@ function isAllowedAdminUploadPath(path: string): boolean {
     'thumbnails/',
     'quizzes/questions/',
     'cms/',
+    'solutions/lessons/',
   ].some((prefix) => path.startsWith(prefix))
 }

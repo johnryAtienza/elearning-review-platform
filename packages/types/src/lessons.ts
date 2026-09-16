@@ -37,6 +37,10 @@ export interface Lesson {
   hasVideo?: boolean
   /** Present when fetched from Supabase as a subscribed user. */
   reviewerPdfUrl?: string
+  /** Student-safe solution metadata. The private PDF key is never exposed. */
+  hasSolutionPdf?: boolean
+  solutionBookId?: string | null
+  solutionBookTitle?: string | null
 }
 
 export interface ReviewerContent {

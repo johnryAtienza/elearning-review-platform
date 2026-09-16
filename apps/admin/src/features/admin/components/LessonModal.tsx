@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Loader2, FileVideo, CheckCircle2, Upload } from 'lucide-react'
+import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { uploadToStorage, type ProgressCallback } from '@s-class/api/storageClient'
@@ -8,8 +8,10 @@ import {
   createAdminLesson,
   updateAdminLesson,
   getSubjectsForSelect,
+  getAdminBooks,
   getMaxLessonOrderInSubject,
   type AdminLesson,
+  type AdminBook,
   type SubjectOption,
 } from '@s-class/api/admin.service'
 import { UPLOAD_LIMITS } from '@/constants/upload'
@@ -28,7 +30,7 @@ interface LessonModalProps {
   onSaved: (lesson: AdminLesson) => void
 }
 
-type UploadStage = 'idle' | 'creating' | 'video' | 'finalising'
+type UploadStage = 'idle' | 'creating' | 'video' | 'solution' | 'finalising'
 
 const MAX_LESSON_DAYS_PER_WEEK = 6
 
@@ -111,13 +113,18 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
   const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
   const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
   const [videoFile,    setVideoFile]    = useState<File | null>(null)
+  const [solutionBookId, setSolutionBookId] = useState(lesson?.solutionBookId ?? '')
+  const [solutionPdfFile, setSolutionPdfFile] = useState<File | null>(null)
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [courses,      setCourses]      = useState<SubjectOption[]>([])
+  const [books,        setBooks]        = useState<AdminBook[]>([])
   const [coursesLoading, setCoursesLoading] = useState(true)
+  const [booksLoading, setBooksLoading] = useState(true)
   const [saving,       setSaving]       = useState(false)
   const [stage,        setStage]        = useState<UploadStage>('idle')
   const [videoProgress, setVideoProgress] = useState(0)
+  const [solutionProgress, setSolutionProgress] = useState(0)
   const [error,        setError]        = useState<string | null>(null)
 
   const slotValidationError = useMemo(() => getLessonSlotValidationError({
@@ -143,12 +150,32 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
       .finally(() => setCoursesLoading(false))
   }, [])
 
+  useEffect(() => {
+    getAdminBooks()
+      .then(setBooks)
+      .catch(() => setError('Failed to load books.'))
+      .finally(() => setBooksLoading(false))
+  }, [])
+
   // ── Submit ────────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return                   // guard against double-submit
     if (!courseId)    { setError('Please select a course.'); return }
     if (!title.trim()) { setError('Title is required.');    return }
+    if (solutionPdfFile && !solutionBookId) {
+      setError('Select the associated book before uploading a solution PDF.')
+      return
+    }
+    const existingSolutionBookId = lesson?.solutionBookId ?? null
+    const existingSolutionPdfUrl = lesson?.solutionPdfUrl ?? null
+    const selectedSolutionBookId = solutionBookId || null
+    const solutionBookChanged = selectedSolutionBookId !== existingSolutionBookId
+    const removingSolution = selectedSolutionBookId === null && solutionPdfFile === null
+    if (isEdit && existingSolutionPdfUrl && solutionBookChanged && selectedSolutionBookId !== null && !solutionPdfFile) {
+      setError('Upload a replacement PDF when changing the solution book. To remove the solution, select No solution book.')
+      return
+    }
     const submitSlotError = getLessonSlotValidationError({
       lessons: existingLessons,
       currentLessonId: lesson?.id ?? null,
@@ -169,6 +196,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
       // 1. Create or update the lesson record
       setStage('creating')
       const durationMinutes = durationHrs * 60 + durationMins || null
+      const clearSolutionPdf = isEdit && removingSolution && Boolean(existingSolutionBookId || existingSolutionPdfUrl)
       let lessonId = lesson?.id
       const subjectChanged = isEdit && courseId !== originalCourseId.current
       const order = (!isEdit || subjectChanged)
@@ -184,9 +212,20 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
           dayNumber,
           isFreePreview,
           durationMinutes,
+          ...(clearSolutionPdf ? { solutionBookId: null, solutionPdfUrl: null } : {}),
         })
       } else {
-        lessonId = await createAdminLesson({ courseId, title: title.trim(), order, weekNumber, dayNumber, isFreePreview, durationMinutes })
+        lessonId = await createAdminLesson({
+          courseId,
+          title: title.trim(),
+          order,
+          weekNumber,
+          dayNumber,
+          isFreePreview,
+          durationMinutes,
+          // Do not persist a new entitlement until its PDF upload succeeds.
+          solutionBookId: null,
+        })
       }
 
       // 2. Upload video (if a file was picked)
@@ -200,6 +239,24 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
         const result = await uploadToStorage(videoFile, path, onProg)
         videoUrl = result.path          // store storage key, not public URL
         await updateAdminLesson(lessonId, { videoUrl })
+      }
+
+      // 3. Upload the optional solution PDF before persisting any new solution
+      // entitlement. A failed upload leaves the previous Book/PDF untouched.
+      let solutionBookId = clearSolutionPdf ? null : existingSolutionBookId
+      let solutionPdfUrl = clearSolutionPdf ? null : existingSolutionPdfUrl
+      if (solutionPdfFile && lessonId) {
+        setStage('solution')
+        setSolutionProgress(0)
+        const path = storagePaths.solutionPdf(lessonId)
+        const onProg: ProgressCallback = ({ percent }) => setSolutionProgress(percent)
+        const result = await uploadToStorage(solutionPdfFile, path, onProg)
+        solutionBookId = selectedSolutionBookId
+        solutionPdfUrl = result.path
+        await updateAdminLesson(lessonId, {
+          solutionBookId,
+          solutionPdfUrl,
+        })
       }
 
       setStage('finalising')
@@ -217,6 +274,8 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
         durationMinutes: durationMinutes,
         videoUrl,
         reviewerPdfUrl: lesson?.reviewerPdfUrl ?? null,
+        solutionBookId,
+        solutionPdfUrl,
         createdAt:       lesson?.createdAt ?? new Date().toISOString(),
       })
     } catch (err) {
@@ -241,6 +300,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
     switch (stage) {
       case 'creating':   return 'Saving lesson…'
       case 'video':      return `Uploading video… ${videoProgress}%`
+      case 'solution':   return `Uploading solution PDF… ${solutionProgress}%`
       case 'finalising': return 'Finalising…'
       default:           return isEdit ? 'Save changes' : 'Create lesson'
     }
@@ -400,6 +460,36 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
               </p>
             </div>
 
+            {/* Solution book */}
+            <div className="space-y-1.5">
+              <label htmlFor="lesson-solution-book" className="text-sm font-medium">
+                Solution book
+              </label>
+              <select
+                id="lesson-solution-book"
+                value={solutionBookId}
+                onChange={(e) => setSolutionBookId(e.target.value)}
+                disabled={saving || booksLoading}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {booksLoading ? (
+                  <option>Loading books…</option>
+                ) : (
+                  <>
+                    <option value="">No solution book</option>
+                    {books.map((book) => (
+                      <option key={book.id} value={book.id}>
+                        {book.title} ({book.status})
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Choose the existing book whose purchase should unlock this lesson&apos;s solution PDF.
+              </p>
+            </div>
+
             {/* Divider */}
             <div className="border-t pt-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
@@ -420,6 +510,20 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
                   uploading={saving && stage === 'video'}
                   progress={videoProgress}
                   done={saving && stage === 'finalising' && videoFile !== null}
+                  disabled={saving}
+                />
+                <FilePicker
+                  label="Day Solution PDF"
+                  icon={FileText}
+                  accept="application/pdf,.pdf"
+                  maxBytes={UPLOAD_LIMITS.PDF}
+                  hint="PDF only · max 50 MB"
+                  existingPath={lesson?.solutionPdfUrl}
+                  file={solutionPdfFile}
+                  onFile={setSolutionPdfFile}
+                  uploading={saving && stage === 'solution'}
+                  progress={solutionProgress}
+                  done={saving && stage === 'finalising' && solutionPdfFile !== null}
                   disabled={saving}
                 />
               </div>

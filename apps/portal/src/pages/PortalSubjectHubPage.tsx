@@ -14,6 +14,7 @@ import { subjectApi } from '@s-class/api/subjectApi'
 import { lessonApi } from '@s-class/api/lessonApi'
 import { getWatchedLessonIds } from '@s-class/api/lessonProgressApi'
 import { groupLessonsByWeek, WeekBlock } from '@/features/subjects/components/curriculum'
+import { PdfSolutionsSection } from '@/features/subjects/components/PdfSolutionsSection'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import type { Subject } from '@/features/subjects/types'
@@ -284,6 +285,8 @@ export function PortalSubjectHubPage() {
           }
         </Button>
       </div>
+
+      <PdfSolutionsSection lessons={lessons} />
 
       {/* ── Curriculum ── */}
       {lessons.length === 0 ? (

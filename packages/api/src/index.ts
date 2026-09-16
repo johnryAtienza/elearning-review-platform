@@ -15,8 +15,8 @@ export type {
   ProgressCallback,
 } from './storageClient'
 export { storagePaths } from './storagePaths'
-export { getSignedContentUrls, SecureContentFetchError } from './secureContent'
-export type { SecureContentResult, SecureContentError } from './secureContent'
+export { getSignedContentUrls, getSignedSolutionUrl, SecureContentFetchError } from './secureContent'
+export type { SecureContentResult, SecureSolutionResult, SecureContentError } from './secureContent'
 
 // Provider-routed APIs (2.5b/c)
 export { authApi } from './authApi'

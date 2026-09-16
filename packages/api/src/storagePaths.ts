@@ -18,6 +18,10 @@ export const storagePaths = {
   reviewerPdf: (lessonId: string) =>
     `reviewers/lesson-${lessonId}.pdf`,
 
+  /** e.g. solutions/lessons/lesson-abc123/solution.pdf */
+  solutionPdf: (lessonId: string) =>
+    `solutions/lessons/${lessonId}/solution.pdf`,
+
   /** e.g. avatars/user-abc123.webp */
   userAvatar: (userId: string, ext = 'webp') =>
     `avatars/user-${userId}.${ext}`,

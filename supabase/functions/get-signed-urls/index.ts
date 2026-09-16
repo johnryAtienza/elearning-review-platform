@@ -1,7 +1,7 @@
 /**
  * get-signed-urls — Supabase Edge Function
  *
- * Returns short-lived (60s) presigned R2 GET URLs for a lesson's video and PDF.
+ * Returns short-lived (60s) presigned R2 GET URLs for lesson media and solution PDFs.
  * This function is the only path from the browser to R2 and is therefore the
  * actual security boundary for premium content — the React route guards above
  * it are UX only.
@@ -25,7 +25,7 @@
  *
  * POST /functions/v1/get-signed-urls
  * Authorization: Bearer <supabase-jwt>   (optional — required for premium)
- * Body: { lessonId: string }
+ * Body: { lessonId: string; asset?: 'lesson' | 'solution' }
  *
  * Error responses:
  *   400 — invalid body / missing lessonId
@@ -73,32 +73,48 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ── Determine subscription tier (authenticated users only) ───────────────────
-  let tier: 'free' | 'standard' = 'free'
-  if (userId) {
-    const now = new Date().toISOString()
-    const { data: sub } = await adminClient
-      .from('subscriptions')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .or(`expires_at.is.null,expires_at.gt.${now}`)
-      .maybeSingle()
-    if (sub) tier = 'standard'
-  }
-
   // ── Parse body ───────────────────────────────────────────────────────────────
-  let body: { lessonId?: string }
+  let body: { lessonId?: string; asset?: 'lesson' | 'solution' }
   try { body = await req.json() }
   catch { return json({ error: 'Invalid JSON body' }, 400) }
 
-  const { lessonId } = body
+  const { lessonId, asset = 'lesson' } = body
   if (!lessonId) return json({ error: 'lessonId is required' }, 400)
+  if (asset !== 'lesson' && asset !== 'solution') return json({ error: 'Invalid asset' }, 400)
+
+  // ── Determine access using the existing branch-specific rules ────────────────
+  // Lesson media preserves the legacy endpoint predicate exactly: any active,
+  // non-expired subscription row grants the existing Standard media response.
+  // Solution PDFs use the explicit Standard tier rule below.
+  let tier: 'free' | 'standard' = 'free'
+  if (userId) {
+    if (asset === 'solution' && !isAdmin) {
+      // Reuse the existing database helper so solution access follows the same
+      // active/non-expired subscription and tier rules as the application.
+      const { data: userTier, error: tierError } = await adminClient
+        .rpc('get_user_tier', { uid: userId })
+      if (tierError) {
+        console.error('[get-signed-urls] Subscription tier lookup error:', tierError)
+        return json({ error: 'Failed to verify subscription' }, 500)
+      }
+      if (userTier === 'standard') tier = 'standard'
+    } else if (asset === 'lesson') {
+      const now = new Date().toISOString()
+      const { data: sub } = await adminClient
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .maybeSingle()
+      if (sub) tier = 'standard'
+    }
+  }
 
   // ── Fetch lesson storage paths + access flag ─────────────────────────────────
   const { data: lesson, error: lessonError } = await adminClient
     .from('lessons')
-    .select('subject_id, video_url, reviewer_pdf_url, is_free_preview')
+    .select('subject_id, video_url, reviewer_pdf_url, is_free_preview, solution_book_id, solution_pdf_url')
     .eq('id', lessonId)
     .maybeSingle()
 
@@ -116,9 +132,45 @@ Deno.serve(async (req: Request) => {
     .maybeSingle()
   if (!subject) return json({ error: 'Lesson not found' }, 404)
 
-  // ── Authorize ────────────────────────────────────────────────────────────────
+  const solutionPath = lesson.solution_pdf_url as string | null
+
+  // Solution PDFs are never free previews. The associated book is read from the
+  // lesson row here, so callers cannot substitute a different book ID.
+  if (asset === 'solution') {
+    if (!lesson.solution_book_id || !solutionPath) {
+      return json({ error: 'Solution not found' }, 404)
+    }
+    if (!/^solutions\/lessons\/[0-9a-f-]+\/solution\.pdf$/i.test(solutionPath)) {
+      console.error('[get-signed-urls] Invalid solution storage path:', lessonId)
+      return json({ error: 'Solution not found' }, 404)
+    }
+
+    if (!userId) return json({ error: 'Unauthorized' }, 401)
+
+    let hasBookPurchase = isAdmin || tier === 'standard'
+    if (!hasBookPurchase) {
+      const { data: order, error: orderError } = await adminClient
+        .from('book_orders')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('book_id', lesson.solution_book_id)
+        .in('status', ['paid', 'shipped', 'delivered'])
+        .limit(1)
+        .maybeSingle()
+
+      if (orderError) {
+        console.error('[get-signed-urls] Book order lookup error:', orderError)
+        return json({ error: 'Failed to verify book purchase' }, 500)
+      }
+      hasBookPurchase = Boolean(order)
+    }
+
+    if (!hasBookPurchase) return json({ error: 'Book purchase or Standard subscription required' }, 403)
+  }
+
+  // ── Authorize lesson media ──────────────────────────────────────────────────
   const isPreview = lesson.is_free_preview === true
-  const canAccess = isPreview || isAdmin || tier === 'standard'
+  const canAccess = asset === 'solution' || isPreview || isAdmin || tier === 'standard'
 
   if (!canAccess) {
     // Distinguish guest (sign in / subscribe) from authenticated free (subscribe).
@@ -134,6 +186,40 @@ Deno.serve(async (req: Request) => {
 
   const videoPath = lesson.video_url        as string | null
   const pdfPath   = lesson.reviewer_pdf_url as string | null
+
+  if (asset === 'solution') {
+    // The authorization above is complete; sign only the private R2 key stored
+    // on this exact lesson row.
+    const accountId       = Deno.env.get('R2_ACCOUNT_ID')
+    const accessKeyId     = Deno.env.get('R2_ACCESS_KEY_ID')
+    const secretAccessKey = Deno.env.get('R2_SECRET_ACCESS_KEY')
+    const bucketName      = Deno.env.get('R2_BUCKET_NAME')
+
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+      console.error('[get-signed-urls] Missing R2 env vars')
+      return json({ error: 'Storage not configured' }, 500)
+    }
+
+    const s3 = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    })
+
+    try {
+      const solutionUrl = await getSignedUrl(s3, new GetObjectCommand({
+        Bucket: bucketName,
+        Key: solutionPath!,
+        ResponseContentDisposition: 'inline',
+        ResponseContentType: 'application/pdf',
+      }), { expiresIn: SIGNED_URL_TTL })
+      return json({ solutionUrl })
+    } catch (err) {
+      console.error('[get-signed-urls] Solution presign error:', err)
+      return json({ error: 'Failed to generate signed URL' }, 500)
+    }
+  }
 
   const shouldSignVideo = !!videoPath
   const shouldSignPdf   = !!pdfPath

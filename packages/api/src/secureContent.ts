@@ -18,6 +18,10 @@ export interface SecureContentResult {
   tier: SubscriptionTier
 }
 
+export interface SecureSolutionResult {
+  solutionUrl: string
+}
+
 export type SecureContentError =
   | 'UNAUTHORIZED'
   | 'NO_SUBSCRIPTION'
@@ -76,4 +80,42 @@ export async function getSignedContentUrls(lessonId: string): Promise<SecureCont
   }
 
   return res.json() as Promise<SecureContentResult>
+}
+
+/**
+ * Fetch a short-lived signed URL for a lesson's solution PDF.
+ *
+ * The Edge Function derives the associated book from the lesson row and checks
+ * the caller's Standard subscription or completed order for that exact book.
+ */
+export async function getSignedSolutionUrl(lessonId: string): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const bearer = session?.access_token ?? anonKey
+
+  const url = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/get-signed-urls`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${bearer}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify({ lessonId, asset: 'solution' }),
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    const message = body.error ?? `Request failed (${res.status})`
+    if (res.status === 401) throw new SecureContentFetchError('UNAUTHORIZED', message)
+    if (res.status === 403) throw new SecureContentFetchError('NO_SUBSCRIPTION', message)
+    if (res.status === 404) throw new SecureContentFetchError('LESSON_NOT_FOUND', message)
+    throw new SecureContentFetchError('SERVER_ERROR', message)
+  }
+
+  const data = await res.json() as SecureSolutionResult
+  if (!data.solutionUrl) {
+    throw new SecureContentFetchError('SERVER_ERROR', 'Solution PDF is unavailable.')
+  }
+  return data.solutionUrl
 }

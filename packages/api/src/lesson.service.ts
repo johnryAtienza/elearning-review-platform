@@ -31,12 +31,15 @@ interface LessonPreviewRow {
   day_number: number | null
   is_free_preview: boolean | null
   has_video: boolean | null
+  has_solution_pdf: boolean | null
+  solution_book_id: string | null
+  solution_book_title: string | null
   duration: string
   duration_minutes: number | null
 }
 
 const LESSON_PREVIEW_COLUMNS =
-  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, has_video, duration, duration_minutes'
+  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, has_video, has_solution_pdf, solution_book_id, solution_book_title, duration, duration_minutes'
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,9 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
     dayNumber:       row.day_number  ?? null,
     isFreePreview:   row.is_free_preview === true,
     hasVideo:        row.has_video === true,
+    hasSolutionPdf:  row.has_solution_pdf === true,
+    solutionBookId:  row.solution_book_id ?? null,
+    solutionBookTitle: row.solution_book_title ?? null,
   }
 }
 

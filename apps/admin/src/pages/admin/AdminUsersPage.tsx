@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  CreditCard,
   Pencil,
   MoreVertical,
   Monitor,
@@ -30,11 +31,15 @@ import {
 import {
   createAdminUser,
   getAdminUsers,
+  getAdminSubscriptionEffectiveStatus,
+  isAdminSubscriptionEntitled,
+  manualAssignAdminSubscription,
   resetUserPassword,
   resetUserDevices,
   setUserRole,
   updateAdminUser,
   type AdminDeviceResetKind,
+  type AdminSubscriptionManualDuration,
   type AdminUser,
 } from '@s-class/api/admin.service'
 
@@ -97,6 +102,8 @@ export function AdminUsersPage() {
   const [resettingDevice,   setResettingDevice]   = useState<string | null>(null)
   const [passwordResetUser, setPasswordResetUser] = useState<AdminUser | null>(null)
   const [resettingPasswordUserId, setResettingPasswordUserId] = useState<string | null>(null)
+  const [subscriptionUser, setSubscriptionUser] = useState<AdminUser | null>(null)
+  const [assigningSubscriptionUserId, setAssigningSubscriptionUserId] = useState<string | null>(null)
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -300,6 +307,49 @@ export function AdminUsersPage() {
     }
   }
 
+  // ── Subscription management ──────────────────────────────────────────────────
+  function openSubscriptionModal(user: AdminUser) {
+    setUserModal(null)
+    setPasswordResetUser(null)
+    setResetMenuUserId(null)
+    setResetConfirm(null)
+    setRoleConfirm(null)
+    setSubscriptionUser(user)
+  }
+
+  function closeSubscriptionModal() {
+    if (assigningSubscriptionUserId) return
+    setSubscriptionUser(null)
+  }
+
+  async function handleSubscriptionAssignment(
+    durationMonths: AdminSubscriptionManualDuration,
+    reason?: string,
+  ) {
+    if (!subscriptionUser) return
+
+    const user = subscriptionUser
+    setAssigningSubscriptionUserId(user.id)
+    try {
+      const updated = await manualAssignAdminSubscription(user.id, durationMonths, reason)
+      const now = new Date()
+      const isActive = updated.isActive
+      const expiresAt = updated.expiresAt
+      const isSubscribed = isAdminSubscriptionEntitled({ isActive, expiresAt }, now)
+      const subscriptionStatus = getAdminSubscriptionEffectiveStatus({ isActive, expiresAt }, now)
+
+      setUsers((prev) => prev.map((item) => item.id === user.id
+        ? { ...item, isSubscribed, subscriptionStatus, subscriptionExpiresAt: expiresAt }
+        : item))
+      setSubscriptionUser(null)
+      toast.success(`Standard subscription assigned to ${user.name}`)
+    } catch (err) {
+      toast.error(err, 'Failed to update subscription.')
+    } finally {
+      setAssigningSubscriptionUserId(null)
+    }
+  }
+
   // ── Filtered list ─────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -422,6 +472,7 @@ export function AdminUsersPage() {
                 onRoleCancel={() => setRoleConfirm(null)}
                 onEditClick={() => openEditUserModal(user)}
                 onPasswordResetClick={() => openPasswordResetModal(user)}
+                onSubscriptionClick={() => openSubscriptionModal(user)}
                 resetMenuOpen={resetMenuUserId === user.id}
                 onResetMenuToggle={() => {
                   setUserModal(null)
@@ -471,6 +522,15 @@ export function AdminUsersPage() {
           onClose={closePasswordResetModal}
         />
       )}
+
+      {subscriptionUser && (
+        <SubscriptionManageModal
+          user={subscriptionUser}
+          saving={assigningSubscriptionUserId === subscriptionUser.id}
+          onSubmit={handleSubscriptionAssignment}
+          onClose={closeSubscriptionModal}
+        />
+      )}
     </div>
   )
 }
@@ -486,6 +546,7 @@ interface UserRowProps {
   onRoleCancel: () => void
   onEditClick: () => void
   onPasswordResetClick: () => void
+  onSubscriptionClick: () => void
   resetMenuOpen: boolean
   onResetMenuToggle: () => void
   resetConfirm: DeviceResetConfirm | null
@@ -501,6 +562,7 @@ function UserRow({
   onRoleClick, onRoleConfirm, onRoleCancel,
   onEditClick,
   onPasswordResetClick,
+  onSubscriptionClick,
   resetMenuOpen, onResetMenuToggle, resetConfirm, onResetRequest, onResetConfirm, onResetCancel, isResetting,
   isResettingPassword,
 }: UserRowProps) {
@@ -622,6 +684,15 @@ function UserRow({
               className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
             >
               <KeyRound className="size-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Manage subscription">
+            <button
+              type="button"
+              onClick={onSubscriptionClick}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <CreditCard className="size-3.5" />
             </button>
           </Tip>
           <Tip label="Edit user">
@@ -1023,6 +1094,135 @@ function PasswordResetModal({
           <Button type="submit" disabled={saving}>
             <KeyRound className="mr-2 size-4" />
             {saving ? 'Resetting...' : 'Reset password'}
+          </Button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+function SubscriptionManageModal({
+  user,
+  saving,
+  onSubmit,
+  onClose,
+}: {
+  user: AdminUser
+  saving: boolean
+  onSubmit: (durationMonths: AdminSubscriptionManualDuration, reason?: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [durationMonths, setDurationMonths] = useState<AdminSubscriptionManualDuration>(1)
+  const [reason, setReason] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (saving) return
+    await onSubmit(durationMonths, reason.trim() || undefined)
+  }
+
+  function closeOnEscape(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') onClose()
+  }
+
+  const effectiveStatus = user.isSubscribed ? 'Standard' : 'Free'
+  const storedStatus = user.subscriptionStatus === 'expired'
+    ? 'Expired subscription'
+    : user.subscriptionStatus === 'inactive'
+      ? 'No active subscription'
+      : 'Active subscription'
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={saving ? undefined : onClose} />
+
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subscription-manage-modal-title"
+        onSubmit={handleSubmit}
+        onKeyDown={closeOnEscape}
+        className="relative flex w-full max-w-md flex-col rounded-xl border bg-background shadow-xl"
+      >
+        <div className="flex items-center justify-between gap-4 border-b px-6 py-4">
+          <div>
+            <h2 id="subscription-manage-modal-title" className="text-lg font-semibold">
+              Manage subscription
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {user.name}{user.email ? ` (${user.email})` : ''}
+            </p>
+          </div>
+          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={saving}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Current access</span>
+              <Badge variant={user.isSubscribed ? 'success' : 'outline'}>{effectiveStatus}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {storedStatus}
+              {user.subscriptionExpiresAt && ` · expires ${formatAdminDate(user.subscriptionExpiresAt)}`}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="admin-subscription-tier" className="text-sm font-medium">
+              Subscription
+            </label>
+            <Input id="admin-subscription-tier" value="Standard" readOnly aria-readonly="true" />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="admin-subscription-duration" className="text-sm font-medium">
+              Duration
+            </label>
+            <select
+              id="admin-subscription-duration"
+              value={durationMonths}
+              onChange={(e) => setDurationMonths(Number(e.target.value) as AdminSubscriptionManualDuration)}
+              disabled={saving}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="1">1 month</option>
+              <option value="3">3 months</option>
+              <option value="6">6 months</option>
+            </select>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {user.isSubscribed
+              ? 'This duration will be added to the existing expiry date.'
+              : 'Access will begin now and use the selected duration.'}
+          </p>
+
+          <div className="space-y-1.5">
+            <label htmlFor="admin-subscription-reason" className="text-sm font-medium">
+              Internal reason <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <Input
+              id="admin-subscription-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Manual payment"
+              maxLength={1000}
+              disabled={saving}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            <CreditCard className="mr-2 size-4" />
+            {saving ? 'Saving...' : 'Assign Standard'}
           </Button>
         </div>
       </form>

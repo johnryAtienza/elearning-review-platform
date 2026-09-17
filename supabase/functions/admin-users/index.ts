@@ -172,6 +172,7 @@ Deno.serve(async (req: Request) => {
       schoolId:              profile.school_id ?? '',
       role:                  profile.role,
       isSubscribed:          false,
+      subscriptionStatus:    'inactive',
       subscriptionExpiresAt: null,
       createdAt:             profile.created_at,
     },

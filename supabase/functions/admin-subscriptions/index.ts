@@ -19,6 +19,7 @@ const VALID_ACTIONS = new Set([
   'restore_access',
   'renew',
   'extend',
+  'manual_assign',
   'set_custom_expiry',
 ])
 const VALID_DURATION_MONTHS = new Set([1, 3, 6])
@@ -29,6 +30,7 @@ type AdminSubscriptionAction =
   | 'restore_access'
   | 'renew'
   | 'extend'
+  | 'manual_assign'
   | 'set_custom_expiry'
 
 interface Body {
@@ -113,20 +115,41 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Failed to fetch subscription', code: 'SUBSCRIPTION_FETCH_FAILED' }, 500)
   }
 
-  if (!subscription) {
+  const typedAction = action as AdminSubscriptionAction
+  if (!subscription && typedAction !== 'manual_assign') {
     return json({ error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404)
   }
 
-  const previous = subscription as SubscriptionRow
-  const typedAction = action as AdminSubscriptionAction
+  const previous = subscription as SubscriptionRow | null
   const now = Date.now()
   let next: SubscriptionRow
   let metadata: Record<string, unknown> = {
     source:                   'admin-subscriptions',
-    previous_duration_months: previous.duration_months,
+    previous_duration_months: previous?.duration_months ?? null,
   }
 
-  if (typedAction === 'disable_access' || typedAction === 'restore_access') {
+  if (typedAction === 'manual_assign') {
+    const durationMonths = parseDurationMonths(body.durationMonths)
+    if (!durationMonths) {
+      return json({
+        error: 'durationMonths must be one of 1, 3, or 6.',
+        code:  'INVALID_DURATION_MONTHS',
+      }, 400)
+    }
+
+    const rpcResult = await extendSubscription(adminClient, userId, durationMonths)
+    if (!rpcResult.ok) return rpcResult.response
+
+    next = rpcResult.subscription
+    metadata = {
+      ...metadata,
+      duration_months: durationMonths,
+      previous_expires_at: rpcResult.result.previous_expires_at,
+      days_added: rpcResult.result.days_added,
+    }
+  } else if (typedAction === 'disable_access' || typedAction === 'restore_access') {
+    if (!previous) return json({ error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404)
+
     if (typedAction === 'restore_access' && isExpired(previous, now)) {
       return json({
         error: 'Subscription is expired. Renewal is required before access can be restored.',
@@ -148,6 +171,8 @@ Deno.serve(async (req: Request) => {
 
     next = updated as SubscriptionRow
   } else if (typedAction === 'renew') {
+    if (!previous) return json({ error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404)
+
     if (!isExpired(previous, now)) {
       return json({
         error: 'Only expired subscriptions can be renewed.',
@@ -174,6 +199,8 @@ Deno.serve(async (req: Request) => {
       days_added: rpcResult.result.days_added,
     }
   } else if (typedAction === 'extend') {
+    if (!previous) return json({ error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404)
+
     if (!previous.expires_at) {
       return json({
         error: 'This subscription has no expiry date. Use Set Expiry instead.',
@@ -214,6 +241,8 @@ Deno.serve(async (req: Request) => {
       days_added: rpcResult.result.days_added,
     }
   } else {
+    if (!previous) return json({ error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404)
+
     const nextExpiresAt = parseFutureExpiry(body.expiresAt)
     if (!nextExpiresAt) {
       return json({
@@ -248,13 +277,13 @@ Deno.serve(async (req: Request) => {
   const { error: auditError } = await adminClient
     .from('subscription_admin_events')
     .insert({
-      subscription_id:      previous.id,
-      user_id:              previous.user_id,
+      subscription_id:      next.id,
+      user_id:              next.user_id,
       admin_user_id:        adminUser.id,
       action:               typedAction,
-      previous_is_active:   previous.is_active,
-      previous_expires_at:  previous.expires_at,
-      previous_tier:        previous.tier,
+      previous_is_active:   previous?.is_active ?? null,
+      previous_expires_at:  previous?.expires_at ?? null,
+      previous_tier:        previous?.tier ?? null,
       new_is_active:        next.is_active,
       new_expires_at:       next.expires_at,
       new_tier:             next.tier,

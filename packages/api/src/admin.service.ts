@@ -287,6 +287,7 @@ type AdminSubscriptionAccessAction =
   | 'restore_access'
   | 'renew'
   | 'extend'
+  | 'manual_assign'
   | 'set_custom_expiry'
 
 interface AdminSubscriptionAccessResponse {
@@ -319,6 +320,7 @@ export interface AdminUser {
   schoolId: string
   role: 'user' | 'admin'
   isSubscribed: boolean
+  subscriptionStatus: AdminSubscriptionEffectiveStatus
   subscriptionExpiresAt: string | null
   createdAt: string
 }
@@ -1190,6 +1192,8 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
 
   if (error) throw new ApiError(500, 'ADMIN_USERS_FAILED', error.message)
 
+  const now = new Date()
+
   return (data as UserListRow[]).map((row) => ({
     id:                    row.id,
     name:                  row.name,
@@ -1200,7 +1204,14 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
     school:                row.school ?? '',
     schoolId:              row.school_id ?? '',
     role:                  row.role as 'user' | 'admin',
-    isSubscribed:          row.is_subscribed,
+    isSubscribed:          isAdminSubscriptionEntitled({
+      isActive:  row.is_subscribed,
+      expiresAt: row.subscription_expires_at,
+    }, now),
+    subscriptionStatus:    getAdminSubscriptionEffectiveStatus({
+      isActive:  row.is_subscribed,
+      expiresAt: row.subscription_expires_at,
+    }, now),
     subscriptionExpiresAt: row.subscription_expires_at,
     createdAt:             row.created_at,
   }))
@@ -1512,6 +1523,20 @@ export async function extendAdminSubscription(
 ): Promise<AdminSubscriptionAccessResponse['subscription']> {
   const { subscription } = await invokeAdminSubscriptionAccess({
     action: 'extend',
+    userId,
+    durationMonths,
+    reason,
+  })
+  return subscription
+}
+
+export async function manualAssignAdminSubscription(
+  userId: string,
+  durationMonths: AdminSubscriptionManualDuration,
+  reason?: string,
+): Promise<AdminSubscriptionAccessResponse['subscription']> {
+  const { subscription } = await invokeAdminSubscriptionAccess({
+    action: 'manual_assign',
     userId,
     durationMonths,
     reason,

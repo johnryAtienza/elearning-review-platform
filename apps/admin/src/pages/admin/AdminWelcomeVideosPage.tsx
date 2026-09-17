@@ -187,7 +187,7 @@ export function AdminWelcomeVideosPage() {
         const result = await uploadToStorage(thumbFile, path, (evt) => {
           setUploadProgress(evt.percent)
         })
-        saved = await updateAdminWelcomeVideo(saved.id, { thumbnailUrl: result.publicUrl })
+        saved = await updateAdminWelcomeVideo(saved.id, { thumbnailUrl: result.path })
       }
 
       setVideoId(saved.id)

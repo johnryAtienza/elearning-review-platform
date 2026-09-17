@@ -1,4 +1,4 @@
-const PUBLIC_PREFIXES = ['thumbnails/', 'avatars/', 'quizzes/', 'covers/'] as const
+const PUBLIC_PREFIXES = ['thumbnails/', 'avatars/', 'quizzes/', 'covers/', 'cms/'] as const
 
 function hasBody(obj: R2Object | R2ObjectBody): obj is R2ObjectBody {
   return 'body' in obj

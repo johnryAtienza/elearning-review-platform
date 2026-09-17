@@ -3,6 +3,7 @@ import { loadEnv, type ServerOptions } from 'vite'
 const PUBLIC_ASSET_PREFIXES = [
   '/avatars',
   '/covers',
+  '/cms',
   '/quizzes',
   '/thumbnails',
 ] as const

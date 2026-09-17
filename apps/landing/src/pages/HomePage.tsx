@@ -366,7 +366,7 @@ function VideoFrame({ video, loading }: { video: WelcomeVideo | null; loading: b
           <img
             src={video.thumbnailUrl}
             alt={video.title}
-            className="max-h-[70%] max-w-[70%] object-contain"
+            className="max-h-[92%] max-w-[92%] object-contain"
           />
         ) : (
           <PlayCircle className="size-12 text-muted-foreground/40" />

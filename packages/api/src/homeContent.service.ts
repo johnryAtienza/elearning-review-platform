@@ -12,6 +12,7 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import { normalizePublicAssetDisplayUrl } from './publicAssetUrl'
 import {
   HOME_HERO_DB_KEYS,
   HOME_HERO_SECTION,
@@ -117,7 +118,7 @@ function toWelcomeVideo(row: WelcomeVideoRow): WelcomeVideo {
     title:        row.title,
     description:  row.description,
     videoUrl:     row.video_url,
-    thumbnailUrl: row.thumbnail_url,
+    thumbnailUrl: normalizePublicAssetDisplayUrl(row.thumbnail_url) ?? row.thumbnail_url,
     ctaLabel:     row.cta_label,
     ctaHref:      row.cta_href,
     displayOrder: row.display_order,

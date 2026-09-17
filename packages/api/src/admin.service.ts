@@ -2863,7 +2863,7 @@ function toAdminWelcomeVideo(row: WelcomeVideoRow): AdminWelcomeVideo {
     title:        row.title,
     description:  row.description,
     videoUrl:     row.video_url,
-    thumbnailUrl: row.thumbnail_url,
+    thumbnailUrl: normalizePublicAssetDisplayUrl(row.thumbnail_url) ?? row.thumbnail_url,
     ctaLabel:     row.cta_label,
     ctaHref:      row.cta_href,
     enabled:      row.enabled,

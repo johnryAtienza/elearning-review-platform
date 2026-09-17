@@ -99,7 +99,7 @@ export function WelcomeVideoModal({ video, onClose, onSaved }: WelcomeVideoModal
         const result = await uploadToStorage(thumbFile, path, (evt) => {
           setUploadProgress(evt.percent)
         })
-        saved = await updateAdminWelcomeVideo(saved.id, { thumbnailUrl: result.publicUrl })
+        saved = await updateAdminWelcomeVideo(saved.id, { thumbnailUrl: result.path })
       }
 
       onSaved(saved)

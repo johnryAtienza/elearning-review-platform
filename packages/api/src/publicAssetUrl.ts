@@ -3,6 +3,7 @@ const EMPTY_ASSET_VALUES = new Set(['', 'null', 'undefined'])
 const PUBLIC_ASSET_PATH_PREFIXES = [
   '/avatars/',
   '/covers/',
+  '/cms/',
   '/quizzes/',
   '/thumbnails/',
 ] as const
@@ -10,6 +11,7 @@ const PUBLIC_ASSET_PATH_PREFIXES = [
 const PUBLIC_ASSET_KEY_PREFIXES = [
   'avatars/',
   'covers/',
+  'cms/',
   'quizzes/',
   'thumbnails/',
 ] as const

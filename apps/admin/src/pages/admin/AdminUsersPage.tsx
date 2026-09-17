@@ -4,6 +4,8 @@ import {
   Users,
   ShieldCheck,
   User,
+  Eye,
+  EyeOff,
   Pencil,
   MoreVertical,
   Monitor,
@@ -850,20 +852,36 @@ function UserModalField({
   invalid?: boolean
   type?: string
 }) {
+  const [showPassword, setShowPassword] = useState(false)
+  const isPassword = type === 'password'
+
   return (
     <div className="space-y-1.5">
       <label className="text-sm font-medium">
         {label}
         {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
       </label>
-      <Input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={invalid || undefined}
-      />
+      <div className={isPassword ? 'relative' : undefined}>
+        <Input
+          type={isPassword && showPassword ? 'text' : type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          aria-invalid={invalid || undefined}
+          className={isPassword ? 'pr-10' : undefined}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((visible) => !visible)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        )}
+      </div>
       {invalid && (
         <p className="text-xs text-destructive">{label} is required.</p>
       )}

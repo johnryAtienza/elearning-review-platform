@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, MailCheck, Check, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, MailCheck, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormAlert } from '@/components/ui/ErrorMessage'
@@ -45,6 +45,8 @@ export function RegisterPage() {
   const [loading,         setLoading]         = useState(false)
   const [submitted,       setSubmitted]       = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
+  const [showPassword,    setShowPassword]    = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [limitDevices,    setLimitDevices]    = useState<UserDevice[] | null>(null)
 
   const pwRules = {
@@ -255,17 +257,28 @@ export function RegisterPage() {
               <label htmlFor="password" className="text-sm font-medium">
                 Password<RequiredMark />
               </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-                aria-invalid={fieldErrors.password || undefined}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Create a password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  aria-invalid={fieldErrors.password || undefined}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
               {/* Password requirements — visible while focused or after invalid submit */}
               {(passwordFocused || (submitted && !pwAllValid)) && (
                 <ul className="mt-2 space-y-1">
@@ -281,15 +294,26 @@ export function RegisterPage() {
               <label htmlFor="confirmPassword" className="text-sm font-medium">
                 Confirm password<RequiredMark />
               </label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Repeat your password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                aria-invalid={fieldErrors.confirmPassword || undefined}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Repeat your password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={fieldErrors.confirmPassword || undefined}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((visible) => !visible)}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
               {submitted && confirmPassword && confirmPassword !== password && (
                 <p className="text-xs text-destructive mt-1">Passwords do not match.</p>
               )}

@@ -1284,6 +1284,43 @@ export async function createAdminUser(input: CreateAdminUserInput): Promise<Admi
   return data.user
 }
 
+export async function resetUserPassword(userId: string, password: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke<{ status: 'ok' }>(
+    'admin-users',
+    {
+      body: {
+        action: 'reset_user_password',
+        userId,
+        password,
+      },
+    },
+  )
+
+  if (error) {
+    let status = 500
+    let code = 'ADMIN_USER_PASSWORD_RESET_FAILED'
+    let message = error.message || 'Failed to reset user password.'
+
+    const context = (error as { context?: unknown }).context
+    if (context instanceof Response) {
+      status = context.status
+      try {
+        const payload = await context.clone().json() as { error?: string; code?: string }
+        if (payload.error) message = payload.error
+        if (payload.code)  code    = payload.code
+      } catch {
+        // Keep the default function error message.
+      }
+    }
+
+    throw new ApiError(status, code, message, error)
+  }
+
+  if (data?.status !== 'ok') {
+    throw new ApiError(500, 'ADMIN_USER_PASSWORD_RESET_FAILED', 'Password reset returned an empty response.')
+  }
+}
+
 export async function resetUserDevices(
   userId: string,
   deviceKind: AdminDeviceResetKind = 'all',

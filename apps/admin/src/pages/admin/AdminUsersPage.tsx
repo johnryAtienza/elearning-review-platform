@@ -6,6 +6,7 @@ import {
   User,
   Eye,
   EyeOff,
+  KeyRound,
   Pencil,
   MoreVertical,
   Monitor,
@@ -29,6 +30,7 @@ import {
 import {
   createAdminUser,
   getAdminUsers,
+  resetUserPassword,
   resetUserDevices,
   setUserRole,
   updateAdminUser,
@@ -38,7 +40,7 @@ import {
 
 // ── Column layout ─────────────────────────────────────────────────────────────
 
-const GRID_COLS = 'grid-cols-[1fr_6rem_8rem_7rem_4.5rem]'
+const GRID_COLS = 'grid-cols-[1fr_6rem_8rem_7rem_6rem]'
 
 const HEADER_COLS: ColConfig[] = [
   { label: 'User' },
@@ -93,6 +95,8 @@ export function AdminUsersPage() {
   const [resetMenuUserId,   setResetMenuUserId]   = useState<string | null>(null)
   const [resetConfirm,      setResetConfirm]      = useState<DeviceResetConfirm | null>(null)
   const [resettingDevice,   setResettingDevice]   = useState<string | null>(null)
+  const [passwordResetUser, setPasswordResetUser] = useState<AdminUser | null>(null)
+  const [resettingPasswordUserId, setResettingPasswordUserId] = useState<string | null>(null)
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -266,6 +270,36 @@ export function AdminUsersPage() {
     }
   }
 
+  // ── Password reset ───────────────────────────────────────────────────────────
+  function openPasswordResetModal(user: AdminUser) {
+    setUserModal(null)
+    setResetMenuUserId(null)
+    setResetConfirm(null)
+    setRoleConfirm(null)
+    setPasswordResetUser(user)
+  }
+
+  function closePasswordResetModal() {
+    if (resettingPasswordUserId) return
+    setPasswordResetUser(null)
+  }
+
+  async function handlePasswordReset(password: string) {
+    if (!passwordResetUser) return
+
+    const user = passwordResetUser
+    setResettingPasswordUserId(user.id)
+    try {
+      await resetUserPassword(user.id, password)
+      setPasswordResetUser(null)
+      toast.success(`Password reset for ${user.name}`)
+    } catch (err) {
+      toast.error(err, 'Failed to reset user password.')
+    } finally {
+      setResettingPasswordUserId(null)
+    }
+  }
+
   // ── Filtered list ─────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -387,6 +421,7 @@ export function AdminUsersPage() {
                 onRoleConfirm={() => handleRoleChange(user.id, roleConfirm!.newRole)}
                 onRoleCancel={() => setRoleConfirm(null)}
                 onEditClick={() => openEditUserModal(user)}
+                onPasswordResetClick={() => openPasswordResetModal(user)}
                 resetMenuOpen={resetMenuUserId === user.id}
                 onResetMenuToggle={() => {
                   setUserModal(null)
@@ -399,6 +434,7 @@ export function AdminUsersPage() {
                 onResetConfirm={handleDeviceReset}
                 onResetCancel={() => setResetConfirm(null)}
                 isResetting={resettingDevice?.startsWith(`${user.id}:`) ?? false}
+                isResettingPassword={resettingPasswordUserId === user.id}
               />
             ))}
           </div>
@@ -426,6 +462,15 @@ export function AdminUsersPage() {
           onClose={closeUserModal}
         />
       )}
+
+      {passwordResetUser && (
+        <PasswordResetModal
+          user={passwordResetUser}
+          saving={resettingPasswordUserId === passwordResetUser.id}
+          onSubmit={handlePasswordReset}
+          onClose={closePasswordResetModal}
+        />
+      )}
     </div>
   )
 }
@@ -440,6 +485,7 @@ interface UserRowProps {
   onRoleConfirm: () => void
   onRoleCancel: () => void
   onEditClick: () => void
+  onPasswordResetClick: () => void
   resetMenuOpen: boolean
   onResetMenuToggle: () => void
   resetConfirm: DeviceResetConfirm | null
@@ -447,13 +493,16 @@ interface UserRowProps {
   onResetConfirm: () => void
   onResetCancel: () => void
   isResetting: boolean
+  isResettingPassword: boolean
 }
 
 function UserRow({
   user, isTogglingRole, isConfirmingRole,
   onRoleClick, onRoleConfirm, onRoleCancel,
   onEditClick,
+  onPasswordResetClick,
   resetMenuOpen, onResetMenuToggle, resetConfirm, onResetRequest, onResetConfirm, onResetCancel, isResetting,
+  isResettingPassword,
 }: UserRowProps) {
   const resetActionRef = useRef<HTMLDivElement | null>(null)
   const resetMenuRef = useRef<HTMLDivElement | null>(null)
@@ -565,6 +614,16 @@ function UserRow({
 
         {/* Row actions */}
         <div ref={resetActionRef} className="relative flex items-center justify-end gap-1">
+          <Tip label="Reset password">
+            <button
+              type="button"
+              onClick={onPasswordResetClick}
+              disabled={isResettingPassword}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <KeyRound className="size-3.5" />
+            </button>
+          </Tip>
           <Tip label="Edit user">
             <button
               type="button"
@@ -825,6 +884,145 @@ function UserFormModal({
           >
             <Save className="mr-2 size-4" />
             {saving ? 'Saving...' : isCreate ? 'Create user' : 'Save changes'}
+          </Button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+function PasswordResetModal({
+  user,
+  saving,
+  onSubmit,
+  onClose,
+}: {
+  user: AdminUser
+  saving: boolean
+  onSubmit: (password: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const passwordValid =
+    password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)
+  const passwordsMatch = password === confirmPassword
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitted(true)
+
+    if (!passwordValid || !confirmPassword || !passwordsMatch || saving) return
+    await onSubmit(password)
+  }
+
+  function closeOnEscape(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') onClose()
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={saving ? undefined : onClose} />
+
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="password-reset-modal-title"
+        onSubmit={handleSubmit}
+        onKeyDown={closeOnEscape}
+        className="relative flex w-full max-w-md flex-col rounded-xl border bg-background shadow-xl"
+      >
+        <div className="flex items-center justify-between gap-4 border-b px-6 py-4">
+          <div>
+            <h2 id="password-reset-modal-title" className="text-lg font-semibold">
+              Reset password
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Change the password for {user.name}{user.email ? ` (${user.email})` : ''}.
+            </p>
+          </div>
+          <Button type="button" variant="ghost" size="icon" className="size-8" onClick={onClose} disabled={saving}>
+            <X className="size-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div className="space-y-1.5">
+            <label htmlFor="admin-reset-password" className="text-sm font-medium">
+              New password
+            </label>
+            <div className="relative">
+              <Input
+                id="admin-reset-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={saving}
+                aria-invalid={(submitted && !passwordValid) || undefined}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                disabled={saving}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              At least 8 characters, one uppercase letter, and one number.
+            </p>
+            {submitted && !passwordValid && (
+              <p className="text-xs text-destructive">Password does not meet the requirements.</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="admin-reset-confirm-password" className="text-sm font-medium">
+              Confirm password
+            </label>
+            <div className="relative">
+              <Input
+                id="admin-reset-confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={saving}
+                aria-invalid={(submitted && (!confirmPassword || !passwordsMatch)) || undefined}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((visible) => !visible)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                disabled={saving}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {submitted && (!confirmPassword || !passwordsMatch) && (
+              <p className="text-xs text-destructive">Passwords do not match.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            <KeyRound className="mr-2 size-4" />
+            {saving ? 'Resetting...' : 'Reset password'}
           </Button>
         </div>
       </form>

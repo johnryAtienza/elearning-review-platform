@@ -12,12 +12,14 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const VALID_ACTIONS = new Set(['create_user'])
+const VALID_ACTIONS = new Set(['create_user', 'reset_user_password'])
 const VALID_ROLES = new Set(['user', 'admin'])
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 interface Body {
   action?: unknown
+  userId?: unknown
   email?: unknown
   password?: unknown
   firstName?: unknown
@@ -65,6 +67,30 @@ Deno.serve(async (req: Request) => {
   const action = typeof body.action === 'string' ? body.action : ''
   if (!VALID_ACTIONS.has(action)) {
     return json({ error: 'Unsupported user action', code: 'INVALID_ACTION' }, 400)
+  }
+
+  if (action === 'reset_user_password') {
+    const userId = typeof body.userId === 'string' ? body.userId.trim() : ''
+    if (!UUID_RE.test(userId)) {
+      return json({ error: 'Valid userId is required', code: 'INVALID_USER_ID' }, 400)
+    }
+
+    const password = normalizeRequiredString(body.password)
+    const passwordError = validateResetPassword(password)
+    if (passwordError) {
+      return json({ error: passwordError, code: 'INVALID_PASSWORD' }, 400)
+    }
+
+    const { error: resetError } = await adminClient.auth.admin.updateUserById(userId, { password })
+    if (resetError) {
+      console.error('[admin-users] Password reset error:', resetError.message)
+      return json({
+        error: resetError.message,
+        code: 'USER_PASSWORD_RESET_FAILED',
+      }, resetError.status ?? 500)
+    }
+
+    return json({ status: 'ok' })
   }
 
   const email = normalizeRequiredString(body.email)
@@ -158,6 +184,13 @@ function normalizeRequiredString(value: unknown): string {
 
 function normalizeOptionalString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function validateResetPassword(password: string): string | null {
+  if (!password || password.length < 8) return 'Password must be at least 8 characters.'
+  if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.'
+  if (!/[0-9]/.test(password)) return 'Password must include at least one number.'
+  return null
 }
 
 function json(data: unknown, status = 200): Response {

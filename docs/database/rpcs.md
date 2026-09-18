@@ -19,7 +19,7 @@ RLS-style protection lives inside the function body.
 
 | RPC | Invoked by | Why server-side only |
 |---|---|---|
-| `extend_subscription(user, months, tier)` | `verify-payment`, `subscribe` | activates/extends a paid subscription — must not be client-callable |
+| `extend_subscription(user, months, tier)` | `verify-payment`, `admin-subscriptions` | activates/extends entitlement server-side — must not be client-callable |
 | `decrement_book_stock(book, qty)` | `create-book-checkout` | atomic, race-safe stock reservation |
 | `restock_book(book, qty)` | book cancel path (admin) | restore stock on cancellation |
 
@@ -40,14 +40,14 @@ flowchart LR
   end
   subgraph edge["Edge Functions"]
     VP[verify-payment]
-    SUB[subscribe]
+    ADM[admin-subscriptions]
     CBC[create-book-checkout]
   end
   SS -->|rpc| GDS[get_dashboard_stats]
   SS -->|rpc| GSP[get_saved_subjects_progress]
   QR -->|rpc| GQH[get_quiz_history]
   VP -->|rpc| ES[extend_subscription]
-  SUB -->|rpc| ES
+  ADM -->|rpc| ES
   CBC -->|rpc| DBS[decrement_book_stock]
 ```
 

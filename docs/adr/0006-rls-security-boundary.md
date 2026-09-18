@@ -34,8 +34,9 @@ Make **Postgres Row-Level Security the authoritative authorization boundary**, w
   service-role-only.
 - ⚠️ **RLS is intricate** and must evolve carefully (e.g. the Day-1 → free-preview
   swap touched multiple policies).
-- ⚠️ **A legacy gap remains:** `subscriptions` still has client `insert/update own`
-  policies — a known high-priority fix ([../security.md](../security.md) #1).
+- ✅ Subscription mutation is hardened through service-role Edge Functions;
+  browser users retain read access to their own entitlement only. The baseline
+  schema is older than the effective hardened policy.
 - ⚠️ Quiz scores are inserted by the client (RLS checks who/where, not the value).
 - ⚠️ Two deliberate advisor exceptions exist (`lesson_previews` invoker;
   `get-signed-urls` `verify_jwt=false`) — documented and bounded.

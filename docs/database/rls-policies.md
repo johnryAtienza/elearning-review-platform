@@ -62,12 +62,11 @@ Legend: 🟢 anyone · 🔵 authenticated user (own rows) · 🟣 subscriber · 
 |---|---|
 | SELECT | read own `auth.uid() = user_id` 🔵 |
 | SELECT | admin reads all `is_admin()` 🟠 |
-| INSERT/UPDATE | own `auth.uid() = user_id` 🔵 ⚠️ |
+| INSERT/UPDATE | service-role Edge Functions only; browser writes are removed by subscription hardening 🔒 |
 
-> ⚠️ The legacy "insert/update own" policies remain from `schema.sql`. Production
-> activation runs via the service-role Edge Functions; these client policies are a
-> **noted risk** (a user could in principle write their own subscription row) —
-> see [../security.md](../security.md).
+> Subscription activation and mutation run through authorized service-role Edge
+> Functions. The baseline schema is older than the effective hardened policy;
+> see the hardening migrations and [effective-schema.md](effective-schema.md).
 
 ## quiz_results
 | Op | Rule |

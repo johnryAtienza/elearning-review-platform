@@ -85,6 +85,7 @@ Belongs to a subject. `order` sequences lessons. `video_url` and
 | `week_number` | int | curriculum week (backfill `ceil(order/6)`) |
 | `day_number` | int | curriculum day; **legacy** free-access trigger |
 | `is_free_preview` | boolean | **authoritative free-access flag** (replaces day_number=1) |
+| `preview_image_url` | text | **pending/unreleased**; proposed Admin-managed hover-preview image |
 | `created_at`, `updated_at` | timestamptz | |
 
 **Used in:** `lesson.service.ts`, `lessonApi.ts`, `get-signed-urls`, `LessonPage`.
@@ -144,8 +145,10 @@ One row per user. `expires_at = NULL` means non-expiring.
 | `expires_at` | timestamptz | **authoritative** for access; null = lifetime |
 | `created_at` | timestamptz | |
 
-**Writes:** only via Edge Functions/`extend_subscription` (service role). RLS lets
-users *read own* and (legacy) insert/update own — see [rls-policies.md](rls-policies.md).
+**Writes:** current subscription mutations go through authorized Edge Functions
+and `extend_subscription` (service role). Users can read their own record; the
+subscription hardening migration removes browser write access. See
+[rls-policies.md](rls-policies.md).
 
 ---
 

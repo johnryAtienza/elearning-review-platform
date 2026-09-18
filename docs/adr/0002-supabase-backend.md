@@ -1,7 +1,7 @@
 # ADR 0002 — Supabase as the backend
 
-**Status:** Accepted · **Evidence:** `supabase/` (schema, 30 migrations, 11 Edge
-Functions, `config.toml`), `@s-class/api/supabaseClient.ts`,
+**Status:** Accepted · **Evidence:** `supabase/` (schema, current migration set,
+Edge Functions, `config.toml`), `@s-class/api/supabaseClient.ts`,
 `@s-class/auth/authStore.ts`.
 
 ## Context

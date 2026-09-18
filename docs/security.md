@@ -87,7 +87,7 @@ asset proxy.
 
 | # | Risk | Severity | Detail / fix |
 |---|---|---|---|
-| 1 | **`subscriptions` insert/update-own RLS** | High | Legacy `schema.sql` policies let a user write their own subscription row in principle → free premium. **Fix:** drop client write policies; rely on service-role `extend_subscription`. |
+| 1 | **Baseline/effective policy drift** | Medium | The baseline schema is older than the hardened subscription policy. Verify the effective migration state and keep browser subscription writes disabled. |
 | 2 | **Quiz scores are client-computed** | Low-Med | `quiz_results.score/total` come from the browser; RLS checks who/where, not the value. Fine for self-study, not for graded use. **Fix:** score server-side if scores ever matter. |
 | 3 | **CORS `Access-Control-Allow-Origin: *` on Edge Functions** | Medium | All functions allow any origin. Mitigated by JWT/ownership checks, but tightening to the three known origins reduces abuse surface. |
 | 4 | **Single shared Supabase project + R2 bucket across envs** | Medium | Branch previews run on production data; a bad migration or test write hits prod. **Fix:** separate staging project. |
@@ -97,7 +97,7 @@ asset proxy.
 | 8 | **Schema drift (`quiz_questions`, `thumbnail_url`)** | Low (security-adjacent) | Out-of-band objects aren't in migrations; RLS for them *is* in migrations, but a rebuilt DB could miss the table or its policies. |
 
 ## Recommended improvements
-1. **Lock down `subscriptions` writes** to service-role-only (highest priority).
+1. **Keep `subscriptions` writes** service-role-only and verify this after schema changes.
 2. **Restrict Edge Function CORS** to the three known production origins (+ preview).
 3. **Stand up a separate staging Supabase project** so previews don't touch prod data.
 4. **Add app-level rate limiting** on auth + checkout (e.g. Cloudflare Turnstile/WAF).

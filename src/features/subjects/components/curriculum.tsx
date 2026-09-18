@@ -1,5 +1,7 @@
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { PlayCircle, FileText, ListChecks, Lock } from 'lucide-react'
+import { ArrowUpRight, Clock3, FileCheck2, FileText, ListChecks, Lock, PlayCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
@@ -178,7 +180,10 @@ export function DayCard({
     })
     : null
 
-  const cardBase = 'group flex flex-col gap-2 rounded-xl border p-4 transition-colors'
+  // The wrapper used by unlocked cards is a grid item. h-full keeps the
+  // visible card aligned with the tallest card in its Week row instead of
+  // allowing the wrapper to stretch while the card itself stays short.
+  const cardBase = 'group flex h-full flex-col gap-2 rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
   const header = (
@@ -262,7 +267,7 @@ export function DayCard({
   // Landing's /preview/lesson/:id; otherwise the same-origin lesson route.
   if (unlocked) {
     const unlockedTo = previewMode ? ROUTES.PREVIEW_LESSON(lesson.id) : ROUTES.LESSON(lesson.id)
-    return (
+    const card = (
       <Link
         to={unlockedTo}
         className={cn(
@@ -274,6 +279,21 @@ export function DayCard({
         {titleBlock}
         {contentTypes}
       </Link>
+    )
+
+    // Exams retain their existing card/navigation behavior. The hover preview
+    // is intentionally limited to regular Curriculum Day lesson cards.
+    if (isExam) return card
+
+    return (
+      <DayCardHoverPreview
+        lesson={lesson}
+        day={day}
+        destination={unlockedTo}
+        statusBadge={statusBadge}
+      >
+        {card}
+      </DayCardHoverPreview>
     )
   }
 
@@ -364,4 +384,272 @@ function getWatchStatusBadge({
       {isExam ? 'Ready' : 'Not Started'}
     </Badge>
   )
+}
+
+// ── Desktop lesson hover preview ────────────────────────────────────────────
+
+const PREVIEW_OPEN_DELAY_MS = 120
+const PREVIEW_CLOSE_DELAY_MS = 220
+const VIEWPORT_MARGIN_PX = 12
+
+interface DayCardHoverPreviewProps {
+  lesson: Lesson
+  day: number
+  destination: string
+  statusBadge: ReactNode
+  children: ReactNode
+}
+
+/**
+ * Keeps the resting Day card untouched and renders the expanded state in a
+ * body portal. This avoids grid reflow and prevents curriculum containers from
+ * clipping the preview when a card is near an edge.
+ */
+function DayCardHoverPreview({
+  lesson,
+  day,
+  destination,
+  statusBadge,
+  children,
+}: DayCardHoverPreviewProps) {
+  const sourceRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const openTimerRef = useRef<number | null>(null)
+  const closeTimerRef = useRef<number | null>(null)
+  const [canHover, setCanHover] = useState(() => (
+    typeof window !== 'undefined'
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  ))
+  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<{
+    left: number
+    top: number
+    originX: number
+    originY: number
+  } | null>(null)
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
+
+  function clearTimers() {
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    openTimerRef.current = null
+    closeTimerRef.current = null
+  }
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)')
+    const update = (event: MediaQueryListEvent) => {
+      setCanHover(event.matches)
+      if (!event.matches) {
+        clearTimers()
+        setOpen(false)
+        setPreviewVisible(false)
+      }
+    }
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    return () => clearTimers()
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) return
+
+    function updatePosition() {
+      const source = sourceRef.current
+      const preview = previewRef.current
+      if (!source || !preview) return
+
+      const sourceRect = source.getBoundingClientRect()
+      const previewRect = preview.getBoundingClientRect()
+      const maxLeft = Math.max(
+        VIEWPORT_MARGIN_PX,
+        window.innerWidth - previewRect.width - VIEWPORT_MARGIN_PX,
+      )
+      const preferredLeft = sourceRect.left + (sourceRect.width - previewRect.width) / 2
+      const left = Math.min(Math.max(preferredLeft, VIEWPORT_MARGIN_PX), maxLeft)
+
+      // Keep the enlarged card centred over the source card. Clamping only
+      // handles viewport edges; this must not become an above/below popover.
+      const preferredTop = sourceRect.top + (sourceRect.height - previewRect.height) / 2
+      const maxTop = Math.max(
+        VIEWPORT_MARGIN_PX,
+        window.innerHeight - previewRect.height - VIEWPORT_MARGIN_PX,
+      )
+      const top = Math.min(Math.max(preferredTop, VIEWPORT_MARGIN_PX), maxTop)
+      const originX = Math.min(
+        Math.max(sourceRect.left + sourceRect.width / 2 - left, 0),
+        previewRect.width,
+      )
+      const originY = Math.min(
+        Math.max(sourceRect.top + sourceRect.height / 2 - top, 0),
+        previewRect.height,
+      )
+
+      setPosition({ left, top, originX, originY })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updatePosition)
+    if (resizeObserver && previewRef.current) resizeObserver.observe(previewRef.current)
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+      resizeObserver?.disconnect()
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const frame = window.requestAnimationFrame(() => setPreviewVisible(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [open])
+
+  function scheduleOpen() {
+    if (!canHover) return
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    if (open || openTimerRef.current !== null) return
+    openTimerRef.current = window.setTimeout(() => {
+      openTimerRef.current = null
+      setImageFailed(false)
+      setOpen(true)
+    }, PREVIEW_OPEN_DELAY_MS)
+  }
+
+  function scheduleClose() {
+    if (!canHover) return
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current)
+    openTimerRef.current = null
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null
+      setPreviewVisible(false)
+      setOpen(false)
+    }, PREVIEW_CLOSE_DELAY_MS)
+  }
+
+  const duration = lesson.durationMinutes !== null && lesson.durationMinutes !== undefined
+    ? formatDuration(lesson.durationMinutes)
+    : lesson.duration.trim() || null
+  const hasImage = Boolean(lesson.previewImageUrl) && !imageFailed
+
+  return (
+    <div
+      ref={sourceRef}
+      className="relative h-full"
+      onPointerEnter={scheduleOpen}
+      onPointerLeave={scheduleClose}
+    >
+      {children}
+
+      {open && canHover && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={previewRef}
+          className={cn(
+            'fixed z-[80] w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)]',
+            'overflow-y-auto rounded-xl border border-primary/35 bg-popover text-popover-foreground',
+            'shadow-2xl transition-[opacity,transform] duration-200 ease-out',
+            previewVisible ? 'scale-100 opacity-100' : 'scale-[.96] opacity-0',
+          )}
+          style={{
+            left: position?.left ?? VIEWPORT_MARGIN_PX,
+            top: position?.top ?? VIEWPORT_MARGIN_PX,
+            transformOrigin: position
+              ? `${position.originX}px ${position.originY}px`
+              : 'center center',
+          }}
+          onPointerEnter={() => {
+            if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+            closeTimerRef.current = null
+          }}
+          onPointerLeave={scheduleClose}
+          aria-label={`Preview for Day ${day}: ${lesson.title}`}
+        >
+          <div className="aspect-video w-full overflow-hidden border-b border-border bg-muted">
+            {hasImage ? (
+              <img
+                src={lesson.previewImageUrl ?? undefined}
+                alt=""
+                className="size-full object-cover"
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center bg-card p-8">
+                <img
+                  src="/elearning-logo.png"
+                  alt="S-Class"
+                  className="size-full object-contain opacity-70"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 p-4">
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+                Day {day}
+              </p>
+              <h4 className="text-base font-semibold leading-snug">{lesson.title}</h4>
+            </div>
+
+            {(duration || lesson.hasVideo || lesson.hasSolutionPdf || statusBadge) && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                {duration && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
+                    <Clock3 className="size-3" />
+                    {duration}
+                  </span>
+                )}
+                {lesson.hasVideo && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
+                    <PlayCircle className="size-3" />
+                    Video
+                  </span>
+                )}
+                {lesson.hasSolutionPdf && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
+                    <FileCheck2 className="size-3" />
+                    Solutions
+                  </span>
+                )}
+                {statusBadge}
+              </div>
+            )}
+
+            {lesson.description.trim() && (
+              <p className="text-sm leading-relaxed text-muted-foreground line-clamp-3">
+                {lesson.description}
+              </p>
+            )}
+
+            <Link
+              to={destination}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+            >
+              View Lesson
+              <ArrowUpRight className="size-4" />
+            </Link>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  )
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes <= 0) return ''
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  if (hours === 0) return `${remainingMinutes}m`
+  if (remainingMinutes === 0) return `${hours}h`
+  return `${hours}h ${remainingMinutes}m`
 }

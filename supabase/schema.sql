@@ -69,6 +69,7 @@ create table public.lessons (
   description       text        not null default '',
   video_url         text,
   reviewer_pdf_url  text,
+  preview_image_url text,
   "order"           int         not null,
   duration          text        not null default '',   -- e.g. "28m"
   created_at        timestamptz not null default now(),
@@ -81,6 +82,8 @@ comment on column public.lessons.video_url is
   'Premium field. Only returned to subscribed users (see RLS policy).';
 comment on column public.lessons.reviewer_pdf_url is
   'Premium field. Only returned to subscribed users (see RLS policy).';
+comment on column public.lessons.preview_image_url is
+  'Optional public lesson image used by the Curriculum Day hover preview.';
 
 
 -- ── quizzes ───────────────────────────────────────────────────

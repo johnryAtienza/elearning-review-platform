@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload } from 'lucide-react'
+import { X, Loader2, FileVideo, FileText, CheckCircle2, Upload, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { uploadToStorage, type ProgressCallback } from '@s-class/api/storageClient'
@@ -30,7 +30,7 @@ interface LessonModalProps {
   onSaved: (lesson: AdminLesson) => void
 }
 
-type UploadStage = 'idle' | 'creating' | 'video' | 'solution' | 'finalising'
+type UploadStage = 'idle' | 'creating' | 'previewImage' | 'video' | 'solution' | 'finalising'
 
 const MAX_LESSON_DAYS_PER_WEEK = 6
 
@@ -113,6 +113,8 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
   const [durationHrs,  setDurationHrs]  = useState<number>(Math.floor((lesson?.durationMinutes ?? 0) / 60))
   const [durationMins, setDurationMins] = useState<number>((lesson?.durationMinutes ?? 0) % 60)
   const [videoFile,    setVideoFile]    = useState<File | null>(null)
+  const [previewImageFile, setPreviewImageFile] = useState<File | null>(null)
+  const [previewImagePreview, setPreviewImagePreview] = useState<string | null>(lesson?.previewImageUrl ?? null)
   const [solutionBookId, setSolutionBookId] = useState(lesson?.solutionBookId ?? '')
   const [solutionPdfFile, setSolutionPdfFile] = useState<File | null>(null)
 
@@ -124,6 +126,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
   const [saving,       setSaving]       = useState(false)
   const [stage,        setStage]        = useState<UploadStage>('idle')
   const [videoProgress, setVideoProgress] = useState(0)
+  const [previewImageProgress, setPreviewImageProgress] = useState(0)
   const [solutionProgress, setSolutionProgress] = useState(0)
   const [error,        setError]        = useState<string | null>(null)
 
@@ -137,6 +140,12 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
   }), [courseId, dayNumber, existingLessons, lesson?.id, weekNumber])
   const saveDisabled = saving || coursesLoading || Boolean(slotValidationError)
   const submitError = error === slotValidationError ? null : error
+
+  useEffect(() => {
+    return () => {
+      if (previewImagePreview?.startsWith('blob:')) URL.revokeObjectURL(previewImagePreview)
+    }
+  }, [previewImagePreview])
 
   // ── Load courses for dropdown (runs once on mount) ───────────────────────────
   useEffect(() => {
@@ -230,6 +239,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
 
       // 2. Upload video (if a file was picked)
       let videoUrl = lesson?.videoUrl ?? null
+      let previewImageUrl = lesson?.previewImageUrl ?? null
       if (videoFile && lessonId) {
         setStage('video')
         setVideoProgress(0)
@@ -241,7 +251,21 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
         await updateAdminLesson(lessonId, { videoUrl })
       }
 
-      // 3. Upload the optional solution PDF before persisting any new solution
+      // 3. Upload the optional preview image before persisting its metadata.
+      // A failed replacement leaves the existing image reference untouched.
+      if (previewImageFile && lessonId) {
+        setStage('previewImage')
+        setPreviewImageProgress(0)
+        const ext = previewImageFile.name.split('.').pop() ?? 'webp'
+        const path = storagePaths.lessonPreviewImage(lessonId, ext)
+        const result = await uploadToStorage(previewImageFile, path, ({ percent }) => {
+          setPreviewImageProgress(percent)
+        })
+        previewImageUrl = `/${result.path.replace(/^\/+/, '')}`
+        await updateAdminLesson(lessonId, { previewImageUrl: result.path })
+      }
+
+      // 4. Upload the optional solution PDF before persisting any new solution
       // entitlement. A failed upload leaves the previous Book/PDF untouched.
       let solutionBookId = clearSolutionPdf ? null : existingSolutionBookId
       let solutionPdfUrl = clearSolutionPdf ? null : existingSolutionPdfUrl
@@ -272,6 +296,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
         dayNumber,
         isFreePreview,
         durationMinutes: durationMinutes,
+        previewImageUrl,
         videoUrl,
         reviewerPdfUrl: lesson?.reviewerPdfUrl ?? null,
         solutionBookId,
@@ -299,6 +324,7 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
   function stageLabel(): string {
     switch (stage) {
       case 'creating':   return 'Saving lesson…'
+      case 'previewImage': return `Uploading preview image… ${previewImageProgress}%`
       case 'video':      return `Uploading video… ${videoProgress}%`
       case 'solution':   return `Uploading solution PDF… ${solutionProgress}%`
       case 'finalising': return 'Finalising…'
@@ -512,6 +538,20 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
                   done={saving && stage === 'finalising' && videoFile !== null}
                   disabled={saving}
                 />
+                <ImagePicker
+                  existingUrl={lesson?.previewImageUrl}
+                  preview={previewImagePreview}
+                  file={previewImageFile}
+                  onFile={(file) => {
+                    setPreviewImageFile(file)
+                    if (file) setPreviewImagePreview(URL.createObjectURL(file))
+                    else setPreviewImagePreview(lesson?.previewImageUrl ?? null)
+                  }}
+                  uploading={saving && stage === 'previewImage'}
+                  progress={previewImageProgress}
+                  done={saving && stage === 'finalising' && previewImageFile !== null}
+                  disabled={saving}
+                />
                 <FilePicker
                   label="Day Solution PDF"
                   icon={FileText}
@@ -546,6 +586,123 @@ export function LessonModal({ lesson, existingLessons, defaultCourseId, onClose,
           </div>
         </form>
       </div>
+    </div>
+  )
+}
+
+// ── ImagePicker ──────────────────────────────────────────────────────────────
+
+interface ImagePickerProps {
+  existingUrl: string | null | undefined
+  preview: string | null
+  file: File | null
+  onFile: (file: File | null) => void
+  uploading: boolean
+  progress: number
+  done: boolean
+  disabled: boolean
+}
+
+function ImagePicker({
+  existingUrl, preview, file, onFile, uploading, progress, done, disabled,
+}: ImagePickerProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [sizeError, setSizeError] = useState<string | null>(null)
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0]
+    e.target.value = ''
+    if (!picked) return
+    if (!picked.type.startsWith('image/')) {
+      setSizeError('Please choose an image file.')
+      return
+    }
+    if (picked.size > UPLOAD_LIMITS.IMAGE) {
+      setSizeError(`File too large. Max ${formatBytes(UPLOAD_LIMITS.IMAGE)}.`)
+      return
+    }
+    setSizeError(null)
+    onFile(picked)
+  }
+
+  const imageSrc = preview ?? existingUrl ?? null
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">Preview Image</p>
+      <p className="text-xs text-muted-foreground">
+        Optional image shown at the top of the Curriculum Day hover preview.
+      </p>
+
+      {uploading ? (
+        <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+            <p className="flex-1 truncate text-sm">{file?.name}</p>
+            <span className="text-xs tabular-nums text-muted-foreground">{progress}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-primary transition-all duration-150" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      ) : done ? (
+        <div className="flex items-center gap-2.5 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+          <CheckCircle2 className="size-4 shrink-0 text-success" />
+          <p className="truncate text-sm">{file?.name}</p>
+          <span className="ml-auto text-xs text-success">Uploaded</span>
+        </div>
+      ) : imageSrc ? (
+        <div className="relative overflow-hidden rounded-lg border bg-muted">
+          <img src={imageSrc} alt="Lesson preview" className="aspect-video w-full object-cover" />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/50 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100 disabled:cursor-not-allowed"
+          >
+            <Upload className="size-5" />
+            Change image
+          </button>
+          {file && (
+            <button
+              type="button"
+              onClick={() => onFile(null)}
+              disabled={disabled}
+              className="absolute right-2 top-2 rounded bg-black/60 p-1.5 text-white hover:bg-black/80 disabled:cursor-not-allowed"
+              aria-label="Remove selected replacement image"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled}
+          className={cn(
+            'w-full rounded-lg border-2 border-dashed py-6 flex flex-col items-center gap-2 transition-colors',
+            'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <ImageIcon className="size-7 text-muted-foreground" />
+          <div className="text-center">
+            <p className="text-sm font-medium">Click to select Preview Image</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">JPG, PNG, WebP · max 5 MB</p>
+          </div>
+        </button>
+      )}
+
+      {sizeError && <p className="text-xs text-destructive">{sizeError}</p>}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleChange}
+        disabled={disabled}
+      />
     </div>
   )
 }

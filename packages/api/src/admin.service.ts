@@ -128,6 +128,8 @@ export interface AdminLesson {
    *  can watch it without a subscription. Authoritative on `lessons.is_free_preview`. */
   isFreePreview: boolean
   durationMinutes: number | null
+  /** Public display path for the optional Curriculum Day preview image. */
+  previewImageUrl: string | null
   videoUrl: string | null
   reviewerPdfUrl: string | null
   solutionBookId: string | null
@@ -230,6 +232,7 @@ export interface LessonFormData {
   dayNumber?: number | null
   isFreePreview?: boolean
   durationMinutes?: number | null
+  previewImageUrl?: string | null
   solutionBookId?: string | null
 }
 
@@ -440,6 +443,7 @@ interface LessonRow {
   day_number: number | null
   is_free_preview: boolean | null
   duration_minutes: number | null
+  preview_image_url: string | null
   video_url: string | null
   reviewer_pdf_url: string | null
   solution_book_id: string | null
@@ -616,7 +620,7 @@ export async function deleteSubject(subjectId: string): Promise<void> {
 export async function getAdminLessons(): Promise<AdminLesson[]> {
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, video_url, reviewer_pdf_url, solution_book_id, solution_pdf_url, created_at, subjects(title)')
+    .select('id, subject_id, title, order, week_number, day_number, is_free_preview, duration_minutes, preview_image_url, video_url, reviewer_pdf_url, solution_book_id, solution_pdf_url, created_at, subjects(title)')
     .order('subject_id')
     .order('order', { ascending: true })
 
@@ -634,6 +638,7 @@ export async function getAdminLessons(): Promise<AdminLesson[]> {
     dayNumber:       row.day_number  ?? null,
     isFreePreview:   row.is_free_preview === true,
     durationMinutes: row.duration_minutes ?? null,
+    previewImageUrl: normalizePublicAssetDisplayUrl(row.preview_image_url) ?? row.preview_image_url,
     videoUrl:        row.video_url,
     reviewerPdfUrl:  row.reviewer_pdf_url,
     solutionBookId:  row.solution_book_id,
@@ -706,6 +711,7 @@ export async function updateAdminLesson(
   if (data.dayNumber       !== undefined) update.day_number        = data.dayNumber
   if (data.isFreePreview   !== undefined) update.is_free_preview   = data.isFreePreview
   if (data.durationMinutes !== undefined) update.duration_minutes  = data.durationMinutes
+  if (data.previewImageUrl !== undefined) update.preview_image_url = data.previewImageUrl
   if (data.videoUrl        !== undefined) update.video_url         = data.videoUrl
   if (data.reviewerPdfUrl  !== undefined) update.reviewer_pdf_url  = data.reviewerPdfUrl
   if (data.solutionBookId  !== undefined) update.solution_book_id  = data.solutionBookId

@@ -14,6 +14,10 @@ export const storagePaths = {
   lessonVideo: (lessonId: string, ext = 'mp4') =>
     `videos/lessons/lesson-${lessonId}.${ext}`,
 
+  /** e.g. thumbnails/lesson-abc123.webp */
+  lessonPreviewImage: (lessonId: string, ext = 'webp') =>
+    `thumbnails/lesson-${lessonId}.${ext}`,
+
   /** e.g. reviewers/lesson-abc123.pdf */
   reviewerPdf: (lessonId: string) =>
     `reviewers/lesson-${lessonId}.pdf`,

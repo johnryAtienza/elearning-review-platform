@@ -17,6 +17,7 @@
 
 import { supabase } from './supabaseClient'
 import { ApiError } from './ApiError'
+import { normalizePublicAssetDisplayUrl } from './publicAssetUrl'
 import type { Lesson, ReviewerContent } from '@s-class/types/lessons'
 
 // ── Raw DB row shapes ─────────────────────────────────────────────────────────
@@ -36,10 +37,11 @@ interface LessonPreviewRow {
   solution_book_title: string | null
   duration: string
   duration_minutes: number | null
+  preview_image_url: string | null
 }
 
 const LESSON_PREVIEW_COLUMNS =
-  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, has_video, has_solution_pdf, solution_book_id, solution_book_title, duration, duration_minutes'
+  'id, subject_id, title, description, order, week_number, day_number, is_free_preview, has_video, has_solution_pdf, solution_book_id, solution_book_title, duration, duration_minutes, preview_image_url'
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,7 @@ function toAppLesson(row: LessonPreviewRow): Lesson {
     description:     row.description,
     duration:        row.duration,
     durationMinutes: row.duration_minutes ?? null,
+    previewImageUrl: normalizePublicAssetDisplayUrl(row.preview_image_url) ?? row.preview_image_url,
     weekNumber:      row.week_number ?? null,
     dayNumber:       row.day_number  ?? null,
     isFreePreview:   row.is_free_preview === true,

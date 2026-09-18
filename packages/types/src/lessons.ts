@@ -6,6 +6,8 @@ export interface Lesson {
   description: string
   duration: string
   durationMinutes: number | null
+  /** Optional Admin-managed image shown in the Curriculum Day hover preview. */
+  previewImageUrl?: string | null
   /**
    * Curriculum week (1-based). Populated after the add_lesson_week_day
    * migration runs. Optional so existing data without the column doesn't

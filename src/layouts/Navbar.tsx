@@ -194,7 +194,7 @@ function useSmartNavigate(): (to: string) => void {
 
 // ── Tab styles ───────────────────────────────────────────────────────────────
 // Two visual treatments are used:
-//   tabClass — header tab row (Home / About / course tabs)
+//   tabClass — inline header tabs (Home / About / course tabs)
 //   utilityLinkClass — top-row utility links (Dashboard, Admin)
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -716,8 +716,8 @@ export function Navbar() {
 
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
 
-        {/* ── Top row: brand + tagline + utility/auth ── */}
-        <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+        {/* ── Desktop row: brand + navigation + utility/auth ── */}
+        <div className="container mx-auto flex h-16 items-center gap-4 px-4">
 
           {/* Brand */}
           <SmartLink
@@ -732,8 +732,20 @@ export function Navbar() {
             </span>
           </SmartLink>
 
+          {/* Desktop navigation — collapsed into the mobile menu below lg. */}
+          {!onAdminRoute && (
+            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1.5 lg:flex">
+              <PublicNavTabs
+                courses={courses}
+                subjects={subjects}
+                loading={loading}
+                isAuthenticated={isAuthenticated}
+              />
+            </nav>
+          )}
+
           {/* Desktop utility / auth */}
-          <div className="hidden md:flex min-w-[16rem] lg:min-w-[20rem] items-center justify-end gap-3">
+          <div className="hidden shrink-0 items-center justify-end gap-3 lg:flex">
             {isInitializing ? (
               <DesktopAuthActionsLoading />
             ) : isAuthenticated ? (
@@ -781,9 +793,9 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile hamburger */}
+          {/* Mobile/tablet hamburger */}
           <button
-            className="md:hidden rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="ml-auto rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors lg:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
           >
@@ -791,22 +803,9 @@ export function Navbar() {
           </button>
         </div>
 
-        {/* ── Bottom row: tab nav (Home / About / course tabs) — desktop only ── */}
-        {/* Hidden on admin routes so the admin panel isn't cluttered with public-site nav. */}
-        <nav className={cn('hidden border-t bg-background/60', !onAdminRoute && 'md:block')}>
-          <div className="container mx-auto flex items-end justify-center gap-1.5 px-4">
-            <PublicNavTabs
-              courses={courses}
-              subjects={subjects}
-              loading={loading}
-              isAuthenticated={isAuthenticated}
-            />
-          </div>
-        </nav>
-
         {/* ── Mobile menu ── */}
         {mobileOpen && (
-          <div className="md:hidden max-h-[calc(100vh-var(--site-navbar-height))] overflow-y-auto overscroll-contain border-t bg-background px-4 py-4 space-y-1">
+          <div className="lg:hidden max-h-[calc(100vh-var(--site-navbar-height))] overflow-y-auto overscroll-contain border-t bg-background px-4 py-4 space-y-1">
             <MobileNavLink to={ROUTES.HOME} end onClick={() => setMobileOpen(false)}>Home</MobileNavLink>
             <MobileNavLink to={ROUTES.ABOUT} onClick={() => setMobileOpen(false)}>Who we are</MobileNavLink>
             <MobileNavLink to={ROUTES.BOOKS} onClick={() => setMobileOpen(false)}>Books</MobileNavLink>

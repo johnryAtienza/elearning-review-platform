@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Clock3, FileCheck2, FileText, ListChecks, Lock, PlayCircle } from 'lucide-react'
+import { ArrowUpRight, FileText, ListChecks, Lock, PlayCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/constants/routes'
 import { getAbsoluteUrl } from '@s-class/constants/urls'
@@ -160,6 +160,7 @@ export function DayCard({
   const day          = effectiveDay(lesson)
   const isPreview    = lesson.isFreePreview === true
   const isWatched    = watchedLessonIds.has(lesson.id)
+  const [cardImageFailed, setCardImageFailed] = useState(false)
   // Free-preview lessons unlock for everyone — guests, free-tier auth, and
   // subscribers alike. Premium lessons require a subscription. In Landing's
   // public preview funnel only preview-flagged lessons are actually unlocked.
@@ -183,8 +184,25 @@ export function DayCard({
   // The wrapper used by unlocked cards is a grid item. h-full keeps the
   // visible card aligned with the tallest card in its Week row instead of
   // allowing the wrapper to stretch while the card itself stays short.
-  const cardBase = 'group flex h-full flex-col gap-2 rounded-xl border p-4 transition-colors'
+  const cardBase = 'group relative isolate flex h-full flex-col gap-2 overflow-hidden rounded-xl border p-4 transition-colors'
   const sharedFocus = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+  const hasCardImage = Boolean(lesson.previewImageUrl) && !cardImageFailed
+
+  const cardMedia = hasCardImage ? (
+    <>
+      <img
+        src={lesson.previewImageUrl ?? undefined}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 z-0 size-full object-cover"
+        onError={() => setCardImageFailed(true)}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 z-[1] bg-gradient-to-br from-background/90 via-background/75 to-background/85"
+      />
+    </>
+  ) : null
 
   const header = (
     <div className="flex items-center justify-between">
@@ -262,6 +280,13 @@ export function DayCard({
   )
 
   const contentTypes = isWeeklyExam ? examCovers : regularContentTypes
+  const cardContent = (
+    <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-2">
+      {header}
+      {titleBlock}
+      {contentTypes}
+    </div>
+  )
 
   // Unlocked → real link to the lesson. In preview mode the link points to
   // Landing's /preview/lesson/:id; otherwise the same-origin lesson route.
@@ -275,9 +300,8 @@ export function DayCard({
           'bg-card hover:border-primary/40 hover:bg-card/80',
         )}
       >
-        {header}
-        {titleBlock}
-        {contentTypes}
+        {cardMedia}
+        {cardContent}
       </Link>
     )
 
@@ -290,7 +314,6 @@ export function DayCard({
         lesson={lesson}
         day={day}
         destination={unlockedTo}
-        statusBadge={statusBadge}
       >
         {card}
       </DayCardHoverPreview>
@@ -308,10 +331,9 @@ export function DayCard({
         )}
         aria-disabled="true"
       >
-        {header}
-        {titleBlock}
-        {contentTypes}
-        <p className="text-[11px] font-semibold text-muted-foreground mt-1">
+        {cardMedia}
+        {cardContent}
+        <p className="relative z-10 mt-1 text-[11px] font-semibold text-muted-foreground">
           Complete previous lesson to unlock
         </p>
       </div>
@@ -332,10 +354,9 @@ export function DayCard({
         )}
         aria-label={`${lesson.title} — Enroll to unlock`}
       >
-        {header}
-        {titleBlock}
-        {contentTypes}
-        <p className="text-[11px] font-semibold text-primary mt-1">
+        {cardMedia}
+        {cardContent}
+        <p className="relative z-10 mt-1 text-[11px] font-semibold text-primary">
           Enroll Now to unlock →
         </p>
       </a>
@@ -354,10 +375,9 @@ export function DayCard({
       )}
       aria-label={`${lesson.title} — Enroll to unlock`}
     >
-      {header}
-      {titleBlock}
-      {contentTypes}
-      <p className="text-[11px] font-semibold text-primary mt-1">
+      {cardMedia}
+      {cardContent}
+      <p className="relative z-10 mt-1 text-[11px] font-semibold text-primary">
         Enroll Now to unlock →
       </p>
     </Link>
@@ -396,7 +416,6 @@ interface DayCardHoverPreviewProps {
   lesson: Lesson
   day: number
   destination: string
-  statusBadge: ReactNode
   children: ReactNode
 }
 
@@ -409,7 +428,6 @@ function DayCardHoverPreview({
   lesson,
   day,
   destination,
-  statusBadge,
   children,
 }: DayCardHoverPreviewProps) {
   const sourceRef = useRef<HTMLDivElement>(null)
@@ -536,9 +554,6 @@ function DayCardHoverPreview({
     }, PREVIEW_CLOSE_DELAY_MS)
   }
 
-  const duration = lesson.durationMinutes !== null && lesson.durationMinutes !== undefined
-    ? formatDuration(lesson.durationMinutes)
-    : lesson.duration.trim() || null
   const hasImage = Boolean(lesson.previewImageUrl) && !imageFailed
 
   return (
@@ -554,7 +569,7 @@ function DayCardHoverPreview({
         <div
           ref={previewRef}
           className={cn(
-            'fixed z-[80] w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)]',
+            'fixed z-[80] w-[min(12.5rem,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)]',
             'overflow-y-auto rounded-xl border border-primary/35 bg-popover text-popover-foreground',
             'shadow-2xl transition-[opacity,transform] duration-200 ease-out',
             previewVisible ? 'scale-100 opacity-100' : 'scale-[.96] opacity-0',
@@ -573,16 +588,16 @@ function DayCardHoverPreview({
           onPointerLeave={scheduleClose}
           aria-label={`Preview for Day ${day}: ${lesson.title}`}
         >
-          <div className="aspect-video w-full overflow-hidden border-b border-border bg-muted">
+          <div className="w-full overflow-hidden border-b border-border bg-muted">
             {hasImage ? (
               <img
                 src={lesson.previewImageUrl ?? undefined}
                 alt=""
-                className="size-full object-cover"
+                className="block h-auto w-full object-contain"
                 onError={() => setImageFailed(true)}
               />
             ) : (
-              <div className="flex size-full items-center justify-center bg-card p-8">
+              <div className="flex aspect-[2/3] w-full items-center justify-center bg-card p-6">
                 <img
                   src="/elearning-logo.png"
                   alt="S-Class"
@@ -592,50 +607,20 @@ function DayCardHoverPreview({
             )}
           </div>
 
-          <div className="flex flex-col gap-3 p-4">
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+          <div className="flex flex-col gap-1.5 p-3">
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
                 Day {day}
               </p>
-              <h4 className="text-base font-semibold leading-snug">{lesson.title}</h4>
+              <h4 className="text-sm font-semibold leading-snug">{lesson.title}</h4>
             </div>
-
-            {(duration || lesson.hasVideo || lesson.hasSolutionPdf || statusBadge) && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                {duration && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
-                    <Clock3 className="size-3" />
-                    {duration}
-                  </span>
-                )}
-                {lesson.hasVideo && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
-                    <PlayCircle className="size-3" />
-                    Video
-                  </span>
-                )}
-                {lesson.hasSolutionPdf && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1">
-                    <FileCheck2 className="size-3" />
-                    Solutions
-                  </span>
-                )}
-                {statusBadge}
-              </div>
-            )}
-
-            {lesson.description.trim() && (
-              <p className="text-sm leading-relaxed text-muted-foreground line-clamp-3">
-                {lesson.description}
-              </p>
-            )}
 
             <Link
               to={destination}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
             >
               View Lesson
-              <ArrowUpRight className="size-4" />
+              <ArrowUpRight className="size-3.5" />
             </Link>
           </div>
         </div>,
@@ -643,13 +628,4 @@ function DayCardHoverPreview({
       )}
     </div>
   )
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes <= 0) return ''
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  if (hours === 0) return `${remainingMinutes}m`
-  if (remainingMinutes === 0) return `${hours}h`
-  return `${hours}h ${remainingMinutes}m`
 }
